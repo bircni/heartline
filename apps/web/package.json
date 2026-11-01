@@ -2,6 +2,7 @@
   "name": "@heartline/web",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,6 +40,5 @@
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
-  },
-  "license": "MIT"
+  }
 }
