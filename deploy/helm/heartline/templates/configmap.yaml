@@ -1,0 +1,25 @@
+{{- if not .Values.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "heartline.fullname" . }}
+  labels:
+    {{- include "heartline.labels" . | nindent 4 }}
+data:
+  status.yaml: |
+    {{- .Values.config | nindent 4 }}
+{{- end }}
+{{- if .Values.plugins.files }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "heartline.fullname" . }}-plugins
+  labels:
+    {{- include "heartline.labels" . | nindent 4 }}
+data:
+  {{- range $path, $content := .Values.plugins.files }}
+  {{ $path | replace "/" "__" }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,9 @@
+name: echo-json
+command:
+  [
+    'node',
+    '-e',
+    "console.log('some log line'); console.log(JSON.stringify({status: process.env.STATUS_ARG_STATUS, latency_ms: 42, message: 'from json'}))",
+  ]
+args:
+  status: { type: string, required: true }

@@ -1,0 +1,149 @@
+@import 'tailwindcss';
+
+/* Design tokens from the chosen mockup (split view). Dark is the default, `html:not(.dark)` is light. */
+:root {
+  --bg: #f5f5f7;
+  --side: #ececef;
+  --surface: #ffffff;
+  --fill: #e8e8ed;
+  --fill-2: #d2d2d7;
+  --seg: #ffffff;
+  --sel: #dcdce1;
+  --hover: #e3e3e8;
+  --text: #1d1d1f;
+  --sec: #6e6e73;
+  --hair: rgb(0 0 0 / 0.08);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+  --seg-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.04);
+  --ok: #34c759;
+  --warn: #ff9f0a;
+  --bad: #ff3b30;
+  --maint: #0a84ff;
+  --ok-text: #1f7a35;
+  --warn-text: #b25000;
+  --bad-text: #d70015;
+  --ring-warn: rgb(255 159 10 / 0.18);
+  --ring-bad: rgb(255 59 48 / 0.18);
+  --ring-ok: rgb(52 199 89 / 0.18);
+  --chart: #1d1d1f;
+  --chart-2: #8e8e93;
+  --area: rgb(29 29 31 / 0.05);
+  --knob: #ffffff;
+  --focus: #0a84ff;
+}
+
+.dark {
+  --bg: #0b0b0c;
+  --side: #111113;
+  --surface: #161618;
+  --fill: #232326;
+  --fill-2: #3a3a3f;
+  --seg: #3a3a3f;
+  --sel: #26262a;
+  --hover: #1c1c1f;
+  --text: #f5f5f7;
+  --sec: #98989d;
+  --hair: rgb(255 255 255 / 0.07);
+  --shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --ok: #30d158;
+  --warn: #ff9f0a;
+  --bad: #ff453a;
+  --maint: #0a84ff;
+  --ok-text: #30d158;
+  --warn-text: #ffb340;
+  --bad-text: #ff6961;
+  --ring-warn: rgb(255 159 10 / 0.22);
+  --ring-bad: rgb(255 69 58 / 0.22);
+  --ring-ok: rgb(48 209 88 / 0.2);
+  --chart: #f5f5f7;
+  --chart-2: #636366;
+  --area: rgb(245 245 247 / 0.06);
+  --knob: #f5f5f7;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-side: var(--side);
+  --color-surface: var(--surface);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+  --color-seg: var(--seg);
+  --color-sel: var(--sel);
+  --color-hover: var(--hover);
+  --color-text: var(--text);
+  --color-sec: var(--sec);
+  --color-hair: var(--hair);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-maint: var(--maint);
+  --color-ok-text: var(--ok-text);
+  --color-warn-text: var(--warn-text);
+  --color-bad-text: var(--bad-text);
+  --color-chart: var(--chart);
+  --color-chart-2: var(--chart-2);
+  --color-knob: var(--knob);
+  --shadow-card: var(--shadow);
+  --shadow-seg: var(--seg-shadow);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, 'Cascadia Mono', monospace;
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--sec);
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+}
+
+@utility card {
+  @apply rounded-[14px] bg-surface shadow-card;
+}
+
+@utility field {
+  @apply block h-9 w-full rounded-[9px] border-0 bg-fill px-3 text-[14px] text-text outline-none disabled:text-sec;
+}
+
+@utility label {
+  @apply mb-1.5 block text-[12px] font-medium text-sec;
+}
+
+@utility btn {
+  @apply inline-flex h-8 items-center justify-center gap-1.5 rounded-[9px] px-3.5 text-[13px] font-medium transition-colors disabled:opacity-40;
+}
+
+@utility btn-primary {
+  @apply btn bg-text text-bg;
+}
+
+@utility btn-secondary {
+  @apply btn bg-fill text-text hover:bg-fill-2;
+}
+
+@utility btn-danger {
+  @apply btn text-bad-text hover:bg-fill;
+}
+
+@utility row-btn {
+  @apply flex w-full items-center gap-3.5 border-t border-hair px-4 py-2.5 text-left hover:bg-hover;
+}

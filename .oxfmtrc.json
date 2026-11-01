@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 110,
+  "singleQuote": true,
+  "semi": true,
+  "trailingComma": "all",
+  "ignorePatterns": ["pnpm-lock.yaml", "**/routeTree.gen.ts", "deploy/helm/**/templates/**"]
+}

@@ -1,0 +1,306 @@
+import type { Impact, Incident, IncidentStatus } from '@heartline/shared';
+import { IMPACTS, INCIDENT_STATUSES } from '@heartline/shared';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Icon } from '../../components/Icon.tsx';
+import { Segmented } from '../../components/Segmented.tsx';
+import { Switch } from '../../components/Switch.tsx';
+import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { api, useAdminMonitors, useIncidents, useMe } from '../../lib/api.ts';
+import { dateTime, duration } from '../../lib/format.ts';
+import { can } from './AdminLayout.tsx';
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const IMPACT_LABEL: Record<Impact, string> = {
+  degraded: 'Degraded',
+  partial: 'Partial outage',
+  major: 'Major outage',
+};
+
+function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const monitors = useAdminMonitors();
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {monitors.data?.map((m) => {
+        const on = value.includes(m.id);
+        return (
+          <button
+            key={m.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(on ? value.filter((v) => v !== m.id) : [...value, m.id])}
+            className={`h-7 rounded-lg px-2.5 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+          >
+            {m.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Declare({ onDone }: { onDone: (i: Incident) => void }) {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [impact, setImpact] = useState<Impact>('degraded');
+  const [services, setServices] = useState<string[]>([]);
+  const [notify, setNotify] = useState(true);
+  const create = useMutation({
+    mutationFn: () =>
+      api<Incident>('/api/v1/admin/incidents', {
+        method: 'POST',
+        json: { title, message, impact, services, notify },
+      }),
+    onSuccess: async (i) => {
+      await qc.invalidateQueries({ queryKey: ['incidents'] });
+      await qc.invalidateQueries({ queryKey: ['overview'] });
+      onDone(i);
+    },
+  });
+  return (
+    <form
+      className="p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        create.mutate();
+      }}
+    >
+      <h2 className="m-0 text-[17px] font-semibold">Declare incident</h2>
+      <Field label="Title" htmlFor="i-title">
+        <input
+          id="i-title"
+          className="field"
+          required
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Slow file sync"
+        />
+      </Field>
+      <div className="mt-3">
+        <div className="label">Impact</div>
+        <Segmented
+          size="sm"
+          label="Impact"
+          value={impact}
+          onChange={setImpact}
+          options={IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] }))}
+        />
+      </div>
+      <div className="mt-3">
+        <div className="label">Affected services</div>
+        <ServicePicker value={services} onChange={setServices} />
+      </div>
+      <Field label="First update (public)" htmlFor="i-msg">
+        <textarea
+          id="i-msg"
+          rows={3}
+          required
+          className="field h-auto resize-y py-2.5"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="We are investigating reports of…"
+        />
+      </Field>
+      {create.error && (
+        <div className="mt-3">
+          <Notice tone="bad">{create.error.message}</Notice>
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5">
+        <span className="flex items-center gap-2 text-[13px] text-sec">
+          <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify Teams and e-mail
+        </span>
+        <button type="submit" className="btn-primary" disabled={create.isPending}>
+          Declare
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Detail({
+  incident,
+  canWrite,
+  canDelete,
+}: {
+  incident: Incident;
+  canWrite: boolean;
+  canDelete: boolean;
+}) {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<IncidentStatus>(incident.status);
+  const [message, setMessage] = useState('');
+  const [notify, setNotify] = useState(true);
+  const refresh = async () => {
+    await qc.invalidateQueries({ queryKey: ['incidents'] });
+    await qc.invalidateQueries({ queryKey: ['overview'] });
+  };
+  const post = useMutation({
+    mutationFn: () =>
+      api<Incident>(`/api/v1/admin/incidents/${incident.id}/updates`, {
+        method: 'POST',
+        json: { status, message, notify },
+      }),
+    onSuccess: async () => {
+      setMessage('');
+      await refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => api(`/api/v1/admin/incidents/${incident.id}`, { method: 'DELETE' }),
+    onSuccess: refresh,
+  });
+  const open = incident.resolvedAt === null;
+  return (
+    <div className="p-4">
+      <div className="text-[12px] font-semibold" style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}>
+        {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
+        {incident.services.map((s) => s.name).join(', ') || 'no services'}
+      </div>
+      <h2 className="m-0 mt-0.5 text-[20px] font-semibold tracking-[-0.015em]">{incident.title}</h2>
+      <div className="text-[12px] text-sec">
+        {dateTime(incident.createdAt)} · {duration(incident.createdAt, incident.resolvedAt)}
+        {incident.automatic && ' · automatic'}
+      </div>
+      {canWrite && (
+        <form
+          className="mt-4 rounded-xl bg-fill p-3.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            post.mutate();
+          }}
+        >
+          <div className="rounded-[9px] bg-bg p-0.5">
+            <Segmented
+              size="sm"
+              label="New status"
+              value={status}
+              onChange={setStatus}
+              options={INCIDENT_STATUSES.map((s) => ({ value: s, label: cap(s) }))}
+            />
+          </div>
+          <label htmlFor="u-msg" className="sr-only">
+            Update message
+          </label>
+          <textarea
+            id="u-msg"
+            rows={3}
+            required
+            className="mt-2.5 block w-full resize-y rounded-[9px] border-0 bg-surface px-3 py-2.5 text-[14px] text-text outline-none"
+            placeholder="What changed? This is shown publicly."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          {post.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{post.error.message}</p>}
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2.5">
+            <span className="flex items-center gap-2 text-[13px] text-sec">
+              <Switch checked={notify} onChange={setNotify} label="Notify Teams and e-mail" /> Notify Teams
+              and e-mail
+            </span>
+            <button type="submit" className="btn-primary" disabled={post.isPending}>
+              Post update
+            </button>
+          </div>
+        </form>
+      )}
+      <ol className="m-0 mt-4 list-none p-0">
+        {incident.updates.map((u) => (
+          <li key={u.id} className="flex gap-3 border-t border-hair py-2.5">
+            <span className="w-24 shrink-0 pt-px text-[12px] text-sec">{dateTime(u.createdAt)}</span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold">
+                {cap(u.status)}
+                {u.author && <span className="font-normal text-sec"> · {u.author}</span>}
+              </span>
+              <span className="block whitespace-pre-line text-sec">{u.message}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {canDelete && (
+        <button
+          type="button"
+          className="btn-danger mt-2"
+          onClick={() => {
+            if (window.confirm('Delete this incident permanently?')) remove.mutate();
+          }}
+        >
+          <Icon name="trash" size={14} /> Delete incident
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function IncidentsPage() {
+  const incidents = useIncidents(false);
+  const me = useMe();
+  const [picked, setSelected] = useState<string | null>(null);
+  const canWrite = can(me.data?.role, 'editor');
+  if (incidents.isPending) return <Spinner />;
+  if (incidents.error) return <ErrorNote error={incidents.error} />;
+  const selected = picked ?? incidents.data[0]?.id ?? null;
+  const current = incidents.data.find((i) => i.id === selected);
+  const active = incidents.data.filter((i) => i.resolvedAt === null).length;
+
+  return (
+    <>
+      <PageHeader
+        title="Incidents"
+        subtitle={`${active} ongoing · updates appear on the status page and go to the notification channels`}
+        actions={
+          canWrite && (
+            <button type="button" className="btn-primary" onClick={() => setSelected('__new')}>
+              <Icon name="plus" size={14} /> Declare incident
+            </button>
+          )
+        }
+      />
+      <div className="mt-4.5 flex flex-wrap items-start gap-3">
+        <Section className="min-w-0 flex-[1_1_280px]">
+          {incidents.data.length === 0 && <Empty>No incidents yet.</Empty>}
+          {incidents.data.map((i, idx) => (
+            // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the label is the nested text
+            <button
+              key={i.id}
+              type="button"
+              onClick={() => setSelected(i.id)}
+              aria-current={selected === i.id}
+              className={`row-btn ${idx === 0 ? 'border-t-0' : ''} ${selected === i.id ? 'bg-sel' : ''}`}
+            >
+              <span
+                aria-hidden="true"
+                className="block h-[7px] w-[7px] shrink-0 rounded-full"
+                style={{ background: i.resolvedAt ? 'var(--fill-2)' : 'var(--warn)' }}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{i.title}</span>
+                <span className="block text-[12px] text-sec">
+                  {i.services.map((s) => s.name).join(', ') || 'no services'} · {dateTime(i.createdAt)} ·{' '}
+                  {cap(i.status)}
+                </span>
+              </span>
+            </button>
+          ))}
+        </Section>
+        <Section className="min-w-0 flex-[999_1_420px]">
+          {selected === '__new' ? (
+            <Declare onDone={(i) => setSelected(i.id)} />
+          ) : current ? (
+            <Detail
+              key={current.id}
+              incident={current}
+              canWrite={canWrite}
+              canDelete={can(me.data?.role, 'admin')}
+            />
+          ) : (
+            <Empty>Select an incident.</Empty>
+          )}
+        </Section>
+      </div>
+    </>
+  );
+}
+
+export { ServicePicker };

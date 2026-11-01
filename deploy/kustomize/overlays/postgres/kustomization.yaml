@@ -1,0 +1,9 @@
+# Two replicas on Postgres; DATABASE_URL comes from the heartline secret. One replica runs the checks
+# (Postgres advisory lock), all replicas serve the UI, API and MCP.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+replicas:
+  - name: heartline
+    count: 2

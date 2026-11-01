@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "react-hooks", "jsx-a11y", "vitest"],
+  "categories": { "correctness": "error", "suspicious": "warn" },
+  "rules": {
+    "unicorn/no-null": "off",
+    "unicorn/filename-case": "off",
+    "import/no-unassigned-import": "off",
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "import/no-named-as-default-member": "off"
+  },
+  "ignorePatterns": ["dist/**", "**/routeTree.gen.ts", "deploy/**"]
+}

@@ -1,0 +1,31 @@
+import type { SiteInfo } from '@heartline/shared';
+import type { Auth } from './auth/auth.ts';
+import type { TokenService } from './auth/tokens.ts';
+import type { PluginRegistry } from './checks/plugins.ts';
+import type { AppConfig } from './config/schema.ts';
+import type { Db } from './db/index.ts';
+import type { Env } from './env.ts';
+import type { NotifierService } from './notify/index.ts';
+import type { Scheduler } from './scheduler/scheduler.ts';
+import type { IncidentService } from './services/incidents.ts';
+import type { MaintenanceService } from './services/maintenance.ts';
+import type { MonitorService } from './services/monitors.ts';
+import type { QueryService } from './services/queries.ts';
+import type { StatusEngine } from './status/engine.ts';
+
+export interface AppContext {
+  env: Env;
+  config: () => AppConfig;
+  site: () => SiteInfo;
+  db: Db;
+  auth: Auth;
+  tokens: TokenService;
+  plugins: PluginRegistry;
+  monitors: MonitorService;
+  maintenance: MaintenanceService;
+  incidents: IncidentService;
+  notifier: NotifierService;
+  engine: StatusEngine;
+  scheduler: Scheduler;
+  queries: QueryService;
+}

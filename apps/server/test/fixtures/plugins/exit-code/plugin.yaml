@@ -1,0 +1,9 @@
+name: exit-code
+command:
+  [
+    'node',
+    '-e',
+    "console.log('code ' + process.env.STATUS_ARG_CODE); process.exit(Number(process.env.STATUS_ARG_CODE))",
+  ]
+args:
+  code: { type: number, default: 0 }

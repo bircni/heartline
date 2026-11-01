@@ -1,0 +1,47 @@
+# Demo: live checks against public endpoints plus seeded history (see apps/server/scripts/demo.ts).
+site:
+  title: Demo status
+  description: Example data for heartline
+  timezone: Europe/Berlin
+
+groups:
+  - name: Code
+    monitors:
+      - {
+          id: github,
+          name: GitHub,
+          type: http,
+          url: 'https://github.com',
+          interval: 60s,
+          degradedAfter: 1500ms,
+        }
+      - { id: npm, name: npm registry, type: http, url: 'https://registry.npmjs.org/-/ping', interval: 60s }
+      - { id: ghcr, name: Container registry, type: tls, host: ghcr.io, port: 443, interval: 10m }
+  - name: Web
+    monitors:
+      - {
+          id: example,
+          name: Example.com,
+          type: http,
+          url: 'https://example.com',
+          interval: 60s,
+          expect: { bodyContains: Example Domain },
+        }
+      - { id: wikipedia, name: Wikipedia, type: http, url: 'https://www.wikipedia.org', interval: 60s }
+  - name: Infrastructure
+    monitors:
+      - { id: dns, name: Cloudflare DNS, type: dns, host: example.com, server: 1.1.1.1, interval: 30s }
+      - { id: local-api, name: Status API, type: tcp, host: 127.0.0.1, port: 3000, interval: 30s }
+      - id: backups
+        name: Nightly backups
+        type: plugin
+        plugin: backup-age
+        interval: 5m
+        args: { path: ../../dev/demo/backups, max_age_hours: 26 }
+
+notifications: { recovery: true, incidents: true }
+
+auth:
+  users:
+    - { email: admin@demo.local, name: Demo Admin, password: demo-admin-password, role: admin }
+    - { email: editor@demo.local, name: Demo Editor, password: demo-editor-password, role: editor }

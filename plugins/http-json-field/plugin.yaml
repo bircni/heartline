@@ -1,0 +1,10 @@
+name: http-json-field
+description: Fetches JSON and compares a numeric field against limits (e.g. queue length)
+command: ['node', 'check.mjs']
+timeout: 20s
+args:
+  url: { type: string, required: true }
+  field: { type: string, required: true, description: 'Dot path, e.g. queue.waiting' }
+  warn_above: { type: number }
+  fail_above: { type: number }
+  bearer_token: { type: string, description: Optional bearer token }

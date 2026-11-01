@@ -1,0 +1,76 @@
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { join, relative } from 'node:path';
+import { serveStatic } from '@hono/node-server/serve-static';
+import { Hono } from 'hono';
+import { secureHeaders } from 'hono/secure-headers';
+import { adminRoutes } from './api/admin.ts';
+import { onError } from './api/errors.ts';
+import { bootstrapRoutes, publicRoutes } from './api/public.ts';
+import { type Vars, principalMiddleware } from './auth/principal.ts';
+import type { AppContext } from './context.ts';
+import { mcpHandler } from './mcp/server.ts';
+
+export function createApp(app: AppContext) {
+  const h = new Hono<Vars>();
+  h.onError(onError);
+  h.use(
+    '*',
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'", 'https:', 'http:'],
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  h.get('/healthz', (c) => c.json({ ok: true }));
+  h.get('/readyz', async (c) => {
+    try {
+      await app.db.kysely.selectFrom('monitors').select('id').limit(1).execute();
+      return c.json({ ok: true, leader: app.scheduler.isLeader });
+    } catch {
+      return c.json({ ok: false }, 503);
+    }
+  });
+
+  // better-auth: sessions, OAuth logins, the OAuth 2.1 provider for MCP and its discovery documents.
+  h.on(['GET', 'POST'], '/api/auth/*', (c) => app.auth.handler(c.req.raw));
+  h.on(['GET', 'HEAD'], '/.well-known/*', (c) => app.auth.handler(c.req.raw));
+
+  const mcp = mcpHandler(app);
+  h.on(['GET', 'POST', 'DELETE'], '/mcp', (c) => mcp(c.req.raw));
+
+  h.use('/api/v1/*', principalMiddleware(app));
+  h.route('/api/v1', bootstrapRoutes(app));
+  h.route('/api/v1/admin', adminRoutes(app));
+  h.route('/api/v1', publicRoutes(app));
+  h.all('/api/*', (c) => c.json({ error: 'not found' }, 404));
+
+  const dist = app.env.webDist;
+  if (dist && existsSync(join(dist, 'index.html'))) {
+    const root = relative(process.cwd(), dist) || '.';
+    h.use('/assets/*', async (c, next) => {
+      c.header('cache-control', 'public, max-age=31536000, immutable');
+      await next();
+    });
+    h.use('*', serveStatic({ root }));
+    let indexHtml: string | null = null;
+    h.get('*', async (c) => {
+      indexHtml ??= await readFile(join(dist, 'index.html'), 'utf8');
+      c.header('cache-control', 'no-cache');
+      return c.html(indexHtml);
+    });
+  } else {
+    h.get('/', (c) =>
+      c.text('heartline API is running. Build apps/web (pnpm build) to serve the UI from here.'),
+    );
+  }
+  return h;
+}

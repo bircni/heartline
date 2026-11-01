@@ -1,0 +1,98 @@
+# heartline configuration. Values like ${VAR} are read from the environment.
+# Monitors defined here are read-only in the admin UI; edit this file (or the ConfigMap) instead.
+
+site:
+  title: Homelab status
+  description: Availability of self-hosted services
+  timezone: Europe/Berlin
+  # baseUrl: https://status.example.com   # defaults to BASE_URL
+  public: true
+
+retention:
+  rawDays: 30 # raw check results; daily rollups are kept forever
+
+groups:
+  - name: Code
+    monitors:
+      - id: gitea
+        name: Gitea
+        type: http
+        url: https://git.example.com/api/healthz
+        interval: 60s
+        expect: { status: [200], json: { status: pass } }
+        degradedAfter: 800ms
+        notify: [teams, email]
+        autoIncident: true
+
+      - id: registry
+        name: Container registry
+        type: tcp
+        host: registry.example.com
+        port: 5000
+        interval: 30s
+
+  - name: Infrastructure
+    monitors:
+      - id: dns
+        name: Internal DNS
+        type: dns
+        host: git.example.com
+        record: A
+        server: 10.0.0.53
+        expect: [10.0.0.21]
+        interval: 30s
+
+      - id: mail-tls
+        name: Mail certificate
+        type: tls
+        host: mail.example.com
+        port: 993
+        minDays: 14
+        interval: 1h
+
+      - id: backups
+        name: Nightly backups
+        type: plugin
+        plugin: backup-age
+        interval: 15m
+        args: { path: /backups, max_age_hours: 26 }
+
+notifiers:
+  - id: teams
+    type: teams
+    webhookUrl: ${TEAMS_WEBHOOK_URL} # Teams channel → Workflows → "post to a channel when a webhook request is received"
+  - id: email
+    type: email
+    from: status@example.com
+    to: [ops@example.com]
+    smtp:
+      host: smtp.example.com
+      port: 587
+      user: ${SMTP_USER}
+      password: ${SMTP_PASSWORD}
+
+notifications:
+  recovery: true
+  incidents: true
+  reminderEvery: 1h
+
+auth:
+  local: true
+  users:
+    - email: admin@example.com
+      name: Admin
+      password: ${ADMIN_PASSWORD}
+      role: admin
+  oidc:
+    - id: gitea
+      name: Gitea
+      discoveryUrl: https://git.example.com/.well-known/openid-configuration
+      clientId: ${GITEA_CLIENT_ID}
+      clientSecret: ${GITEA_CLIENT_SECRET}
+      scopes: [openid, profile, email, groups]
+      groupsClaim: groups
+      # Gitea sends "org" and "org:team" groups
+      roles:
+        'homelab:owners': admin
+        'homelab:ops': editor
+      defaultRole: none

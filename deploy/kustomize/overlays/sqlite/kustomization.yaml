@@ -1,0 +1,21 @@
+# Single replica with SQLite on a PersistentVolumeClaim.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - pvc.yaml
+patches:
+  - target: { kind: Deployment, name: heartline }
+    patch: |
+      - op: add
+        path: /spec/strategy
+        value: { type: Recreate }
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: { name: DATABASE_URL, value: "sqlite:/data/status.db" }
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value: { name: data, mountPath: /data }
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value: { name: data, persistentVolumeClaim: { claimName: heartline-data } }

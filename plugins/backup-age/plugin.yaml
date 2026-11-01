@@ -1,0 +1,16 @@
+name: backup-age
+description: Fails when the newest file in a directory is older than max_age_hours
+command: ['sh', 'check.sh']
+timeout: 30s
+args:
+  path:
+    type: string
+    required: true
+    description: Directory that receives backups
+  max_age_hours:
+    type: number
+    default: 26
+  warn_age_hours:
+    type: number
+    default: 20
+    description: Degraded above this age

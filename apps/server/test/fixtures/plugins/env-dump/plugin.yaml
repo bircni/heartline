@@ -1,0 +1,7 @@
+name: env-dump
+command:
+  [
+    'node',
+    '-e',
+    "console.log(JSON.stringify({status: 'up', message: Object.keys(process.env).sort().join(',')}))",
+  ]

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.nx/
+coverage/
+*.db
+*.db-*
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+.DS_Store
+dev/data/
+!.env.development
+!.env.demo
+dev/demo/data/

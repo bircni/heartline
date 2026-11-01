@@ -1,0 +1,3 @@
+name: slow
+command: ['node', '-e', 'setTimeout(() => {}, 60000)']
+timeout: 300ms

@@ -1,0 +1,45 @@
+# Local development config: monitors public endpoints so data shows up immediately.
+site:
+  title: Dev status
+  timezone: Europe/Berlin
+groups:
+  - name: Web
+    monitors:
+      - {
+          id: example,
+          name: Example.com,
+          type: http,
+          url: 'https://example.com',
+          interval: 30s,
+          degradedAfter: 1500ms,
+        }
+      - {
+          id: cloudflare-dns,
+          name: Cloudflare DNS,
+          type: dns,
+          host: example.com,
+          server: 1.1.1.1,
+          interval: 30s,
+        }
+  - name: Infrastructure
+    monitors:
+      - { id: local-api, name: Local API, type: tcp, host: 127.0.0.1, port: 3000, interval: 20s }
+      - {
+          id: backups,
+          name: Nightly backups,
+          type: plugin,
+          plugin: backup-age,
+          interval: 1m,
+          args: { path: ../../dev/backups, max_age_hours: 26 },
+        }
+      - {
+          id: broken,
+          name: Broken service,
+          type: http,
+          url: 'http://127.0.0.1:59999',
+          interval: 30s,
+          failureThreshold: 1,
+        }
+auth:
+  users:
+    - { email: admin@status.local, name: Admin, password: '${ADMIN_PASSWORD:-change-me-please}', role: admin }

@@ -1,0 +1,27 @@
+{
+  "name": "heartline",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nx run-many -t dev --parallel",
+    "build": "nx run-many -t build",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "nx run-many -t test",
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "nx": "^24.0.3",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "packageManager": "pnpm@12.16.1",
+  "license": "MIT"
+}

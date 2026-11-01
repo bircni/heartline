@@ -1,0 +1,11 @@
+# Replace with your own monitors; secrets are referenced as ${VAR} and come from the heartline secret.
+site:
+  title: Status
+  timezone: UTC
+groups:
+  - name: Services
+    monitors:
+      - { id: example, name: Example, type: http, url: 'https://example.com', interval: 60s }
+auth:
+  users:
+    - { email: admin@example.com, name: Admin, password: '${ADMIN_PASSWORD}', role: admin }
