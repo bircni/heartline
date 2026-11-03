@@ -1,5 +1,5 @@
 import type { DayBar } from '@heartline/shared';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { DAY_COLOR, DAY_LABEL, ms, pct, shortDay } from '../lib/format.ts';
 
 /** Claude/GitHub-style availability bars, one per day, with a hover card. */
@@ -7,8 +7,18 @@ export function DayBars({ bars, height = 34 }: { bars: DayBar[]; height?: number
   const [hover, setHover] = useState<number | null>(null);
   const gap = bars.length > 45 ? 2 : bars.length > 14 ? 3 : 4;
   const active = hover === null ? null : bars[hover];
+  const wrap = useRef<HTMLDivElement>(null);
+  const tip = useRef<HTMLDivElement>(null);
+  const [left, setLeft] = useState(0);
+  useLayoutEffect(() => {
+    if (hover === null || !wrap.current || !tip.current) return;
+    const width = wrap.current.clientWidth;
+    const tipWidth = tip.current.offsetWidth;
+    const center = ((hover + 0.5) / bars.length) * width;
+    setLeft(Math.min(Math.max(center - tipWidth / 2, 0), Math.max(width - tipWidth, 0))); // stay inside clipping cards
+  }, [hover, bars.length]);
   return (
-    <div className="relative" onMouseLeave={() => setHover(null)}>
+    <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
       <div className="flex" style={{ gap, height }} aria-hidden="true">
         {bars.map((b, i) => (
           <span
@@ -21,9 +31,10 @@ export function DayBars({ bars, height = 34 }: { bars: DayBar[]; height?: number
       </div>
       {active && hover !== null && (
         <div
+          ref={tip}
           role="tooltip"
-          className="pointer-events-none absolute bottom-full z-20 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-[10px] bg-surface px-3 py-2 text-[12px] shadow-[0_8px_30px_rgb(0_0_0/0.25)] ring-1 ring-hair"
-          style={{ left: `${((hover + 0.5) / bars.length) * 100}%` }}
+          className="pointer-events-none absolute bottom-full z-20 mb-2 w-max max-w-[220px] rounded-[10px] bg-surface px-3 py-2 text-[12px] shadow-[0_8px_30px_rgb(0_0_0/0.25)] ring-1 ring-hair"
+          style={{ left }}
         >
           <div className="font-semibold">{shortDay(active.day)}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-sec">

@@ -53,44 +53,44 @@ export function OverviewPage() {
         </Link>
       ))}
 
-      <section className="card mt-3 overflow-hidden">
+      <section className="mt-3">
         {data.groups.length === 0 && (
-          <p className="m-0 px-5 py-6 text-sec">
+          <p className="card m-0 px-5 py-6 text-sec">
             No services yet. Add monitors to status.yaml or in the admin area.
           </p>
         )}
-        {data.groups.map((g, gi) => (
-          <div key={g.name}>
-            <div
-              className={`px-4.5 pb-2 pt-3.5 text-[11px] font-semibold uppercase tracking-[0.02em] text-sec ${gi ? 'border-t border-hair' : ''}`}
-            >
+        {data.groups.map((g) => (
+          <div key={g.name} className="mt-5 first:mt-2">
+            <h2 className="m-0 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-sec">
               {g.name}
+            </h2>
+            <div className="grid gap-3 xl:grid-cols-2 min-[1800px]:grid-cols-3">
+              {g.services.map((s) => (
+                <Link
+                  key={s.id}
+                  to="/services/$id"
+                  params={{ id: s.id }}
+                  search={{ days }}
+                  className="card block px-4.5 py-3.5 text-text no-underline hover:bg-hover"
+                  aria-label={`${s.name}: ${s.status}, ${pct(s.uptime)} uptime. Open details.`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[15px] font-medium">{s.name}</span>
+                    <StatusLabel status={s.status} />
+                  </div>
+                  <div className="mt-2.5">
+                    <DayBars bars={s.bars} />
+                  </div>
+                  <div className="mt-2 flex items-center gap-3 text-[12px] text-sec" aria-hidden="true">
+                    <span>{days} days ago</span>
+                    <span className="h-px flex-1 bg-hair" />
+                    <span>{pct(s.uptime)} uptime</span>
+                    <span className="h-px flex-1 bg-hair" />
+                    <span>Today</span>
+                  </div>
+                </Link>
+              ))}
             </div>
-            {g.services.map((s) => (
-              <Link
-                key={s.id}
-                to="/services/$id"
-                params={{ id: s.id }}
-                search={{ days }}
-                className="block border-t border-hair px-4.5 py-3.5 text-text no-underline hover:bg-hover"
-                aria-label={`${s.name}: ${s.status}, ${pct(s.uptime)} uptime. Open details.`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[15px] font-medium">{s.name}</span>
-                  <StatusLabel status={s.status} />
-                </div>
-                <div className="mt-2.5">
-                  <DayBars bars={s.bars} />
-                </div>
-                <div className="mt-2 flex items-center gap-3 text-[12px] text-sec" aria-hidden="true">
-                  <span>{days} days ago</span>
-                  <span className="h-px flex-1 bg-hair" />
-                  <span>{pct(s.uptime)} uptime</span>
-                  <span className="h-px flex-1 bg-hair" />
-                  <span>Today</span>
-                </div>
-              </Link>
-            ))}
           </div>
         ))}
       </section>

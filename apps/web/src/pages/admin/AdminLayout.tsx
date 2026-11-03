@@ -42,8 +42,8 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="mx-auto box-border flex max-w-[1320px] flex-wrap items-start gap-4 p-4">
-      <aside className="box-border w-full max-w-full flex-[1_1_240px] rounded-[18px] bg-side px-2.5 py-3.5 md:sticky md:top-4 md:w-auto">
+    <div className="flex min-h-screen flex-col md:flex-row md:items-start">
+      <aside className="box-border w-full bg-side px-2.5 py-3.5 md:sticky md:top-0 md:h-screen md:w-[240px] md:shrink-0 md:overflow-y-auto md:border-r md:border-hair">
         <div className="flex items-center justify-between px-1.5">
           <Link to="/" className="flex items-center gap-2.5 text-text no-underline">
             <Logo />
@@ -100,7 +100,7 @@ export function AdminLayout() {
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-[999_1_640px]">
+      <main className="box-border min-w-0 flex-1 px-4 py-4 md:px-8 md:py-5">
         <Outlet />
       </main>
     </div>
