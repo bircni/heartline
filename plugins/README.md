@@ -44,7 +44,10 @@ are never passed on.
 - Optionally print one JSON object as the **last line** of stdout to set details:
 
 ```json
-{ "status": "degraded", "latency_ms": 120, "message": "newest backup is 20 h old" }
+{ "status": "degraded", "latency_ms": 120, "message": "newest backup is 20 h old", "version": "16.2" }
 ```
 
 `status` in JSON overrides the exit code. Without JSON, the last stdout line becomes the message.
+`version` is optional: when the monitor has a `software` block, it feeds the software inventory
+(release and vulnerability lookups), so a plugin that talks to Postgres, Redis or a CLI can report the
+running version even though there is no HTTP endpoint to probe.

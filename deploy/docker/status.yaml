@@ -1,0 +1,25 @@
+# Default configuration of the container image. Mount your own status.yaml at /config/status.yaml;
+# this one only needs ADMIN_PASSWORD so `docker run` works out of the box.
+site:
+  title: ${SITE_TITLE:-Status}
+  timezone: ${TZ:-UTC}
+  public: true
+
+groups:
+  - name: Services
+    monitors:
+      - id: heartline
+        name: heartline
+        type: http
+        url: http://127.0.0.1:${PORT:-3000}/healthz
+        interval: 60s
+        expect: { json: { ok: true } }
+        software: { product: heartline }
+
+auth:
+  local: true
+  users:
+    - email: ${ADMIN_EMAIL:-admin@example.com}
+      name: Admin
+      password: ${ADMIN_PASSWORD}
+      role: admin

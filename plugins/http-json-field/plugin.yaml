@@ -8,3 +8,5 @@ args:
   warn_above: { type: number }
   fail_above: { type: number }
   bearer_token: { type: string, description: Optional bearer token }
+  version_field:
+    { type: string, description: 'Dot path to a version string reported to the software inventory' }

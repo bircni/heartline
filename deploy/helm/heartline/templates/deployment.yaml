@@ -2,6 +2,9 @@
 {{- if and (gt (int .Values.replicaCount) 1) (not $postgres) }}
 {{- fail "replicaCount > 1 requires Postgres (database.url or database.urlSecret): SQLite supports a single writer" }}
 {{- end }}
+{{- if and (not .Values.secret.create) (not .Values.existingSecret) }}
+{{- fail "secret.create=false requires existingSecret (a Secret holding AUTH_SECRET and the ${VAR}s used in status.yaml)" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +23,9 @@ spec:
       annotations:
         checksum/config: {{ .Values.config | sha256sum }}
         checksum/plugins: {{ toJson .Values.plugins.files | sha256sum }}
+        {{- if and .Values.secret.create (not .Values.existingSecret) }}
+        checksum/secret: {{ printf "%s%s" (toJson .Values.secret.values) .Values.database.url | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -64,9 +70,17 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.urlSecret.name }}
                   key: {{ .Values.database.urlSecret.key }}
+            {{- else if and .Values.database.url (or (not .Values.secret.create) .Values.existingSecret) }}
+            {{- /* The chart-managed Secret carries DATABASE_URL; with a user-provided Secret it must be set here. */}}
+            - name: DATABASE_URL
+              value: {{ .Values.database.url | quote }}
             {{- else if not $postgres }}
             - name: DATABASE_URL
               value: sqlite:/data/status.db
+            {{- end }}
+            {{- if .Values.software.offline }}
+            - name: HEARTLINE_OFFLINE
+              value: "1"
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
