@@ -1,68 +1,78 @@
 @import 'tailwindcss';
 
-/* Design tokens from the chosen mockup (split view). Dark is the default, `html:not(.dark)` is light. */
+/*
+ * Graphite neutrals; colour is reserved for status and the response-time trace.
+ * Dark is the default, `html:not(.dark)` is light.
+ */
 :root {
-  --bg: #f5f5f7;
-  --side: #ececef;
+  --bg: #fafafa;
+  --side: #f4f4f5;
   --surface: #ffffff;
-  --fill: #e8e8ed;
-  --fill-2: #d2d2d7;
+  --fill: #ececee;
+  --fill-2: #d4d4d8;
   --seg: #ffffff;
-  --sel: #dcdce1;
-  --hover: #e3e3e8;
-  --text: #1d1d1f;
-  --sec: #6e6e73;
-  --hair: rgb(0 0 0 / 0.08);
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
-  --seg-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.04);
-  --ok: #34c759;
-  --warn: #ff9f0a;
-  --bad: #ff3b30;
-  --maint: #0a84ff;
-  --ok-text: #1f7a35;
-  --warn-text: #b25000;
-  --bad-text: #d70015;
-  --ring-warn: rgb(255 159 10 / 0.18);
-  --ring-bad: rgb(255 59 48 / 0.18);
-  --ring-ok: rgb(52 199 89 / 0.18);
-  --chart: #1d1d1f;
-  --chart-2: #8e8e93;
-  --area: rgb(29 29 31 / 0.05);
+  --sel: rgb(23 23 23 / 0.08);
+  --hover: rgb(23 23 23 / 0.05);
+  --text: #171717;
+  --sec: #525252;
+  --muted: #6b6b6b;
+  --hair: rgb(23 23 23 / 0.08);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 0 0 1px var(--hair);
+  --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+  --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+  --ok: #16a34a;
+  --ok-quiet: #73c88f;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --maint: #3b82c4;
+  --ok-text: #15803d;
+  --warn-text: #b45309;
+  --bad-text: #b91c1c;
+  --ring-warn: rgb(217 119 6 / 0.18);
+  --ring-bad: rgb(220 38 38 / 0.18);
+  --ring-ok: rgb(22 163 74 / 0.18);
+  --chart: var(--ok);
+  --chart-2: #8a8a8f;
+  --area: rgb(22 163 74 / 0.08);
   --knob: #ffffff;
-  --focus: #0a84ff;
+  --focus: var(--sec);
 }
 
 .dark {
-  --bg: #0b0b0c;
-  --side: #111113;
-  --surface: #161618;
-  --fill: #232326;
-  --fill-2: #3a3a3f;
-  --seg: #3a3a3f;
-  --sel: #26262a;
-  --hover: #1c1c1f;
-  --text: #f5f5f7;
-  --sec: #98989d;
-  --hair: rgb(255 255 255 / 0.07);
-  --shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --bg: #141415;
+  --side: #0f0f10;
+  --surface: #19191b;
+  --fill: #232325;
+  --fill-2: #3a3a3d;
+  --seg: #3a3a3d;
+  --sel: rgb(237 237 237 / 0.08);
+  --hover: rgb(237 237 237 / 0.05);
+  --text: #ededed;
+  --sec: #a1a1a6;
+  --muted: #85858b;
+  --hair: rgb(237 237 237 / 0.08);
+  --shadow: 0 0 0 1px var(--hair);
   --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
-  --ok: #30d158;
-  --warn: #ff9f0a;
-  --bad: #ff453a;
-  --maint: #0a84ff;
-  --ok-text: #30d158;
-  --warn-text: #ffb340;
-  --bad-text: #ff6961;
-  --ring-warn: rgb(255 159 10 / 0.22);
-  --ring-bad: rgb(255 69 58 / 0.22);
-  --ring-ok: rgb(48 209 88 / 0.2);
-  --chart: #f5f5f7;
-  --chart-2: #636366;
-  --area: rgb(245 245 247 / 0.06);
-  --knob: #f5f5f7;
+  --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  --ok: #4cc38a;
+  --ok-quiet: #2f6f52;
+  --warn: #f0a541;
+  --bad: #e5484d;
+  --maint: #6b9bd1;
+  --ok-text: #4cc38a;
+  --warn-text: #f0a541;
+  --bad-text: #f2777a;
+  --ring-warn: rgb(240 165 65 / 0.2);
+  --ring-bad: rgb(229 72 77 / 0.22);
+  --ring-ok: rgb(76 195 138 / 0.18);
+  --chart-2: #6e6e73;
+  --area: rgb(76 195 138 / 0.08);
+  --knob: #ededed;
 }
 
 @theme inline {
+  /* Fixed, because the 14px root would otherwise make every spacing step 3.5px. */
+  --spacing: 4px;
   --color-bg: var(--bg);
   --color-side: var(--side);
   --color-surface: var(--surface);
@@ -73,8 +83,10 @@
   --color-hover: var(--hover);
   --color-text: var(--text);
   --color-sec: var(--sec);
+  --color-muted: var(--muted);
   --color-hair: var(--hair);
   --color-ok: var(--ok);
+  --color-ok-quiet: var(--ok-quiet);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
   --color-maint: var(--maint);
@@ -86,6 +98,9 @@
   --color-knob: var(--knob);
   --shadow-card: var(--shadow);
   --shadow-seg: var(--seg-shadow);
+  --shadow-pop: var(--pop-shadow);
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, 'Cascadia Mono', monospace;
 }
@@ -106,7 +121,7 @@
   }
   input::placeholder,
   textarea::placeholder {
-    color: var(--sec);
+    color: var(--muted);
   }
   button {
     cursor: pointer;
@@ -116,24 +131,37 @@
   }
 }
 
+/* Full-viewport app shell: a sidebar against the left edge, content filling the rest. */
+@utility app-shell {
+  @apply flex min-h-screen flex-col md:flex-row;
+}
+
+@utility app-rail {
+  @apply box-border w-full border-hair bg-side px-2 py-4 md:sticky md:top-0 md:h-screen md:shrink-0 md:overflow-y-auto md:border-r;
+}
+
+@utility app-main {
+  @apply min-w-0 flex-1 p-4 md:px-8 md:py-6;
+}
+
 @utility card {
-  @apply rounded-[14px] bg-surface shadow-card;
+  @apply rounded-[12px] bg-surface shadow-card;
 }
 
 @utility field {
-  @apply block h-9 w-full rounded-[9px] border-0 bg-fill px-3 text-[14px] text-text outline-none disabled:text-sec;
+  @apply block h-9 w-full rounded-[8px] border-0 bg-fill px-3 text-[14px] text-text disabled:text-sec;
 }
 
 @utility label {
-  @apply mb-1.5 block text-[12px] font-medium text-sec;
+  @apply mb-1 block text-[12px] font-medium text-sec;
 }
 
 @utility btn {
-  @apply inline-flex h-8 items-center justify-center gap-1.5 rounded-[9px] px-3.5 text-[13px] font-medium transition-colors disabled:opacity-40;
+  @apply inline-flex h-8 items-center justify-center gap-2 rounded-[8px] px-3 text-[13px] font-medium transition-[color,background-color,opacity,transform] active:scale-[0.98] disabled:opacity-40;
 }
 
 @utility btn-primary {
-  @apply btn bg-text text-bg;
+  @apply btn bg-text text-bg hover:opacity-90;
 }
 
 @utility btn-secondary {
@@ -145,5 +173,5 @@
 }
 
 @utility row-btn {
-  @apply flex w-full items-center gap-3.5 border-t border-hair px-4 py-2.5 text-left hover:bg-hover;
+  @apply flex w-full items-center gap-4 border-t border-hair px-4 py-2 text-left transition-colors hover:bg-hover;
 }

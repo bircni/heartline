@@ -42,17 +42,17 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row md:items-start">
-      <aside className="box-border w-full bg-side px-2.5 py-3.5 md:sticky md:top-0 md:h-screen md:w-[240px] md:shrink-0 md:overflow-y-auto md:border-r md:border-hair">
-        <div className="flex items-center justify-between px-1.5">
-          <Link to="/" className="flex items-center gap-2.5 text-text no-underline">
+    <div className="app-shell">
+      <aside className="app-rail border-b md:w-60 md:border-b-0">
+        <div className="flex items-center justify-between pl-3 pr-1">
+          <Link to="/" className="flex min-w-0 items-center gap-2 text-text no-underline">
             <Logo />
-            <span className="text-[15px] font-semibold">{boot.data?.site.title ?? 'Status'}</span>
-            <span className="text-[12px] text-sec">Admin</span>
+            <span className="truncate text-[16px] font-medium">{boot.data?.site.title ?? 'Status'}</span>
+            <span className="text-[12px] text-muted">Admin</span>
           </Link>
           <ThemeButton />
         </div>
-        <nav aria-label="Admin sections" className="mt-4">
+        <nav aria-label="Admin sections" className="mt-4 flex flex-col gap-0.5">
           {SECTIONS.filter((s) => can(me.data?.role, s.min)).map((s) => {
             const current = path.startsWith(s.to);
             const count = s.to === '/admin/incidents' ? active.data?.length : undefined;
@@ -61,28 +61,28 @@ export function AdminLayout() {
                 key={s.to}
                 to={s.to}
                 aria-current={current ? 'page' : undefined}
-                className={`flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-text no-underline hover:bg-hover ${current ? 'bg-sel' : ''}`}
+                className={`flex h-9 w-full items-center gap-2 rounded-[8px] px-3 text-text no-underline transition-colors hover:bg-hover ${current ? 'bg-sel' : ''}`}
               >
-                <Icon name={s.icon} size={16} className="text-sec" />
-                <span className="flex-1 font-medium">{s.label}</span>
-                {count ? <span className="text-[12px] text-sec">{count}</span> : null}
+                <Icon name={s.icon} size={16} className="shrink-0 text-muted" />
+                <span className="flex-1">{s.label}</span>
+                {count ? <span className="font-mono text-[12px] text-muted">{count}</span> : null}
               </Link>
             );
           })}
         </nav>
         <Link
           to="/"
-          className="mx-1.5 mt-3 flex items-center gap-2 rounded-[9px] px-1 py-1.5 text-[13px] text-sec no-underline hover:text-text"
+          className="mt-2 flex h-9 items-center gap-2 rounded-[8px] px-3 text-[13px] text-sec no-underline transition-colors hover:bg-hover hover:text-text"
         >
-          <Icon name="external" size={14} /> View status page
+          <Icon name="external" size={16} /> View status page
         </Link>
-        <div className="mx-1.5 mt-4 flex items-center gap-2.5 border-t border-hair px-1 pt-3">
+        <div className="mx-3 mt-4 flex items-center gap-2 border-t border-hair pt-4">
           {me.data.image ? (
-            <img src={me.data.image} alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
+            <img src={me.data.image} alt="" className="h-8 w-8 rounded-full object-cover" />
           ) : (
             <span
               aria-hidden="true"
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-fill-2 text-[13px] font-semibold"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-fill-2 text-[13px] font-medium"
             >
               {me.data.name.charAt(0).toUpperCase()}
             </span>
@@ -94,13 +94,13 @@ export function AdminLayout() {
           <button
             type="button"
             onClick={() => void signOut()}
-            className="rounded-[7px] px-2 py-1.5 text-[12px] text-sec hover:bg-hover hover:text-text"
+            className="h-8 rounded-[8px] px-2 text-[12px] text-sec transition-colors hover:bg-hover hover:text-text"
           >
             Sign out
           </button>
         </div>
       </aside>
-      <main className="box-border min-w-0 flex-1 px-4 py-4 md:px-8 md:py-5">
+      <main className="app-main">
         <Outlet />
       </main>
     </div>

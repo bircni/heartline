@@ -8,7 +8,7 @@ import { AreaClosed, Line, LinePath } from '@visx/shape';
 import { useState } from 'react';
 import { ms } from '../lib/format.ts';
 
-const MARGIN = { top: 8, right: 4, bottom: 8, left: 52 };
+const MARGIN = { top: 8, right: 4, bottom: 8, left: 56 };
 
 interface Props {
   points: LatencyPoint[];
@@ -47,7 +47,7 @@ function Chart({
   if (data.length === 0)
     return (
       <div className="flex h-full items-center justify-center text-[13px] text-sec">
-        No response times in this period yet.
+        No response times in this period yet
       </div>
     );
 
@@ -72,7 +72,15 @@ function Chart({
           {y.ticks(3).map((t) => (
             <g key={t}>
               <line x1={0} x2={innerW} y1={y(t)} y2={y(t)} stroke="var(--hair)" />
-              <text x={-10} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} fill="var(--sec)">
+              <text
+                x={-8}
+                y={y(t)}
+                dy="0.32em"
+                textAnchor="end"
+                fontSize={12}
+                fontFamily="var(--font-mono)"
+                fill="var(--muted)"
+              >
                 {ms(t)}
               </text>
             </g>
@@ -144,11 +152,11 @@ function Chart({
       {active && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute top-0 z-10 rounded-[10px] bg-surface px-3 py-2 text-[12px] shadow-[0_8px_30px_rgb(0_0_0/0.25)] ring-1 ring-hair"
+          className="pointer-events-none absolute top-0 z-10 rounded-[8px] bg-surface px-3 py-2 text-[12px] shadow-pop ring-1 ring-hair"
           style={{ left: Math.min(width - 170, Math.max(0, MARGIN.left + x(active.at) + 12)) }}
         >
-          <div className="font-semibold">{label(active.at, bucketMs)}</div>
-          <div className="text-sec">
+          <div className="font-medium">{label(active.at, bucketMs)}</div>
+          <div className="font-mono text-sec">
             avg {ms(active.avgLatencyMs)} · {highLabel} {ms(active.highLatencyMs)}
           </div>
         </div>
@@ -157,7 +165,7 @@ function Chart({
   );
 }
 
-export function LatencyChart({ height = 240, ...props }: Props & { height?: number }) {
+export function LatencyChart({ height = 280, ...props }: Props & { height?: number }) {
   return (
     <div style={{ height }}>
       <ParentSize debounceTime={50}>

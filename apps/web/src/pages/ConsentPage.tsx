@@ -52,22 +52,20 @@ export function ConsentPage() {
     <div className="flex min-h-screen justify-center px-4 pb-20 pt-[12vh]">
       <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center text-center">
-          <Logo size={52} />
-          <h1 className="m-0 mt-4.5 text-[22px] font-semibold tracking-[-0.02em]">
-            {name ? `Allow ${name}?` : 'Loading…'}
-          </h1>
+          <Logo size={48} />
+          <h1 className="m-0 mt-4 text-[20px] font-medium">{name ? `Allow ${name}?` : 'Loading…'}</h1>
           <p className="m-0 mt-1 text-sec">
             {me.data
               ? `Signed in as ${me.data.name}. Access is limited by your role (${me.data.role}).`
               : 'Checking your session…'}
           </p>
         </div>
-        <div className="card mt-7 overflow-hidden">
-          <div className="px-4 pb-2 pt-3.5 text-[12px] font-semibold text-sec">
+        <div className="card mt-8 overflow-hidden">
+          <div className="px-4 pb-2 pt-4 text-[12px] font-medium text-sec">
             {name ?? 'The application'} will be able to
           </div>
           {scopes.map((s) => (
-            <div key={s} className="border-t border-hair px-4 py-2.5">
+            <div key={s} className="border-t border-hair px-4 py-2">
               {SCOPE_TEXT[s] ?? s}
             </div>
           ))}

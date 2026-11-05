@@ -2,9 +2,9 @@ import type { ReactNode } from 'react';
 
 export function Kpi({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="card px-4 py-3.5">
+    <div className="card px-4 py-3">
       <div className="text-[12px] text-sec">{label}</div>
-      <div className="mt-0.5 text-[24px] font-semibold tracking-[-0.02em]">{value}</div>
+      <div className="mt-1 text-[28px] font-medium leading-8">{value}</div>
       {hint && <div className="text-[12px] text-sec">{hint}</div>}
     </div>
   );
@@ -20,10 +20,10 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="m-0 text-[28px] font-semibold tracking-[-0.025em]">{title}</h1>
-        {subtitle && <div className="mt-0.5 text-[13px] text-sec">{subtitle}</div>}
+        <h1 className="m-0 text-[28px] font-medium leading-8">{title}</h1>
+        {subtitle && <div className="mt-1 text-[13px] text-sec">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -44,8 +44,8 @@ export function Section({
   return (
     <section className={`card overflow-hidden ${className}`}>
       {(title || actions) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
-          {title && <h2 className="m-0 text-[14px] font-semibold">{title}</h2>}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-4">
+          {title && <h2 className="m-0 text-[14px] font-medium">{title}</h2>}
           {actions}
         </div>
       )}
@@ -60,8 +60,8 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 px-1 py-10 text-sec" role="status">
-      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-fill-2 border-t-text" />
+    <div className="flex items-center gap-2 py-10 text-sec" role="status">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-fill-2 border-t-text" />
       {label}
     </div>
   );
@@ -113,7 +113,7 @@ export function Notice({
           ? 'var(--ok-text)'
           : 'var(--sec)';
   return (
-    <div className="rounded-[10px] bg-fill px-3 py-2.5 text-[13px]" style={{ color }}>
+    <div className="rounded-[8px] bg-fill px-3 py-2 text-[13px]" style={{ color }}>
       {children}
     </div>
   );
