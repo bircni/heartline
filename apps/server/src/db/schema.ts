@@ -1,4 +1,4 @@
-import type { ColumnType, Generated } from 'kysely';
+import type { ColumnType, Generated, Selectable } from 'kysely';
 
 export interface MonitorTable {
   id: string;
@@ -125,6 +125,79 @@ export interface AccountTable {
   accountId: string;
 }
 
+export interface MonitorSoftwareTable {
+  monitor_id: string;
+  product: string;
+  version: string | null;
+  version_source: string | null;
+  version_seen_at: number | null;
+  version_changed_at: number | null;
+  previous_version: string | null;
+  probe_error: string | null;
+  next_probe_at: Generated<number>;
+  latest: string | null;
+  latest_in_cycle: string | null;
+  cycle: string | null;
+  /** `YYYY-MM-DD`, `true`, `false` or null (unknown). */
+  cycle_eol: string | null;
+  eol_fetched_at: number | null;
+  intel_refreshed_at: number | null;
+  intel_error: string | null;
+  urgency_level: Generated<string>;
+  urgency_score: Generated<number>;
+  /** JSON string[] */
+  urgency_reasons: Generated<string>;
+  notified_level: Generated<string>;
+  /** 1 once vulnerabilities were evaluated at least once (first run is not announced). */
+  evaluated: Generated<number>;
+  updated_at: number;
+}
+
+export type MonitorSoftwareRow = Selectable<MonitorSoftwareTable>;
+
+export interface MonitorSoftwareHistoryTable {
+  monitor_id: string;
+  version: string;
+  seen_at: number;
+}
+
+export interface VulnerabilityTable {
+  id: string;
+  /** JSON string[] */
+  aliases: string;
+  summary: string | null;
+  score: number | null;
+  vector: string | null;
+  severity: string;
+  kev: number;
+  published_at: number | null;
+  modified_at: number | null;
+  /** JSON string[] */
+  references_json: string;
+  /** JSON ('osv' | 'nvd')[] */
+  sources: string;
+  fetched_at: number;
+}
+
+export interface MonitorVulnerabilityTable {
+  monitor_id: string;
+  vuln_id: string;
+  fixed_in: string | null;
+  introduced: string | null;
+  first_seen_at: number;
+  notified_at: number | null;
+}
+
+export interface IntelCacheTable {
+  key: string;
+  etag: string | null;
+  body: string;
+  fetched_at: number;
+  expires_at: number;
+  status: 'ok' | 'error';
+  error: string | null;
+}
+
 export interface Database {
   monitors: MonitorTable;
   monitor_state: MonitorStateTable;
@@ -137,7 +210,11 @@ export interface Database {
   maintenance_services: MaintenanceServiceTable;
   api_tokens: ApiTokenTable;
   notifier_state: NotifierStateTable;
+  monitor_software: MonitorSoftwareTable;
+  monitor_software_history: MonitorSoftwareHistoryTable;
+  vulnerabilities: VulnerabilityTable;
+  monitor_vulnerabilities: MonitorVulnerabilityTable;
+  intel_cache: IntelCacheTable;
   user: UserTable;
   account: AccountTable;
-  _unused: { id: Generated<number> };
 }

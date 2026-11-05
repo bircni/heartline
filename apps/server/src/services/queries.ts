@@ -9,6 +9,7 @@ import type {
   ServiceStatus,
   ServiceSummary,
   SiteInfo,
+  SoftwareSummary,
 } from '@heartline/shared';
 import { sql } from 'kysely';
 import { describeTarget } from '../checks/index.ts';
@@ -70,6 +71,9 @@ export interface QueryDeps {
   maintenance: MaintenanceService;
   site: () => SiteInfo;
   rawRetentionDays: () => number;
+  /** Software summaries per monitor id; routes redact them per viewer. */
+  software: () => Promise<Map<string, SoftwareSummary>>;
+  security: () => Promise<{ critical: number; high: number }>;
 }
 
 export class QueryService {
@@ -116,7 +120,11 @@ export class QueryService {
     const monitors = this.#d.monitors.list();
     const ids = monitors.map((m) => m.id);
     const days = lastDays(daysCount, now, this.#d.site().timezone);
-    const [rollups, states] = await Promise.all([this.#rollups(ids, days), this.#states(ids)]);
+    const [rollups, states, software] = await Promise.all([
+      this.#rollups(ids, days),
+      this.#states(ids),
+      this.#d.software(),
+    ]);
     return monitors.map((m) => {
       const byDay = rollups.get(m.id) ?? new Map<string, Rollup>();
       return {
@@ -127,6 +135,7 @@ export class QueryService {
         status: this.#statusOf(m, states.get(m.id)?.status, now),
         uptime: uptimeOf([...byDay.values()]),
         bars: days.map((d) => bar(d, byDay.get(d))),
+        software: software.get(m.id) ?? null,
       };
     });
   }
@@ -178,6 +187,7 @@ export class QueryService {
       groups,
       activeIncidents,
       upcomingMaintenance: this.#d.maintenance.upcoming(now),
+      security: await this.#d.security(),
       generatedAt: now,
     };
   }
@@ -185,9 +195,10 @@ export class QueryService {
   async detail(id: string, daysCount: number, now = Date.now()): Promise<ServiceDetail> {
     const m = this.#d.monitors.require(id);
     const days = lastDays(daysCount, now, this.#d.site().timezone);
-    const [rollups, states, checks] = await Promise.all([
+    const [rollups, states, software, checks] = await Promise.all([
       this.#rollups([id], days),
       this.#states([id]),
+      this.#d.software(),
       this.#d.db.kysely
         .selectFrom('check_results')
         .selectAll()
@@ -217,6 +228,7 @@ export class QueryService {
       lastCheckedAt: state?.last_checked_at ?? null,
       uptime: uptimeOf(rows),
       bars,
+      software: software.get(id) ?? null,
       days: daysCount,
       kpis: {
         uptime: uptimeOf(rows),

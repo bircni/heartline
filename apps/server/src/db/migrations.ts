@@ -139,6 +139,92 @@ const migrations: Record<string, Migration> = {
         .execute();
     },
   },
+  '0002_software': {
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('monitor_software')
+        .addColumn('monitor_id', 'text', (c) => c.primaryKey())
+        .addColumn('product', 'text', (c) => c.notNull())
+        .addColumn('version', 'text')
+        .addColumn('version_source', 'text')
+        .addColumn('version_seen_at', ts)
+        .addColumn('version_changed_at', ts)
+        .addColumn('previous_version', 'text')
+        .addColumn('probe_error', 'text')
+        .addColumn('next_probe_at', ts, (c) => c.notNull().defaultTo(0))
+        .addColumn('latest', 'text')
+        .addColumn('latest_in_cycle', 'text')
+        .addColumn('cycle', 'text')
+        .addColumn('cycle_eol', 'text')
+        .addColumn('eol_fetched_at', ts)
+        .addColumn('intel_refreshed_at', ts)
+        .addColumn('intel_error', 'text')
+        .addColumn('urgency_level', 'text', (c) => c.notNull().defaultTo('unknown'))
+        .addColumn('urgency_score', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('urgency_reasons', 'text', (c) => c.notNull().defaultTo('[]'))
+        .addColumn('notified_level', 'text', (c) => c.notNull().defaultTo('none'))
+        .addColumn('evaluated', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('updated_at', ts, (c) => c.notNull())
+        .execute();
+      await db.schema
+        .createIndex('monitor_software_next_probe')
+        .on('monitor_software')
+        .column('next_probe_at')
+        .execute();
+
+      await db.schema
+        .createTable('monitor_software_history')
+        .addColumn('monitor_id', 'text', (c) => c.notNull())
+        .addColumn('version', 'text', (c) => c.notNull())
+        .addColumn('seen_at', ts, (c) => c.notNull())
+        .addPrimaryKeyConstraint('monitor_software_history_pk', ['monitor_id', 'seen_at'])
+        .execute();
+
+      await db.schema
+        .createTable('vulnerabilities')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('aliases', 'text', (c) => c.notNull().defaultTo('[]'))
+        .addColumn('summary', 'text')
+        .addColumn('score', 'real')
+        .addColumn('vector', 'text')
+        .addColumn('severity', 'text', (c) => c.notNull().defaultTo('unknown'))
+        .addColumn('kev', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('published_at', ts)
+        .addColumn('modified_at', ts)
+        .addColumn('references_json', 'text', (c) => c.notNull().defaultTo('[]'))
+        .addColumn('sources', 'text', (c) => c.notNull().defaultTo('[]'))
+        .addColumn('fetched_at', ts, (c) => c.notNull())
+        .execute();
+      await db.schema.createIndex('vulnerabilities_kev').on('vulnerabilities').column('kev').execute();
+
+      await db.schema
+        .createTable('monitor_vulnerabilities')
+        .addColumn('monitor_id', 'text', (c) => c.notNull())
+        .addColumn('vuln_id', 'text', (c) => c.notNull())
+        .addColumn('fixed_in', 'text')
+        .addColumn('introduced', 'text')
+        .addColumn('first_seen_at', ts, (c) => c.notNull())
+        .addColumn('notified_at', ts)
+        .addPrimaryKeyConstraint('monitor_vulnerabilities_pk', ['monitor_id', 'vuln_id'])
+        .execute();
+      await db.schema
+        .createIndex('monitor_vulnerabilities_vuln')
+        .on('monitor_vulnerabilities')
+        .column('vuln_id')
+        .execute();
+
+      await db.schema
+        .createTable('intel_cache')
+        .addColumn('key', 'text', (c) => c.primaryKey())
+        .addColumn('etag', 'text')
+        .addColumn('body', 'text', (c) => c.notNull())
+        .addColumn('fetched_at', ts, (c) => c.notNull())
+        .addColumn('expires_at', ts, (c) => c.notNull())
+        .addColumn('status', 'text', (c) => c.notNull())
+        .addColumn('error', 'text')
+        .execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

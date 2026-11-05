@@ -10,6 +10,8 @@ async function main() {
   if (!env.isProduction && !process.env.AUTH_SECRET)
     log.warn('AUTH_SECRET is not set; using an insecure development secret');
   const config = await loadConfig(env.configPath);
+  // site.baseUrl in status.yaml wins over BASE_URL (links, OAuth redirects, the MCP resource).
+  if (config.site.baseUrl) env.baseUrl = config.site.baseUrl.replace(/\/$/, '');
   const runtime = await bootstrap({
     env,
     config,

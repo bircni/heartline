@@ -1,16 +1,12 @@
 import type { MonitorSpec } from '@heartline/shared';
-import { Agent, fetch as undiciFetch } from 'undici';
+import { fetch as undiciFetch } from 'undici';
+import { resolveProbe } from '../software/probe.ts';
+import { extractVersion, readPath } from '../software/version.ts';
+import { insecureDispatcher } from '../util/insecure.ts';
+import { USER_AGENT } from '../util/pkg.ts';
 import { type CheckOutcome, down, errorMessage, up, withLatencyThreshold } from './types.ts';
 
 type HttpSpec = Extract<MonitorSpec, { type: 'http' }>;
-
-function readPath(value: unknown, path: string): unknown {
-  return path.split('.').reduce<unknown>((acc, key) => {
-    if (acc === null || acc === undefined) return undefined;
-    if (Array.isArray(acc) && /^\d+$/.test(key)) return acc[Number(key)];
-    return typeof acc === 'object' ? (acc as Record<string, unknown>)[key] : undefined;
-  }, value);
-}
 
 export function evaluateResponse(spec: HttpSpec, status: number, body: string): string | null {
   const expected = spec.expect.status;
@@ -39,18 +35,15 @@ export function evaluateResponse(spec: HttpSpec, status: number, body: string): 
   return null;
 }
 
-let insecureAgent: Agent | undefined;
-const insecure = () => (insecureAgent ??= new Agent({ connect: { rejectUnauthorized: false } }));
-
 export async function checkHttp(spec: HttpSpec, signal: AbortSignal): Promise<CheckOutcome> {
   const started = performance.now();
+  // Version extraction from the check response itself (software.version with json/header/regex, no url).
+  const probe = spec.software ? resolveProbe(spec, undefined) : null;
+  const inline = probe?.mode === 'inline' ? probe.extractor : null;
   try {
     const init: RequestInit = {
       method: spec.method,
-      headers: {
-        'user-agent': 'heartline/0.1 (+https://github.com/bircni/heartline)',
-        ...spec.headers,
-      },
+      headers: { 'user-agent': USER_AGENT, ...spec.headers },
       redirect: spec.followRedirects ? 'follow' : 'manual',
       signal,
     };
@@ -58,16 +51,23 @@ export async function checkHttp(spec: HttpSpec, signal: AbortSignal): Promise<Ch
     const res = spec.ignoreTls
       ? ((await undiciFetch(spec.url, {
           ...(init as object),
-          dispatcher: insecure(),
+          dispatcher: insecureDispatcher(),
         })) as unknown as Response)
       : await fetch(spec.url, init);
-    const needsBody = Boolean(spec.expect.bodyContains || spec.expect.bodyRegex || spec.expect.json);
+    const needsBody = Boolean(
+      spec.expect.bodyContains ||
+      spec.expect.bodyRegex ||
+      spec.expect.json ||
+      (inline && !inline.header && (inline.json !== undefined || inline.regex)),
+    );
     const body = needsBody ? await res.text() : '';
     if (!needsBody) await res.body?.cancel();
     const latency = Math.round(performance.now() - started);
     const failure = evaluateResponse(spec, res.status, body);
     if (failure) return down(failure, latency);
-    return withLatencyThreshold(up(latency, `HTTP ${res.status}`), spec.degradedAfter);
+    const outcome = withLatencyThreshold(up(latency, `HTTP ${res.status}`), spec.degradedAfter);
+    if (inline) outcome.version = extractVersion(inline, { status: res.status, headers: res.headers, body });
+    return outcome;
   } catch (error) {
     return down(errorMessage(error), Math.round(performance.now() - started));
   }

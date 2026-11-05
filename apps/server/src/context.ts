@@ -11,6 +11,7 @@ import type { IncidentService } from './services/incidents.ts';
 import type { MaintenanceService } from './services/maintenance.ts';
 import type { MonitorService } from './services/monitors.ts';
 import type { QueryService } from './services/queries.ts';
+import type { SoftwareService } from './software/service.ts';
 import type { StatusEngine } from './status/engine.ts';
 
 export interface AppContext {
@@ -28,4 +29,5 @@ export interface AppContext {
   engine: StatusEngine;
   scheduler: Scheduler;
   queries: QueryService;
+  software: SoftwareService;
 }

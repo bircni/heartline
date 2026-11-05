@@ -54,6 +54,20 @@ describe('MCP with API tokens', () => {
         'schedule_maintenance',
         'create_monitor',
         'test_plugin',
+        'get_incident',
+        'edit_incident',
+        'delete_incident',
+        'update_maintenance',
+        'delete_maintenance',
+        'list_monitors',
+        'update_monitor',
+        'delete_monitor',
+        'list_plugins',
+        'list_notifiers',
+        'test_notifier',
+        'software_inventory',
+        'get_vulnerabilities',
+        'refresh_software',
       ]),
     );
 
@@ -76,6 +90,35 @@ describe('MCP with API tokens', () => {
 
     const summary = await rpc(token, 'resources/read', { uri: 'status://summary' });
     expect(JSON.parse(summary.body.result.contents[0].text).services).toHaveLength(2);
+
+    const edited = await rpc(token, 'tools/call', {
+      name: 'edit_incident',
+      arguments: { id: created.body.result.structuredContent.id, impact: 'major' },
+    });
+    expect(edited.body.result.structuredContent.impact).toBe('major');
+    const got = await rpc(token, 'tools/call', {
+      name: 'get_incident',
+      arguments: { id: created.body.result.structuredContent.id },
+    });
+    expect(got.body.result.structuredContent.title).toBe('From MCP');
+    const monitors = await rpc(token, 'tools/call', { name: 'list_monitors', arguments: {} });
+    expect(monitors.body.result.structuredContent.monitors).toHaveLength(2);
+
+    const inventory = await rpc(token, 'tools/call', { name: 'software_inventory', arguments: {} });
+    expect(inventory.body.result.content[0].text).toMatch(/0 tracked services/);
+    const noSoftware = await rpc(token, 'tools/call', {
+      name: 'get_vulnerabilities',
+      arguments: { id: 'web' },
+    });
+    expect(noSoftware.body.result.isError).toBe(true);
+    const software = await rpc(token, 'resources/read', { uri: 'status://software' });
+    expect(JSON.parse(software.body.result.contents[0].text)).toEqual([]);
+
+    const notifierDenied = await rpc(token, 'tools/call', {
+      name: 'test_notifier',
+      arguments: { id: 'teams' },
+    });
+    expect(notifierDenied.body.result.isError).toBe(true);
   });
 
   it('challenges unauthenticated requests with protected resource metadata', async () => {

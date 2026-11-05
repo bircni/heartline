@@ -1,8 +1,10 @@
 import type { AdminMonitor, UserDto } from '@heartline/shared';
 import {
   incidentCreateSchema,
+  incidentPatchSchema,
   incidentUpdateCreateSchema,
   maintenanceCreateSchema,
+  maintenanceUpdateSchema,
   monitorSpecSchema,
   roleSchema,
   tokenCreateSchema,
@@ -15,10 +17,12 @@ import { type Vars, principalOf, requireScope } from '../auth/principal.ts';
 import { isRole, maxScopeFor, roleAtLeast, scopeAtLeast } from '../auth/roles.ts';
 import { describeTarget, runCheck } from '../checks/index.ts';
 import type { AppContext } from '../context.ts';
-import { NotFoundError } from '../services/monitors.ts';
+import { NotFoundError, validateMonitorSpec } from '../services/monitors.ts';
+import { listCatalog } from '../software/catalog.ts';
+import { log } from '../util/log.ts';
 import { BadRequestError, ForbiddenError, body } from './errors.ts';
 
-const monitorInputSchema = z.object({ group: z.string().min(1).max(80), spec: monitorSpecSchema });
+export const monitorInputSchema = z.object({ group: z.string().min(1).max(80), spec: monitorSpecSchema });
 const pluginTestSchema = z.object({
   plugin: z.string().min(1),
   args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
@@ -50,27 +54,16 @@ export function adminRoutes(app: AppContext) {
     });
   };
 
-  const validatePluginSpec = (spec: z.output<typeof monitorSpecSchema>) => {
-    if (spec.type !== 'plugin') return;
-    const plugin = app.plugins.get(spec.plugin);
-    if (!plugin) throw new BadRequestError(`plugin "${spec.plugin}" is not installed`);
-    try {
-      app.plugins.resolveArgs(plugin, spec.args);
-    } catch (error) {
-      throw new BadRequestError((error as Error).message);
-    }
-  };
-  const validateNotifiers = (spec: z.output<typeof monitorSpecSchema>) => {
-    const unknown = spec.notify.filter((n) => !app.notifier.has(n));
-    if (unknown.length) throw new BadRequestError(`unknown notifiers: ${unknown.join(', ')}`);
-  };
-
   // Monitors
   r.get('/monitors', read, async (c) => c.json(await adminMonitors()));
+  r.get('/monitors/:id', read, async (c) => {
+    const m = (await adminMonitors()).find((x) => x.id === c.req.param('id'));
+    if (!m) throw new NotFoundError(`service "${c.req.param('id')}" not found`);
+    return c.json(m);
+  });
   r.post('/monitors', admin, async (c) => {
     const input = await body(c, monitorInputSchema);
-    validatePluginSpec(input.spec);
-    validateNotifiers(input.spec);
+    validateMonitorSpec(input.spec, app);
     const m = await app.monitors.create(input.spec, input.group);
     return c.json(
       (await adminMonitors()).find((x) => x.id === m.id),
@@ -79,8 +72,7 @@ export function adminRoutes(app: AppContext) {
   });
   r.put('/monitors/:id', admin, async (c) => {
     const input = await body(c, monitorInputSchema);
-    validatePluginSpec(input.spec);
-    validateNotifiers(input.spec);
+    validateMonitorSpec(input.spec, app);
     await app.monitors.update(c.req.param('id'), input.spec, input.group);
     return c.json((await adminMonitors()).find((x) => x.id === c.req.param('id')));
   });
@@ -98,6 +90,19 @@ export function adminRoutes(app: AppContext) {
     const m = await app.monitors.setPaused(c.req.param('id'), paused);
     await app.engine.setPausedState(m.id, paused);
     return c.json((await adminMonitors()).find((x) => x.id === m.id));
+  });
+  r.post('/monitors/:id/software/refresh', write, async (c) => {
+    const m = app.monitors.require(c.req.param('id'));
+    if (!m.spec.software) throw new BadRequestError('this service has no software block');
+    await app.software.probeNow(m);
+    return c.json(await app.software.refreshMonitor(m.id, true));
+  });
+
+  // Software inventory
+  r.get('/software/catalog', read, (c) => c.json(listCatalog()));
+  r.post('/software/refresh', write, (c) => {
+    void app.software.refreshAll(true).catch((error) => log.warn('software refresh failed', { error }));
+    return c.json({ queued: true }, 202);
   });
 
   // Plugins
@@ -125,6 +130,9 @@ export function adminRoutes(app: AppContext) {
       await app.incidents.addUpdate(c.req.param('id'), await body(c, incidentUpdateCreateSchema), p.name),
     );
   });
+  r.patch('/incidents/:id', write, async (c) =>
+    c.json(await app.incidents.update(c.req.param('id'), await body(c, incidentPatchSchema))),
+  );
   r.delete('/incidents/:id', admin, async (c) => {
     await app.incidents.remove(c.req.param('id'));
     return c.body(null, 204);
@@ -142,6 +150,19 @@ export function adminRoutes(app: AppContext) {
       throw error;
     }
   });
+  r.put('/maintenance/:id', write, async (c) => {
+    try {
+      return c.json(await app.maintenance.update(c.req.param('id'), await body(c, maintenanceUpdateSchema)));
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /rrule|Unknown|Invalid/i.test(error.message) &&
+        !(error instanceof z.ZodError)
+      )
+        throw new BadRequestError(`invalid recurrence: ${error.message}`);
+      throw error;
+    }
+  });
   r.delete('/maintenance/:id', write, async (c) => {
     await app.maintenance.remove(c.req.param('id'));
     return c.body(null, 204);
@@ -154,7 +175,9 @@ export function adminRoutes(app: AppContext) {
   // API tokens: everyone manages their own; admins may list and revoke all.
   r.get('/tokens', read, async (c) => {
     const p = principalOf(c);
-    const all = c.req.query('all') === 'true' && p.scope === 'admin';
+    const all = c.req.query('all') === 'true';
+    if (all && p.scope !== 'admin')
+      throw new ForbiddenError('listing all tokens needs the "admin" permission');
     return c.json(await app.tokens.list(all ? {} : { userId: p.userId }));
   });
   r.post('/tokens', read, async (c) => {

@@ -12,6 +12,10 @@ export interface Env {
   internalUrl: string;
   authSecret: string;
   isProduction: boolean;
+  /** NVD API key for vulnerability lookups (optional, raises the rate limit). */
+  nvdApiKey: string | null;
+  /** HEARTLINE_OFFLINE=1: never contact vulnerability or release data sources. */
+  offline: boolean;
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
@@ -31,5 +35,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
     internalUrl: `http://127.0.0.1:${port}`,
     authSecret: secret ?? 'dev-only-insecure-secret-change-me-0123456789',
     isProduction,
+    nvdApiKey: env.NVD_API_KEY?.trim() || null,
+    offline: ['1', 'true', 'yes'].includes((env.HEARTLINE_OFFLINE ?? '').toLowerCase()),
   };
 }

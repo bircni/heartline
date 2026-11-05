@@ -1,5 +1,5 @@
 import type { Maintenance, ServiceRef } from '@heartline/shared';
-import { maintenanceCreateSchema } from '@heartline/shared';
+import type { maintenanceCreateSchema, maintenanceUpdateSchema } from '@heartline/shared';
 // rrule is CommonJS: Node exposes it only as a default export.
 // oxlint-disable-next-line import/default
 import rrulePkg from 'rrule';
@@ -7,7 +7,7 @@ import type { z } from 'zod';
 import type { Db } from '../db/index.ts';
 import { newId } from '../util/ids.ts';
 import type { MonitorService } from './monitors.ts';
-import { NotFoundError } from './monitors.ts';
+import { ConflictError, NotFoundError } from './monitors.ts';
 
 const { RRule } = rrulePkg;
 
@@ -135,6 +135,40 @@ export class MaintenanceService {
     const w = this.#windows.find((x) => x.id === id);
     if (!w) throw new NotFoundError(`maintenance "${id}" not found`);
     return this.#dto(w, Date.now());
+  }
+
+  async update(id: string, patch: z.output<typeof maintenanceUpdateSchema>): Promise<Maintenance> {
+    const w = this.#windows.find((x) => x.id === id);
+    if (!w) throw new NotFoundError(`maintenance "${id}" not found`);
+    const startsAt = patch.startsAt?.getTime() ?? w.startsAt;
+    const endsAt = patch.endsAt?.getTime() ?? w.endsAt;
+    if (endsAt <= startsAt) throw new ConflictError('endsAt must be after startsAt');
+    const recurrence = patch.recurrence === undefined ? w.recurrence : patch.recurrence;
+    if (recurrence) parseRecurrence(startsAt, recurrence);
+    if (patch.services) for (const s of patch.services) this.#monitors.require(s);
+    await this.#db.kysely.transaction().execute(async (trx) => {
+      await trx
+        .updateTable('maintenances')
+        .set({
+          title: patch.title ?? w.title,
+          description: patch.description === undefined ? w.description : patch.description,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          recurrence,
+        })
+        .where('id', '=', id)
+        .execute();
+      if (patch.services) {
+        await trx.deleteFrom('maintenance_services').where('maintenance_id', '=', id).execute();
+        for (const s of new Set(patch.services))
+          await trx
+            .insertInto('maintenance_services')
+            .values({ maintenance_id: id, monitor_id: s })
+            .execute();
+      }
+    });
+    await this.reload();
+    return this.get(id);
   }
 
   async remove(id: string): Promise<void> {

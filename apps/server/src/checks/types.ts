@@ -4,6 +4,8 @@ export interface CheckOutcome {
   status: CheckStatus;
   latencyMs: number | null;
   message: string | null;
+  /** Running version read from the response or plugin output; only set when extraction was attempted. */
+  version?: string | null;
 }
 
 export type Checker<S extends MonitorSpec = MonitorSpec> = (

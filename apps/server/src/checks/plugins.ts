@@ -5,6 +5,7 @@ import type { CheckStatus, MonitorSpec, PluginDto } from '@heartline/shared';
 import { duration } from '@heartline/shared';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { cleanVersion } from '../software/version.ts';
 import { log } from '../util/log.ts';
 import { type CheckOutcome, down, errorMessage } from './types.ts';
 
@@ -35,6 +36,8 @@ const resultSchema = z.object({
   status: z.enum(['up', 'degraded', 'down']).optional(),
   latency_ms: z.number().nonnegative().optional(),
   message: z.string().max(2000).optional(),
+  /** Running version of the checked software, e.g. "16.2". */
+  version: z.string().max(100).optional(),
 });
 
 export class PluginRegistry {
@@ -128,6 +131,7 @@ export function interpretPluginOutput(
     code !== null && code in EXIT_STATUS ? (EXIT_STATUS[code] as CheckStatus) : 'down';
   let latency: number | null = elapsed;
   let message: string | null = null;
+  let version: string | undefined;
   const lastLine = stdout.trim().split('\n').at(-1) ?? '';
   if (lastLine.startsWith('{')) {
     try {
@@ -135,6 +139,7 @@ export function interpretPluginOutput(
       if (parsed.status) status = parsed.status;
       if (parsed.latency_ms !== undefined) latency = Math.round(parsed.latency_ms);
       if (parsed.message) message = parsed.message;
+      if (parsed.version) version = cleanVersion(parsed.version) || undefined;
     } catch {
       message = 'plugin printed invalid JSON';
     }
@@ -146,7 +151,9 @@ export function interpretPluginOutput(
       stderr.trim().split('\n').at(-1)?.slice(0, 500) ||
       (code === null ? 'plugin was killed' : `exit code ${code}`);
   }
-  return { status, latencyMs: latency, message };
+  return version === undefined
+    ? { status, latencyMs: latency, message }
+    : { status, latencyMs: latency, message, version };
 }
 
 function runPlugin(

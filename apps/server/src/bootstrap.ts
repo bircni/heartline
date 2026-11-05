@@ -17,6 +17,7 @@ import { IncidentService } from './services/incidents.ts';
 import { MaintenanceService } from './services/maintenance.ts';
 import { MonitorService } from './services/monitors.ts';
 import { QueryService } from './services/queries.ts';
+import { SoftwareService } from './software/service.ts';
 import { StatusEngine } from './status/engine.ts';
 import { log } from './util/log.ts';
 
@@ -51,6 +52,14 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   const incidents = new IncidentService(db, monitors, notifier);
   const engine = new StatusEngine(db, notifier, incidents, maintenance);
   const scheduler = new Scheduler(db, monitors, plugins, engine);
+  const software = new SoftwareService({
+    db,
+    monitors,
+    notifier,
+    isLeader: () => scheduler.isLeader,
+    fetchImpl: opts.fetchImpl,
+  });
+  scheduler.onOutcome = (m, o) => software.observeCheck(m, o);
 
   const site = (): SiteInfo => ({
     title: config.site.title,
@@ -65,6 +74,8 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     maintenance,
     site,
     rawRetentionDays: () => config.retention.rawDays,
+    software: () => software.summaries(),
+    security: () => software.security(),
   });
   const tokens = new TokenService(db);
 
@@ -78,6 +89,21 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
       reminderEveryMs: next.notifications.reminderEvery,
     };
     scheduler.retentionDays = next.retention.rawDays;
+    const nvdApiKey = next.software.nvdApiKey?.trim() || env.nvdApiKey;
+    software.configure({
+      enabled: next.software.enabled,
+      refreshEveryMs: next.software.refreshEvery,
+      kevRefreshEveryMs: next.software.kevRefreshEvery,
+      sources: {
+        osv: next.software.sources.osv,
+        nvd: next.software.sources.nvd === 'auto' ? nvdApiKey !== null : next.software.sources.nvd,
+        endoflife: next.software.sources.endoflife,
+        kev: next.software.sources.kev,
+      },
+      notifySecurity: next.notifications.security,
+      nvdApiKey,
+      offline: env.offline,
+    });
     await plugins.load();
     await maintenance.reload();
     await monitors.reconcile(next);
@@ -104,9 +130,11 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     engine,
     scheduler,
     queries,
+    software,
     applyConfig,
     async start() {
       await scheduler.start();
+      software.start();
       // Maintenance windows can be edited by another replica; refresh the cache regularly.
       maintenanceTimer = setInterval(() => void maintenance.reload().catch(() => {}), 60_000);
       maintenanceTimer.unref();
@@ -137,6 +165,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
       watcher?.close();
       if (reloadTimer) clearTimeout(reloadTimer);
       if (maintenanceTimer) clearInterval(maintenanceTimer);
+      await software.stop();
       await scheduler.stop();
       await db.close();
     },

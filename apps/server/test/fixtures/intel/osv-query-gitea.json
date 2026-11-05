@@ -1,0 +1,51 @@
+{
+  "vulns": [
+    {
+      "id": "GHSA-7q3m-5x2w-9pr4",
+      "aliases": ["CVE-2025-10001"],
+      "summary": "Gitea allows authenticated remote code execution through repository hooks",
+      "details": "Long description…",
+      "published": "2025-08-01T10:00:00Z",
+      "modified": "2025-08-10T10:00:00Z",
+      "severity": [{ "type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" }],
+      "database_specific": { "severity": "CRITICAL" },
+      "affected": [
+        {
+          "package": { "ecosystem": "Go", "name": "github.com/go-gitea/gitea" },
+          "ranges": [{ "type": "SEMVER", "events": [{ "introduced": "0" }, { "fixed": "1.22.3" }] }]
+        }
+      ],
+      "references": [
+        {
+          "type": "ADVISORY",
+          "url": "https://github.com/go-gitea/gitea/security/advisories/GHSA-7q3m-5x2w-9pr4"
+        }
+      ]
+    },
+    {
+      "id": "GO-2025-4242",
+      "aliases": ["GHSA-abcd-efgh-ijkl"],
+      "summary": "Open redirect in login flow",
+      "published": "2025-06-01T10:00:00Z",
+      "modified": "2025-06-02T10:00:00Z",
+      "database_specific": { "severity": "MODERATE" },
+      "affected": [
+        {
+          "package": { "ecosystem": "Go", "name": "github.com/go-gitea/gitea" },
+          "ranges": [{ "type": "SEMVER", "events": [{ "introduced": "1.20.0" }, { "fixed": "1.22.1" }] }]
+        }
+      ],
+      "references": [{ "type": "WEB", "url": "https://pkg.go.dev/vuln/GO-2025-4242" }]
+    },
+    {
+      "id": "GHSA-git-only-0000",
+      "summary": "Only a git range, must not match",
+      "affected": [
+        {
+          "package": { "ecosystem": "Go", "name": "github.com/go-gitea/gitea" },
+          "ranges": [{ "type": "GIT", "events": [{ "introduced": "abc" }, { "fixed": "def" }] }]
+        }
+      ]
+    }
+  ]
+}
