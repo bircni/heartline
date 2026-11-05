@@ -20,7 +20,7 @@ const IMPACT_LABEL: Record<Impact, string> = {
 function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const monitors = useAdminMonitors();
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {monitors.data?.map((m) => {
         const on = value.includes(m.id);
         return (
@@ -29,7 +29,7 @@ function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: str
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== m.id) : [...value, m.id])}
-            className={`h-7 rounded-lg px-2.5 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+            className={`h-7 rounded-[8px] px-3 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
           >
             {m.name}
           </button>
@@ -66,7 +66,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
         create.mutate();
       }}
     >
-      <h2 className="m-0 text-[17px] font-semibold">Declare incident</h2>
+      <h2 className="m-0 text-[16px] font-medium">Declare incident</h2>
       <Field label="Title" htmlFor="i-title">
         <input
           id="i-title"
@@ -96,7 +96,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
           id="i-msg"
           rows={3}
           required
-          className="field h-auto resize-y py-2.5"
+          className="field h-auto resize-y py-2"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="We are investigating reports of…"
@@ -107,7 +107,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
           <Notice tone="bad">{create.error.message}</Notice>
         </div>
       )}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-[13px] text-sec">
           <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify Teams and e-mail
         </span>
@@ -154,24 +154,24 @@ function Detail({
   const open = incident.resolvedAt === null;
   return (
     <div className="p-4">
-      <div className="text-[12px] font-semibold" style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}>
+      <div className="text-[12px] font-medium" style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}>
         {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
         {incident.services.map((s) => s.name).join(', ') || 'no services'}
       </div>
-      <h2 className="m-0 mt-0.5 text-[20px] font-semibold tracking-[-0.015em]">{incident.title}</h2>
+      <h2 className="m-0 mt-0.5 text-[20px] font-medium">{incident.title}</h2>
       <div className="text-[12px] text-sec">
         {dateTime(incident.createdAt)} · {duration(incident.createdAt, incident.resolvedAt)}
         {incident.automatic && ' · automatic'}
       </div>
       {canWrite && (
         <form
-          className="mt-4 rounded-xl bg-fill p-3.5"
+          className="mt-4 rounded-[12px] bg-fill p-4"
           onSubmit={(e) => {
             e.preventDefault();
             post.mutate();
           }}
         >
-          <div className="rounded-[9px] bg-bg p-0.5">
+          <div className="rounded-[8px] bg-bg p-0.5">
             <Segmented
               size="sm"
               label="New status"
@@ -187,13 +187,13 @@ function Detail({
             id="u-msg"
             rows={3}
             required
-            className="mt-2.5 block w-full resize-y rounded-[9px] border-0 bg-surface px-3 py-2.5 text-[14px] text-text outline-none"
+            className="mt-3 block w-full resize-y rounded-[8px] border-0 bg-surface px-3 py-2 text-[14px] text-text"
             placeholder="What changed? This is shown publicly."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
           {post.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{post.error.message}</p>}
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-[13px] text-sec">
               <Switch checked={notify} onChange={setNotify} label="Notify Teams and e-mail" /> Notify Teams
               and e-mail
@@ -206,10 +206,10 @@ function Detail({
       )}
       <ol className="m-0 mt-4 list-none p-0">
         {incident.updates.map((u) => (
-          <li key={u.id} className="flex gap-3 border-t border-hair py-2.5">
+          <li key={u.id} className="flex gap-3 border-t border-hair py-2">
             <span className="w-24 shrink-0 pt-px text-[12px] text-sec">{dateTime(u.createdAt)}</span>
             <span className="min-w-0">
-              <span className="block text-[13px] font-semibold">
+              <span className="block text-[13px] font-medium">
                 {cap(u.status)}
                 {u.author && <span className="font-normal text-sec"> · {u.author}</span>}
               </span>
@@ -226,7 +226,7 @@ function Detail({
             if (window.confirm('Delete this incident permanently?')) remove.mutate();
           }}
         >
-          <Icon name="trash" size={14} /> Delete incident
+          <Icon name="trash" size={16} /> Delete incident
         </button>
       )}
     </div>
@@ -252,14 +252,14 @@ export function IncidentsPage() {
         actions={
           canWrite && (
             <button type="button" className="btn-primary" onClick={() => setSelected('__new')}>
-              <Icon name="plus" size={14} /> Declare incident
+              <Icon name="plus" size={16} /> Declare incident
             </button>
           )
         }
       />
-      <div className="mt-4.5 flex flex-wrap items-start gap-3">
+      <div className="mt-4 flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[1_1_280px]">
-          {incidents.data.length === 0 && <Empty>No incidents yet.</Empty>}
+          {incidents.data.length === 0 && <Empty>No incidents yet</Empty>}
           {incidents.data.map((i, idx) => (
             // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the label is the nested text
             <button
@@ -271,7 +271,7 @@ export function IncidentsPage() {
             >
               <span
                 aria-hidden="true"
-                className="block h-[7px] w-[7px] shrink-0 rounded-full"
+                className="block h-2 w-2 shrink-0 rounded-full"
                 style={{ background: i.resolvedAt ? 'var(--fill-2)' : 'var(--warn)' }}
               />
               <span className="min-w-0 flex-1">
@@ -295,7 +295,7 @@ export function IncidentsPage() {
               canDelete={can(me.data?.role, 'admin')}
             />
           ) : (
-            <Empty>Select an incident.</Empty>
+            <Empty>Select an incident</Empty>
           )}
         </Section>
       </div>

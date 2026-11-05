@@ -20,12 +20,17 @@ export function OverviewPage() {
         actions={<RangeControl />}
       />
 
-      <div className="card mt-4.5 flex items-center gap-3.5 px-5 py-4.5">
-        <StatusDot status={data.status} size={10} halo />
-        <div className="min-w-0">
-          <div className="text-[17px] font-semibold tracking-[-0.01em]">{data.headline}</div>
+      <div className="card mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
+        <span className="ml-1">
+          <StatusDot status={data.status} halo />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[16px] font-medium">{data.headline}</div>
           <div className="text-sec">{data.summary}</div>
         </div>
+        <span className="text-[12px] text-muted max-sm:ml-7 max-sm:w-full">
+          Updated {relative(data.generatedAt)}
+        </span>
       </div>
 
       {data.activeIncidents.map((i) => (
@@ -33,59 +38,58 @@ export function OverviewPage() {
           key={i.id}
           to="/incidents/$id"
           params={{ id: i.id }}
-          className="card mt-3 flex gap-3 px-4 py-3.5 text-text no-underline hover:bg-hover"
+          className="card mt-3 flex gap-3 px-4 py-3 text-text no-underline hover:bg-hover"
         >
           <span
-            className="mt-1.5 block h-2 w-2 shrink-0 rounded-full"
+            className="mt-2 block h-2 w-2 shrink-0 rounded-full"
             style={{ background: i.impact === 'major' ? 'var(--bad)' : 'var(--warn)' }}
           />
           <div className="min-w-0 flex-1">
             <div
-              className="text-[12px] font-semibold capitalize"
+              className="text-[12px] font-medium first-letter:uppercase"
               style={{ color: i.impact === 'major' ? 'var(--bad-text)' : 'var(--warn-text)' }}
             >
               {i.status} · {i.services.map((s) => s.name).join(', ') || 'all services'} ·{' '}
               {relative(i.updates[0]?.createdAt ?? i.createdAt)}
             </div>
-            <div className="text-[15px] font-semibold">{i.title}</div>
+            <div className="text-[14px] font-medium">{i.title}</div>
             <div className="line-clamp-2 text-sec">{i.updates[0]?.message}</div>
           </div>
         </Link>
       ))}
 
-      <section className="mt-3">
+      <section className="mt-4">
         {data.groups.length === 0 && (
           <p className="card m-0 px-5 py-6 text-sec">
             No services yet. Add monitors to status.yaml or in the admin area.
           </p>
         )}
         {data.groups.map((g) => (
-          <div key={g.name} className="mt-5 first:mt-2">
-            <h2 className="m-0 px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-sec">
-              {g.name}
-            </h2>
-            <div className="grid gap-3 xl:grid-cols-2 min-[1800px]:grid-cols-3">
+          <div key={g.name} className="mt-6 first:mt-0">
+            <h2 className="m-0 pb-2 text-[12px] font-normal text-muted">{g.name}</h2>
+            <div className="grid gap-3 xl:grid-cols-2 min-[112.5rem]:grid-cols-3">
               {g.services.map((s) => (
                 <Link
                   key={s.id}
                   to="/services/$id"
                   params={{ id: s.id }}
                   search={{ days }}
-                  className="card block px-4.5 py-3.5 text-text no-underline hover:bg-hover"
+                  className="card block p-4 text-text no-underline transition-colors hover:bg-hover"
                   aria-label={`${s.name}: ${s.status}, ${pct(s.uptime)} uptime. Open details.`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[15px] font-medium">{s.name}</span>
+                    <span className="font-medium">{s.name}</span>
                     <StatusLabel status={s.status} />
                   </div>
-                  <div className="mt-2.5">
+                  <div className="mt-1">
                     <DayBars bars={s.bars} />
                   </div>
-                  <div className="mt-2 flex items-center gap-3 text-[12px] text-sec" aria-hidden="true">
+                  <div
+                    className="mt-2 flex items-center justify-between gap-3 text-[12px] text-muted"
+                    aria-hidden="true"
+                  >
                     <span>{days} days ago</span>
-                    <span className="h-px flex-1 bg-hair" />
-                    <span>{pct(s.uptime)} uptime</span>
-                    <span className="h-px flex-1 bg-hair" />
+                    <span className="font-mono">{pct(s.uptime)} uptime</span>
                     <span>Today</span>
                   </div>
                 </Link>
@@ -94,7 +98,7 @@ export function OverviewPage() {
           </div>
         ))}
       </section>
-      <div className="mt-3 px-1">
+      <div className="mt-3">
         <DayLegend />
       </div>
     </>

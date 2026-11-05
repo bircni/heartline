@@ -13,14 +13,14 @@ export function IncidentPage() {
   const tone = open ? (data.impact === 'major' ? 'var(--bad-text)' : 'var(--warn-text)') : 'var(--sec)';
 
   return (
-    <article className="px-1 pt-2.5">
+    <article>
       <Link
         to="/"
         className="inline-flex items-center gap-1 py-1 text-[13px] text-sec no-underline hover:text-text"
       >
-        <Icon name="arrowLeft" size={14} /> Overview
+        <Icon name="arrowLeft" size={16} /> Overview
       </Link>
-      <div className="mt-3 text-[13px] font-semibold capitalize" style={{ color: tone }}>
+      <div className="mt-3 text-[13px] font-medium first-letter:uppercase" style={{ color: tone }}>
         {data.status} ·{' '}
         {data.impact === 'major'
           ? 'Major outage'
@@ -28,7 +28,7 @@ export function IncidentPage() {
             ? 'Partial outage'
             : 'Degraded performance'}
       </div>
-      <h1 className="m-0 mt-1 text-[28px] font-semibold tracking-[-0.025em]">{data.title}</h1>
+      <h1 className="m-0 mt-1 text-[28px] font-medium">{data.title}</h1>
       <div className="mt-1 flex flex-wrap gap-x-2 text-[13px] text-sec">
         {data.services.map((s, i) => (
           <span key={s.id}>
@@ -50,10 +50,10 @@ export function IncidentPage() {
 
       <ol className="card mt-5 list-none px-5 py-2">
         {data.updates.map((u, i) => (
-          <li key={u.id} className="flex gap-4 border-t border-hair py-3.5 first:border-t-0">
-            <div aria-hidden="true" className="flex w-3 shrink-0 flex-col items-center pt-1.5">
+          <li key={u.id} className="flex gap-4 border-t border-hair py-3 first:border-t-0">
+            <div aria-hidden="true" className="flex w-3 shrink-0 flex-col items-center pt-2">
               <span
-                className="block h-2.5 w-2.5 rounded-full border"
+                className="block h-2 w-2 rounded-full border"
                 style={{
                   background: i === 0 ? tone : 'transparent',
                   borderColor: i === 0 ? tone : 'var(--fill-2)',
@@ -62,8 +62,8 @@ export function IncidentPage() {
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="text-[15px] font-semibold capitalize">{u.status}</span>
-                <span className="text-[12px] text-sec">
+                <span className="text-[14px] font-medium capitalize">{u.status}</span>
+                <span className="font-mono text-[12px] text-muted">
                   {dateTime(u.createdAt)}
                   {u.author && ` · ${u.author}`}
                 </span>
