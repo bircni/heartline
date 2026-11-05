@@ -136,6 +136,8 @@ export interface MonitorSoftwareTable {
   probe_error: string | null;
   next_probe_at: Generated<number>;
   latest: string | null;
+  latest_url: string | null;
+  latest_published_at: number | null;
   latest_in_cycle: string | null;
   cycle: string | null;
   /** `YYYY-MM-DD`, `true`, `false` or null (unknown). */

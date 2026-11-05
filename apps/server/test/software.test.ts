@@ -10,6 +10,7 @@ import { parseKev } from '../src/software/sources/kev.ts';
 import { canonicalId, mergeVulns } from '../src/software/sources/merge.ts';
 import { cveAffects, parseNvdResponse } from '../src/software/sources/nvd.ts';
 import { fixedAfter, matchedRange, parseOsvQuery } from '../src/software/sources/osv.ts';
+import { parseReleases, parseTags, pickLatest } from '../src/software/sources/releases.ts';
 import { URGENCY_RANK, computeUrgency } from '../src/software/urgency.ts';
 import {
   cleanVersion,
@@ -262,6 +263,34 @@ describe('intel parsers', () => {
   });
 });
 
+describe('release pages', () => {
+  it('picks the highest published, non-pre-release tag', () => {
+    const entries = parseReleases(fixture('gitea-releases.json'));
+    expect(entries).toHaveLength(4);
+    expect(pickLatest(entries, false)).toEqual({
+      version: '1.4.2',
+      url: 'https://git.example.com/nicolas/my-app/releases/tag/v1.4.2',
+      publishedAt: Date.parse('2025-10-12T08:00:00Z'),
+    });
+    expect(pickLatest(entries, true)?.version).toBe('1.5.0-rc1');
+    expect(pickLatest([], false)).toBeNull();
+  });
+  it('falls back to tags and ignores non-version names', () => {
+    expect(parseTags(fixture('github-tags.json'))).toEqual(['1.33.2', '1.33.1', 'testing']);
+    const fromTags = pickLatest(
+      parseTags(fixture('github-tags.json')).map((tag) => ({
+        tag,
+        url: null,
+        publishedAt: null,
+        draft: false,
+        prerelease: false,
+      })),
+      true,
+    );
+    expect(fromTags?.version).toBe('1.33.2');
+  });
+});
+
 describe('urgency', () => {
   const now = Date.parse('2025-11-05T00:00:00Z');
   const base = {
@@ -335,6 +364,37 @@ describe('urgency', () => {
     expect(computeUrgency({ ...base, version: '1.25.0' }).reasons).toEqual([
       'ahead of the latest known release (1.24.6)',
     ]);
+  });
+  it('respects a pinned release cycle', () => {
+    const pinned = computeUrgency({
+      ...base,
+      version: '1.23.8',
+      cycle: '1.23',
+      latestInCycle: '1.23.8',
+      cycleEol: 'false',
+      pinnedCycle: '1.23',
+    });
+    expect(pinned.level).toBe('none');
+    expect(pinned.reasons).toEqual(['pinned to release cycle 1.23 (1.24.6 available)']);
+    // Only a release page, no cycles: a latest from another cycle is ignored when pinned.
+    const onlyLatest = computeUrgency({
+      ...base,
+      version: '1.23.8',
+      cycle: null,
+      latestInCycle: null,
+      latest: '2.0.0',
+      cycleEol: null,
+      pinnedCycle: '1.23',
+    });
+    expect(onlyLatest).toMatchObject({ level: 'none', score: 0 });
+    const offPin = computeUrgency({
+      ...base,
+      version: '1.22.6',
+      cycle: '1.22',
+      latestInCycle: '1.22.6',
+      pinnedCycle: '1.24',
+    });
+    expect(offPin.reasons).toContain('running 1.22.6, not in the pinned cycle 1.24');
   });
   it('skips vulnerabilities when tracking is off', () => {
     const u = computeUrgency({

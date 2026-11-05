@@ -62,18 +62,32 @@ export function SoftwarePanel({
         />
         <Stat
           label="Latest release"
-          value={s.latest ?? <span className="text-sec">–</span>}
+          value={
+            s.latest ? (
+              s.latestUrl ? (
+                <a href={s.latestUrl} target="_blank" rel="noreferrer" className="text-text">
+                  {s.latest}
+                </a>
+              ) : (
+                s.latest
+              )
+            ) : (
+              <span className="text-sec">–</span>
+            )
+          }
           hint={
             s.latestInCycle && s.latestInCycle !== s.latest
-              ? `${s.latestInCycle} in cycle ${s.cycle}`
-              : behind
-                ? 'newer than running'
-                : undefined
+              ? `${s.latestInCycle} in cycle ${s.cycle ?? s.pinnedCycle ?? ''}`.trim()
+              : s.latestPublishedAt
+                ? `released ${relative(s.latestPublishedAt)}`
+                : behind
+                  ? 'newer than running'
+                  : undefined
           }
         />
         <Stat
-          label="Release cycle"
-          value={s.cycle ?? <span className="text-sec">–</span>}
+          label={s.pinnedCycle ? 'Release cycle (pinned)' : 'Release cycle'}
+          value={s.cycle ?? s.pinnedCycle ?? <span className="text-sec">–</span>}
           hint={
             s.eolReached ? (
               <span className="text-bad-text">end-of-life{s.eol ? ` since ${shortDate(s.eol)}` : ''}</span>

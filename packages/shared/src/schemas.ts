@@ -50,12 +50,53 @@ export const softwareVersionSchema = z
       ctx.addIssue({ code: 'custom', message: 'static cannot be combined with a probe', path: ['static'] });
   });
 
+const repoSlug = z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'expected owner/repo');
+
+/** Where the latest release of a product is published. */
+export const softwareReleasesSchema = z
+  .object({
+    /** Base URL of a Gitea or Forgejo instance; `repo` names the repository. */
+    gitea: z.url().optional(),
+    repo: repoSlug.optional(),
+    /** GitHub repository as `owner/repo`. */
+    github: repoSlug.optional(),
+    /** Any endpoint returning the latest version: read through `json` or `regex`. */
+    url: z.url().optional(),
+    json: z.string().optional(),
+    regex: z.string().optional(),
+    headers: z.record(z.string(), z.string()).default({}),
+    /** Count pre-releases as releases. */
+    prerelease: z.boolean().default(false),
+  })
+  .superRefine((r, ctx) => {
+    const kinds = [r.gitea, r.github, r.url].filter((x) => x !== undefined).length;
+    if (kinds !== 1) ctx.addIssue({ code: 'custom', message: 'set exactly one of gitea, github or url' });
+    if (r.gitea && !r.repo)
+      ctx.addIssue({ code: 'custom', message: 'gitea needs repo (owner/name)', path: ['repo'] });
+    if (r.url && r.json === undefined && !r.regex)
+      ctx.addIssue({ code: 'custom', message: 'url needs json or regex', path: ['url'] });
+    if (r.regex !== undefined) {
+      try {
+        RegExp(r.regex);
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'invalid regular expression', path: ['regex'] });
+      }
+    }
+  });
+
 export const softwareSchema = z.object({
   /** Catalog slug (also the endoflife.date product), e.g. `gitea`. Unknown slugs are allowed. */
   product: z.string().regex(/^[a-z0-9][a-z0-9.-]{0,62}$/, 'lowercase slug'),
   /** Display name for products that are not in the catalog. */
   name: z.string().min(1).max(80).optional(),
   version: softwareVersionSchema.optional(),
+  /** Latest-release source; overrides endoflife.date and the catalog. */
+  releases: softwareReleasesSchema.optional(),
+  /** Stay on this release cycle (e.g. `1.24`): newer cycles do not count as updates. */
+  pinCycle: z
+    .string()
+    .regex(/^\d+(\.\d+)*$/, 'e.g. 1.24')
+    .optional(),
   /** `cpe:2.3:a:vendor:product` prefix for NVD lookups; overrides the catalog. */
   cpe: z
     .string()

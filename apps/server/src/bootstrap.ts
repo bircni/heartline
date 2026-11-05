@@ -99,9 +99,11 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
         nvd: next.software.sources.nvd === 'auto' ? nvdApiKey !== null : next.software.sources.nvd,
         endoflife: next.software.sources.endoflife,
         kev: next.software.sources.kev,
+        releases: next.software.sources.releases,
       },
       notifySecurity: next.notifications.security,
       nvdApiKey,
+      githubToken: next.software.githubToken?.trim() || env.githubToken,
       offline: env.offline,
     });
     await plugins.load();

@@ -1,5 +1,5 @@
 import type { UrgencyLevel } from '@heartline/shared';
-import { compareVersions, patchesBehind } from './version.ts';
+import { compareVersions, patchesBehind, sameCycle } from './version.ts';
 
 export interface UrgencyVuln {
   id: string;
@@ -15,6 +15,8 @@ export interface UrgencyInput {
   cycle: string | null;
   /** `YYYY-MM-DD`, `true`, `false` or null (unknown). */
   cycleEol: string | null;
+  /** Release cycle the operator stays on; newer cycles are not counted as updates. */
+  pinnedCycle?: string | null;
   vulns: UrgencyVuln[];
   track: boolean;
   /** At least one vulnerability source answered (or served a cached copy). */
@@ -106,7 +108,11 @@ export function computeUrgency(i: UrgencyInput): Urgency {
     }
   }
 
-  const target = i.latestInCycle ?? i.latest;
+  const pinned = i.pinnedCycle ? sameCycle(i.version, i.pinnedCycle) : false;
+  // When pinned, only releases inside the pinned cycle count; a `latest` from another cycle is ignored.
+  const target =
+    i.latestInCycle ??
+    (pinned || (i.pinnedCycle && i.latest && !sameCycle(i.latest, i.pinnedCycle)) ? null : i.latest);
   if (target) {
     const cmp = compareVersions(i.version, target);
     if (cmp < 0) {
@@ -123,9 +129,14 @@ export function computeUrgency(i: UrgencyInput): Urgency {
     }
   }
   if (i.latest && i.latestInCycle && compareVersions(i.latest, i.latestInCycle) > 0) {
-    score += 10;
-    reasons.push(`newer release cycle available (${i.latest})`);
+    if (i.pinnedCycle) reasons.push(`pinned to release cycle ${i.pinnedCycle} (${i.latest} available)`);
+    else {
+      score += 10;
+      reasons.push(`newer release cycle available (${i.latest})`);
+    }
   }
+  if (i.pinnedCycle && !pinned)
+    reasons.push(`running ${i.version}, not in the pinned cycle ${i.pinnedCycle}`);
 
   score = Math.max(0, Math.min(100, Math.round(score)));
   let level = atLeast(levelOf(score), floor);

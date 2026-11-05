@@ -131,6 +131,7 @@ is received_. Use that URL as `webhookUrl`.
 | `WEB_DIST`                | `../web/dist`; empty disables serving the UI                                     |
 | `LOG_LEVEL`, `LOG_FORMAT` | `info`, text (`json` in the container)                                           |
 | `NVD_API_KEY`             | unset; raises the NVD rate limit for vulnerability lookups                       |
+| `GITHUB_TOKEN`            | unset; raises the GitHub rate limit for release lookups                          |
 | `HEARTLINE_OFFLINE`       | unset; `1` never contacts the vulnerability and release data sources             |
 
 `AUTH_SECRET` may also be given as `BETTER_AUTH_SECRET`; `site.baseUrl` in the config wins over `BASE_URL`.
@@ -185,12 +186,35 @@ Prometheus, Immich, Vaultwarden, Home Assistant, Jellyfin, Traefik, Keycloak, Mi
 Proxmox VE, Pi-hole, Paperless-ngx, Synapse, Mastodon, Gotify, Miniflux, authentik, Sonarr, Radarr,
 Kubernetes, Docker, nginx, Caddy, Uptime Kuma, PostgreSQL, MariaDB, Redis, Valkey, Node.js, heartline.
 
+**Where the latest release comes from**: endoflife.date for catalog products, the product's GitHub
+releases when endoflife.date has no entry, or a `releases` block of your own, which always wins. That
+is how self-built software gets a "latest" to compare against, for example from your Gitea instance:
+
+```yaml
+- id: my-app
+  type: http
+  url: https://app.example.com/healthz
+  software:
+    product: my-app
+    version: { url: https://app.example.com/version, json: version }
+    releases: { gitea: https://git.example.com, repo: nicolas/my-app } # or github: owner/repo
+    # releases: { url: https://app.example.com/latest.json, json: tag_name }   # or regex: 'v(\d+\.\d+\.\d+)'
+    # releases: { ..., headers: { Authorization: 'token ${GITEA_TOKEN}' }, prerelease: true }
+    pinCycle: '1.4' # optional: stay on this cycle, newer cycles are not counted as updates
+```
+
+Gitea, Forgejo and GitHub are read through their releases API (drafts and, unless `prerelease: true`,
+pre-releases are skipped; tags are the fallback). The release page is linked from the status page,
+the admin area and the notifications. Software without an advisory source (private code) is scored
+by releases behind and end-of-life only and says so in its reasons.
+
 **Data sources** (all free, all optional, all cached in the database and refreshed every
 `software.refreshEvery`, default 6h): [OSV.dev](https://osv.dev) for advisories by package and version,
 [NVD](https://nvd.nist.gov) by CPE (enabled automatically when `NVD_API_KEY` is set, or `sources.nvd: true`),
 [endoflife.date](https://endoflife.date) for the latest release, the running release cycle and its end
-of life, and [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) for vulnerabilities
-that are exploited in the wild. A source that is down leaves the last known data in place; a service
+of life, [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) for vulnerabilities
+that are exploited in the wild, and release pages (Gitea/Forgejo, GitHub with an optional
+`GITHUB_TOKEN`, or any URL) for the latest version. A source that is down leaves the last known data in place; a service
 with no data shows `unknown`. `HEARTLINE_OFFLINE=1` disables all lookups.
 
 **Urgency** is a score from 0 to 100 and a level: vulnerabilities add points by CVSS (9+ → 40,

@@ -87,8 +87,10 @@ test('software inventory shows the probed version and degrades without data sour
   await expect(page.getByRole('status').getByText('Refreshed.')).toBeVisible();
   // The catalog probe reads /api/v1/version of the server itself.
   await expect(row.getByText(/^\d+\.\d+\.\d+/)).toBeVisible();
-  // No data sources are reachable in e2e: urgency stays unknown, nothing crashes.
-  await expect(row.getByText('Unknown')).toBeVisible();
+  // No data sources are reachable in e2e and heartline has no advisory source: nothing crashes and the
+  // service is scored by what is known (nothing), with the missing source named in the reasons.
+  await expect(row.getByText('Up to date')).toBeVisible();
+  await expect(page.getByText('no vulnerability source known for heartline')).toBeVisible();
 
   await page.goto('/services/self-http');
   await expect(page.getByRole('heading', { name: /^Software/ })).toBeVisible();

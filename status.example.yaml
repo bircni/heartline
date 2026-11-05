@@ -50,6 +50,18 @@ groups:
         # The check response already contains the version: read it inline instead of probing separately.
         software: { product: grafana, version: { json: version } }
 
+      - id: my-app
+        name: My app
+        type: http
+        url: https://app.example.com/healthz
+        interval: 60s
+        # Self-built software: version from its own endpoint, latest release from your Gitea instance.
+        software:
+          product: my-app
+          version: { url: https://app.example.com/version, json: version }
+          releases: { gitea: https://git.example.com, repo: nicolas/my-app }
+          # pinCycle: '1.4'   # stay on a release cycle; newer cycles are not counted as updates
+
   - name: Infrastructure
     monitors:
       - id: dns
@@ -99,7 +111,7 @@ notifications:
 # Vulnerability and release data (all sources are free; NVD is faster with NVD_API_KEY).
 software:
   refreshEvery: 6h
-  sources: { osv: true, nvd: auto, endoflife: true, kev: true }
+  sources: { osv: true, nvd: auto, endoflife: true, kev: true, releases: true }
 
 auth:
   local: true

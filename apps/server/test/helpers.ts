@@ -72,6 +72,7 @@ export async function harness(configYaml = BASE_CONFIG, opts: HarnessOptions = {
     isProduction: false,
     nvdApiKey: null,
     offline: false,
+    githubToken: null,
     ...opts.env,
   };
   const sent: Harness['sent'] = [];

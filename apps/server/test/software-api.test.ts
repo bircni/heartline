@@ -16,6 +16,11 @@ const fixture = (name: string) =>
 function intelFetch(state: { fail: boolean; calls: string[] }) {
   return async (url: string | URL | Request): Promise<Response | undefined> => {
     const u = new URL(String(url));
+    if (u.hostname === 'api.github.com') {
+      state.calls.push(u.hostname + u.pathname);
+      if (u.pathname.endsWith('/releases')) return new Response('[]', { status: 200 });
+      return new Response(fixture('github-tags.json'), { status: 200 });
+    }
     if (!['api.osv.dev', 'services.nvd.nist.gov', 'endoflife.date', 'www.cisa.gov'].includes(u.hostname))
       return undefined;
     state.calls.push(u.hostname + u.pathname);
@@ -276,6 +281,85 @@ describe('version extraction in checks', () => {
     expect(d).toMatchObject({ version: '1.24.3', versionSource: 'probe' });
     expect(d.urgency).toBe('low');
     expect(d.reasons).toEqual(['3 patch releases behind (1.24.3 → 1.24.6)']);
+  });
+
+  it('reads the latest release from a Gitea instance and from GitHub tags', async () => {
+    const cookie = await h.login();
+    const gitea = createServer((req, res) => {
+      res.setHeader('content-type', 'application/json');
+      if (req.url?.startsWith('/api/v1/repos/nicolas/my-app/releases'))
+        return res.end(fixture('gitea-releases.json'));
+      if (req.url === '/version') return res.end('{"version":"1.4.0"}');
+      res.statusCode = 404;
+      res.end('{}');
+    }).listen(0, '127.0.0.1');
+    await once(gitea, 'listening');
+    const giteaBase = `http://127.0.0.1:${(gitea.address() as AddressInfo).port}`;
+    try {
+      const res = await h.request('/api/v1/admin/monitors', {
+        method: 'POST',
+        cookie,
+        json: {
+          group: 'Code',
+          spec: {
+            id: 'my-app',
+            name: 'My app',
+            type: 'http',
+            url: `${giteaBase}/version`,
+            software: {
+              product: 'my-app',
+              version: { json: 'version' },
+              releases: { gitea: giteaBase, repo: 'nicolas/my-app' },
+            },
+          },
+        },
+      });
+      expect(res.status).toBe(201);
+      await h.runtime.scheduler.runNow(h.runtime.monitors.require('my-app'));
+      const d = (await (
+        await h.request('/api/v1/services/my-app/software', { cookie })
+      ).json()) as SoftwareDetail;
+      expect(d).toMatchObject({
+        version: '1.4.0',
+        latest: '1.4.2',
+        latestInCycle: '1.4.2',
+        latestUrl: 'https://git.example.com/nicolas/my-app/releases/tag/v1.4.2',
+        urgency: 'low',
+      });
+      expect(d.reasons).toEqual([
+        '2 patch releases behind (1.4.0 → 1.4.2)',
+        'no vulnerability source known for my-app',
+      ]);
+      expect(d.intelError).toMatch(/no vulnerability source/);
+
+      // A catalog product without an endoflife.date entry uses its GitHub repository (tags here).
+      const vw = await h.request('/api/v1/admin/monitors', {
+        method: 'POST',
+        cookie,
+        json: {
+          group: 'Code',
+          spec: {
+            id: 'vw',
+            name: 'Vaultwarden',
+            type: 'http',
+            url: `${giteaBase}/`,
+            software: { product: 'vaultwarden', version: { static: '1.33.1' } },
+          },
+        },
+      });
+      expect(vw.status).toBe(201);
+      await h.runtime.software.probeNow(h.runtime.monitors.require('vw'));
+      const v = (await (
+        await h.request('/api/v1/services/vw/software', { cookie })
+      ).json()) as SoftwareDetail;
+      expect(v).toMatchObject({
+        latest: '1.33.2',
+        latestUrl: 'https://github.com/dani-garcia/vaultwarden/releases/tag/1.33.2',
+      });
+      expect(state.calls).toContain('api.github.com/repos/dani-garcia/vaultwarden/tags');
+    } finally {
+      gitea.close();
+    }
   });
 
   it('accepts a version from plugin output', () => {

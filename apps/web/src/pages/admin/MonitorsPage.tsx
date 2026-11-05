@@ -1,4 +1,4 @@
-import type { AdminMonitor, MonitorKind, MonitorSpecInput } from '@heartline/shared';
+import type { AdminMonitor, CatalogEntryDto, MonitorKind, MonitorSpecInput } from '@heartline/shared';
 import { MONITOR_KINDS, formatDuration } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -50,6 +50,126 @@ function versionMode(v: Record<string, unknown> | undefined): VersionMode {
   if (v.header !== undefined) return 'header';
   if (v.regex !== undefined) return 'regex';
   return 'auto';
+}
+
+type ReleaseMode = 'auto' | 'gitea' | 'github' | 'url';
+
+function ReleasesFields({
+  sw,
+  setSw,
+  locked,
+  entry,
+}: {
+  sw: Record<string, unknown> | undefined;
+  setSw: (patch: Record<string, unknown> | undefined) => void;
+  locked: boolean;
+  entry: CatalogEntryDto | undefined;
+}) {
+  const rel = (sw?.releases as Record<string, unknown> | undefined) ?? undefined;
+  const mode: ReleaseMode =
+    rel?.gitea !== undefined
+      ? 'gitea'
+      : rel?.github !== undefined
+        ? 'github'
+        : rel?.url !== undefined
+          ? 'url'
+          : 'auto';
+  const setRel = (patch: Record<string, unknown> | undefined) => setSw({ ...sw, releases: patch });
+  const autoLabel = entry?.endoflife ? 'endoflife.date' : entry?.github ? 'GitHub (catalog)' : 'None';
+  return (
+    <>
+      <div className="mt-3">
+        <div className="label">Latest release from</div>
+        <Segmented
+          size="sm"
+          label="Latest release from"
+          value={mode}
+          onChange={(m) =>
+            setRel(
+              m === 'auto'
+                ? undefined
+                : m === 'gitea'
+                  ? { gitea: '', repo: '' }
+                  : m === 'github'
+                    ? { github: '' }
+                    : { url: '', json: '' },
+            )
+          }
+          options={[
+            { value: 'auto', label: autoLabel },
+            { value: 'gitea', label: 'Gitea / Forgejo' },
+            { value: 'github', label: 'GitHub' },
+            { value: 'url', label: 'URL' },
+          ]}
+        />
+      </div>
+      {mode === 'gitea' && (
+        <div className="grid grid-cols-2 gap-x-3">
+          <TextField
+            id="m-rel-gitea"
+            label="Instance URL"
+            value={rel?.gitea}
+            onChange={(v) => setRel({ ...rel, gitea: v })}
+            disabled={locked}
+            placeholder="https://git.example.com"
+          />
+          <TextField
+            id="m-rel-repo"
+            label="Repository"
+            value={rel?.repo}
+            onChange={(v) => setRel({ ...rel, repo: v })}
+            disabled={locked}
+            placeholder="owner/name"
+          />
+        </div>
+      )}
+      {mode === 'github' && (
+        <TextField
+          id="m-rel-github"
+          label="GitHub repository"
+          value={rel?.github}
+          onChange={(v) => setRel({ ...rel, github: v })}
+          disabled={locked}
+          placeholder="owner/name"
+        />
+      )}
+      {mode === 'url' && (
+        <div className="grid grid-cols-2 gap-x-3">
+          <TextField
+            id="m-rel-url"
+            label="URL"
+            value={rel?.url}
+            onChange={(v) => setRel({ ...rel, url: v })}
+            disabled={locked}
+            placeholder="https://…/latest.json"
+          />
+          <TextField
+            id="m-rel-json"
+            label="JSON path or regex"
+            value={rel?.regex !== undefined ? `/${rel.regex}/` : rel?.json}
+            onChange={(v) => {
+              const m = /^\/(.+)\/$/.exec(v);
+              const { json: _j, regex: _r, ...rest } = rel ?? {};
+              setRel(m ? { ...rest, regex: m[1] } : { ...rest, json: v });
+            }}
+            disabled={locked}
+            placeholder="tag_name  or  /v(\\d+\\.\\d+\\.\\d+)/"
+          />
+        </div>
+      )}
+      {mode !== 'auto' && (
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[13px]">Count pre-releases</span>
+          <Switch
+            label="Count pre-releases"
+            checked={rel?.prerelease === true}
+            disabled={locked}
+            onChange={(on) => setRel({ ...rel, prerelease: on ? true : undefined })}
+          />
+        </div>
+      )}
+    </>
+  );
 }
 
 function SoftwareFields({
@@ -193,6 +313,16 @@ function SoftwareFields({
               )}
             </>
           )}
+          <ReleasesFields sw={sw} setSw={setSw} locked={locked} entry={entry} />
+          <TextField
+            id="m-pin-cycle"
+            label="Stay on release cycle (optional)"
+            value={sw?.pinCycle}
+            onChange={(v) => setSw({ ...sw, pinCycle: v || undefined })}
+            disabled={locked}
+            placeholder="e.g. 1.24"
+            hint="Newer cycles are then not counted as updates."
+          />
           <div className="mt-3 flex items-center justify-between">
             <span className="text-[13px]">Look up vulnerabilities</span>
             <Switch

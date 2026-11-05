@@ -15,8 +15,13 @@ export interface SoftwareSummary {
   productName: string;
   version: string | null;
   latest: string | null;
+  /** Link to the latest release (release page or changelog), when the source provides one. */
+  latestUrl: string | null;
+  latestPublishedAt: number | null;
   latestInCycle: string | null;
   cycle: string | null;
+  /** Release cycle the operator chose to stay on (`software.pinCycle`). */
+  pinnedCycle: string | null;
   /** End-of-life date (`YYYY-MM-DD`) of the running release cycle, when known. */
   eol: string | null;
   eolReached: boolean;
@@ -80,6 +85,8 @@ export interface CatalogEntryDto {
     auth: 'none' | 'bearer' | 'api-key';
     note?: string;
   } | null;
+  /** GitHub repository used for the latest release when endoflife.date has no entry. */
+  github: string | null;
   releasesUrl: string | null;
 }
 

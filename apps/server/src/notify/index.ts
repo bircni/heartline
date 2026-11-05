@@ -28,6 +28,9 @@ export type NotificationEvent =
       product: string;
       version: string | null;
       previousVersion: string | null;
+      latest: string | null;
+      /** Release page of the latest version, when known. */
+      latestUrl: string | null;
       urgency: { level: UrgencyLevel; score: number; reasons: string[] };
       newVulns: { id: string; score: number | null; kev: boolean; fixedIn: string | null }[];
       trigger: 'new-vulns' | 'urgency' | 'version-change';
@@ -98,11 +101,13 @@ export function render(event: NotificationEvent, baseUrl: string, siteTitle: str
       ['Version', event.version ?? 'unknown'],
       ['Urgency', `${urgency.level} (${urgency.score}/100)`],
     ];
+    if (event.latest && event.latest !== event.version) facts.push(['Latest', event.latest]);
     const fix = event.newVulns.map((v) => v.fixedIn).find((f) => f);
     if (fix) facts.push(['Fixed in', fix]);
+    if (event.latestUrl) facts.push(['Release notes', event.latestUrl]);
     return {
       title,
-      text,
+      text: event.latestUrl ? `${text}\n${event.latestUrl}` : text,
       facts,
       tone:
         urgency.level === 'critical' || urgency.level === 'high'

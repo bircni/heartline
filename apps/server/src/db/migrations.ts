@@ -225,6 +225,12 @@ const migrations: Record<string, Migration> = {
         .execute();
     },
   },
+  '0003_software_releases': {
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('monitor_software').addColumn('latest_url', 'text').execute();
+      await db.schema.alterTable('monitor_software').addColumn('latest_published_at', ts).execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

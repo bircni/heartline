@@ -78,16 +78,20 @@ export const configSchema = z
             nvd: z.union([z.boolean(), z.literal('auto')]).default('auto'),
             endoflife: z.boolean().default(true),
             kev: z.boolean().default(true),
+            /** Release pages (Gitea/Forgejo, GitHub, custom URLs) for the latest version. */
+            releases: z.boolean().default(true),
           })
-          .default({ osv: true, nvd: 'auto', endoflife: true, kev: true }),
+          .default({ osv: true, nvd: 'auto', endoflife: true, kev: true, releases: true }),
         /** Overrides the NVD_API_KEY environment variable. */
         nvdApiKey: z.string().optional(),
+        /** Overrides the GITHUB_TOKEN environment variable (release lookups). */
+        githubToken: z.string().optional(),
       })
       .default({
         enabled: true,
         refreshEvery: 6 * 3_600_000,
         kevRefreshEvery: 24 * 3_600_000,
-        sources: { osv: true, nvd: 'auto', endoflife: true, kev: true },
+        sources: { osv: true, nvd: 'auto', endoflife: true, kev: true, releases: true },
       }),
     groups: z.array(groupSchema).default([]),
     notifiers: z.array(notifierSchema).default([]),

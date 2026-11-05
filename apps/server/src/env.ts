@@ -16,6 +16,8 @@ export interface Env {
   nvdApiKey: string | null;
   /** HEARTLINE_OFFLINE=1: never contact vulnerability or release data sources. */
   offline: boolean;
+  /** GitHub token for release lookups (optional, raises the API rate limit). */
+  githubToken: string | null;
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
@@ -37,5 +39,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
     isProduction,
     nvdApiKey: env.NVD_API_KEY?.trim() || null,
     offline: ['1', 'true', 'yes'].includes((env.HEARTLINE_OFFLINE ?? '').toLowerCase()),
+    githubToken: env.GITHUB_TOKEN?.trim() || null,
   };
 }

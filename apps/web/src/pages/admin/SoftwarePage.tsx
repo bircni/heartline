@@ -245,13 +245,30 @@ export function SoftwarePage() {
                   {s.version ?? <span className="text-sec">–</span>}
                 </span>
                 <span className="w-28 font-mono text-[12px]">
-                  {s.latest ?? <span className="text-sec">–</span>}
+                  {s.latest ? (
+                    s.latestUrl ? (
+                      <a
+                        href={s.latestUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-text"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {s.latest}
+                      </a>
+                    ) : (
+                      s.latest
+                    )
+                  ) : (
+                    <span className="text-sec">–</span>
+                  )}
                   {s.latestInCycle && s.latestInCycle !== s.latest && (
                     <span className="block text-[11px] text-sec">{s.latestInCycle} in cycle</span>
                   )}
                 </span>
                 <span className="w-32 text-[12px]">
-                  {s.cycle ?? <span className="text-sec">–</span>}
+                  {s.cycle ?? s.pinnedCycle ?? <span className="text-sec">–</span>}
+                  {s.pinnedCycle && <span className="block text-[11px] text-sec">pinned</span>}
                   {s.eolReached ? (
                     <span className="block text-[11px] text-bad-text">end-of-life</span>
                   ) : s.eol ? (

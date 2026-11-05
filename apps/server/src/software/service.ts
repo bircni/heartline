@@ -24,15 +24,21 @@ import { KevClient } from './sources/kev.ts';
 import { type MatchedVuln, mergeVulns } from './sources/merge.ts';
 import { NvdClient, cveAffects } from './sources/nvd.ts';
 import { OsvClient, fixedAfter, matchedRange } from './sources/osv.ts';
+import { type LatestRelease, type ReleaseSpec, ReleasesClient } from './sources/releases.ts';
 import { URGENCY_RANK, computeUrgency } from './urgency.ts';
+import { parseVersion, sameCycle } from './version.ts';
+
+/** `1.24.3` → `1.24` (the first two numeric parts). */
+const cycleOf = (version: string): string => parseVersion(version).parts.slice(0, 2).join('.');
 
 export interface SoftwareSettings {
   enabled: boolean;
   refreshEveryMs: number;
   kevRefreshEveryMs: number;
-  sources: { osv: boolean; nvd: boolean; endoflife: boolean; kev: boolean };
+  sources: { osv: boolean; nvd: boolean; endoflife: boolean; kev: boolean; releases: boolean };
   notifySecurity: boolean;
   nvdApiKey: string | null;
+  githubToken: string | null;
   /** Never contact external sources. */
   offline: boolean;
 }
@@ -57,6 +63,9 @@ interface Product {
   cpe: string | null;
   osv: { ecosystem: string; name: string } | null;
   releasesUrl: string | null;
+  /** Explicit release source from the config, or the catalog's GitHub repository. */
+  releases: ReleaseSpec | null;
+  pinCycle: string | null;
   track: boolean;
 }
 
@@ -89,6 +98,7 @@ export class SoftwareService {
     nvd: new RateGate(6_000),
     eol: new RateGate(200),
     kev: new RateGate(1_000),
+    releases: new RateGate(500),
   };
   #timer: NodeJS.Timeout | null = null;
   #inFlight = new Set<Promise<unknown>>();
@@ -99,9 +109,10 @@ export class SoftwareService {
     enabled: true,
     refreshEveryMs: 6 * 3_600_000,
     kevRefreshEveryMs: 24 * 3_600_000,
-    sources: { osv: true, nvd: false, endoflife: true, kev: true },
+    sources: { osv: true, nvd: false, endoflife: true, kev: true, releases: true },
     notifySecurity: true,
     nvdApiKey: null,
+    githubToken: null,
     offline: false,
   };
 
@@ -157,6 +168,8 @@ export class SoftwareService {
       cpe: sw.cpe ? sw.cpe.replace(/^cpe:2\.3:[aho]:/, '') : (entry?.cpe ?? null),
       osv: sw.osv ?? entry?.osv ?? null,
       releasesUrl: entry?.releasesUrl ?? null,
+      releases: sw.releases ?? (entry?.github ? { github: entry.github } : null),
+      pinCycle: sw.pinCycle ?? null,
       track: sw.track,
     };
   }
@@ -191,6 +204,8 @@ export class SoftwareService {
           .set({
             product,
             latest: null,
+            latest_url: null,
+            latest_published_at: null,
             latest_in_cycle: null,
             cycle: null,
             cycle_eol: null,
@@ -361,6 +376,8 @@ export class SoftwareService {
             product: this.#product(monitor)?.name ?? monitor.spec.software.product,
             version,
             previousVersion: previous,
+            latest: row?.latest ?? null,
+            latestUrl: row?.latest_url ?? null,
             urgency: { level: 'unknown', score: 0, reasons: [] },
             newVulns: [],
             trigger: 'version-change',
@@ -443,27 +460,55 @@ export class SoftwareService {
     const s = this.settings;
     let intelAvailable = false;
     let latest: string | null = row.latest;
+    let latestUrl: string | null = row.latest_url;
+    let latestPublishedAt: number | null = row.latest_published_at;
     let latestInCycle: string | null = row.latest_in_cycle;
     let cycle: string | null = row.cycle;
     let cycleEol: string | null = row.cycle_eol;
     let eolFetched = row.eol_fetched_at;
     let vulns: MatchedVuln[] = [];
+    let noSource = false;
 
     if (s.offline) errors.push('offline mode');
     else {
+      let eolLatest: string | null = null;
       if (s.sources.endoflife && product.endoflife) {
         try {
           const cycles = await new EndoflifeClient(this.#sourceOpts(this.#gates.eol)).product(
             product.endoflife,
           );
           const resolved = resolveCycle(cycles, version);
+          eolLatest = resolved.latest;
           latest = resolved.latest;
+          latestUrl = null;
+          latestPublishedAt = null;
           latestInCycle = resolved.latestInCycle;
           cycle = resolved.cycle?.cycle ?? null;
           cycleEol = resolved.eol;
           eolFetched = now;
         } catch (error) {
           errors.push(`endoflife: ${(error as Error).message}`);
+        }
+      }
+      // Release pages: configured ones win; the catalog's GitHub repository only fills in when endoflife.date has nothing.
+      const explicit = monitor.spec.software?.releases !== undefined;
+      if (s.sources.releases && product.releases && (explicit || eolLatest === null)) {
+        try {
+          const rel: LatestRelease | null = await new ReleasesClient(
+            this.#sourceOpts(this.#gates.releases),
+            s.githubToken,
+          ).latest(product.releases);
+          if (rel) {
+            latest = rel.version;
+            latestUrl = rel.url;
+            latestPublishedAt = rel.publishedAt;
+            if (version && product.pinCycle && sameCycle(rel.version, product.pinCycle))
+              latestInCycle = rel.version;
+            else if (version && cycle === null && sameCycle(rel.version, cycleOf(version)))
+              latestInCycle = rel.version;
+          } else errors.push('releases: no release with a version-like tag found');
+        } catch (error) {
+          errors.push(`releases: ${(error as Error).message}`);
         }
       }
       if (product.track && version) {
@@ -503,8 +548,11 @@ export class SoftwareService {
             errors.push(`nvd: ${(error as Error).message}`);
           }
         }
-        if (!anySource)
+        if (!anySource) {
+          // Self-built or private software: nothing to look up, but releases and end-of-life still count.
+          noSource = true;
           errors.push(`no vulnerability source for ${product.name} (no OSV package or CPE known)`);
+        }
         let kev = new Set<string>();
         if (s.sources.kev && (osvHits.length || nvdHits.length)) {
           try {
@@ -583,16 +631,20 @@ export class SoftwareService {
       latestInCycle,
       cycle,
       cycleEol,
+      pinnedCycle: product.pinCycle,
       vulns: vulns.map((v) => ({ id: v.id, score: v.score, kev: v.kev, fixedIn: v.fixedIn })),
       track: product.track,
-      intelAvailable: intelAvailable || (!s.offline && vulns.length > 0),
+      intelAvailable: intelAvailable || noSource || (!s.offline && vulns.length > 0),
       probeError: row.probe_error,
       now,
     });
+    if (noSource && version) urgency.reasons.push(`no vulnerability source known for ${product.name}`);
     await db
       .updateTable('monitor_software')
       .set({
         latest,
+        latest_url: latestUrl,
+        latest_published_at: latestPublishedAt,
         latest_in_cycle: latestInCycle,
         cycle,
         cycle_eol: cycleEol,
@@ -629,6 +681,8 @@ export class SoftwareService {
       product: product.name,
       version,
       previousVersion: null,
+      latest: row.latest,
+      latestUrl: row.latest_url,
       urgency,
       at: now,
     };
@@ -742,8 +796,11 @@ export class SoftwareService {
       productName: product.name,
       version: row?.version ?? null,
       latest: row?.latest ?? null,
+      latestUrl: row?.latest_url ?? null,
+      latestPublishedAt: row?.latest_published_at ?? null,
       latestInCycle: row?.latest_in_cycle ?? null,
       cycle: row?.cycle ?? null,
+      pinnedCycle: product.pinCycle,
       eol,
       eolReached,
       versionSeenAt: row?.version_seen_at ?? null,

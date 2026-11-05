@@ -43,7 +43,8 @@ secret:
   # 32+ random characters; generated once and kept on upgrades when empty.
   authSecret: ''
   # Extra environment variables for ${VAR} references in status.yaml, e.g. ADMIN_PASSWORD, TEAMS_WEBHOOK_URL,
-  # and NVD_API_KEY for faster vulnerability lookups (https://nvd.nist.gov/developers/request-an-api-key).
+  # NVD_API_KEY for faster vulnerability lookups (https://nvd.nist.gov/developers/request-an-api-key)
+  # and GITHUB_TOKEN for release lookups beyond GitHub's anonymous rate limit.
   values: {}
 # Bring your own Secret (AUTH_SECRET, the ${VAR}s used in status.yaml, optionally DATABASE_URL and NVD_API_KEY).
 existingSecret: ''
