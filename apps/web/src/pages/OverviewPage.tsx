@@ -67,7 +67,7 @@ export function OverviewPage() {
         {data.groups.map((g) => (
           <div key={g.name} className="mt-6 first:mt-0">
             <h2 className="m-0 pb-2 text-[12px] font-normal text-muted">{g.name}</h2>
-            <div className="grid gap-3 xl:grid-cols-2 min-[1800px]:grid-cols-3">
+            <div className="grid gap-3 xl:grid-cols-2 min-[112.5rem]:grid-cols-3">
               {g.services.map((s) => (
                 <Link
                   key={s.id}
