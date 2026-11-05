@@ -7,9 +7,9 @@ import { Section } from './ui.tsx';
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="text-[12px] text-sec">{label}</div>
-      <div className="truncate font-mono text-[15px] font-semibold">{value}</div>
-      {hint && <div className="text-[12px] text-sec">{hint}</div>}
+      <div className="text-[12px] text-muted">{label}</div>
+      <div className="truncate font-mono text-[16px] font-medium">{value}</div>
+      {hint && <div className="text-[12px] text-muted">{hint}</div>}
     </div>
   );
 }
@@ -37,14 +37,14 @@ export function SoftwarePanel({
       title={
         <span className="flex items-center gap-2">
           Software
-          <span className="font-normal text-sec">· {s.productName}</span>
+          <span className="font-normal text-muted">· {s.productName}</span>
         </span>
       }
       actions={
         s.urgency ? (
           <UrgencyBadge level={s.urgency} score={s.score} />
         ) : (
-          <span className="text-[12px] text-sec">update status is only shown to signed-in users</span>
+          <span className="text-[12px] text-muted">update status is only shown to signed-in users</span>
         )
       }
     >
@@ -106,13 +106,13 @@ export function SoftwarePanel({
         </ul>
       )}
       {detail?.intelError && (
-        <p className="m-0 border-t border-hair px-4 py-2.5 text-[12px] text-warn-text">
+        <p className="m-0 border-t border-hair px-4 py-2 text-[12px] text-warn-text">
           Some data sources were unavailable: {detail.intelError}
         </p>
       )}
       {detail && <VulnTable vulns={detail.vulnerabilities} />}
       {detail && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-hair px-4 py-2.5 text-[12px] text-sec">
+        <div className="flex flex-wrap items-center gap-4 border-t border-hair px-4 py-2 text-[12px] text-muted">
           <span>
             {detail.intelRefreshedAt
               ? `data refreshed ${relative(detail.intelRefreshedAt)}`

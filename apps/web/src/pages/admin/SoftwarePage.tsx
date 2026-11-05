@@ -45,7 +45,7 @@ function Expanded({
   });
   const d = detail.data;
   return (
-    <div className="border-t border-hair bg-fill/40">
+    <div className="border-t border-hair bg-side">
       <div className="flex flex-wrap items-start gap-x-6 gap-y-2 px-4 py-3 text-[13px]">
         <div className="min-w-0 flex-1">
           {row.reasons.length > 0 ? (
@@ -56,13 +56,13 @@ function Expanded({
             </ul>
           ) : (
             <span className="text-sec">
-              {row.version ? 'Nothing to do.' : 'The version has not been detected yet.'}
+              {row.version ? 'Nothing to do' : 'The version has not been detected yet'}
             </span>
           )}
           {row.probeError && <p className="m-0 mt-1 text-[12px] text-warn-text">Probe: {row.probeError}</p>}
           {row.intelError && <p className="m-0 mt-1 text-[12px] text-warn-text">Sources: {row.intelError}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1.5 text-[12px] text-sec">
+        <div className="flex flex-col items-end gap-2 text-[12px] text-muted">
           <span>
             version via {row.versionSource ?? '–'}
             {row.previousVersion && ` · was ${row.previousVersion} ${relative(row.versionChangedAt)}`}
@@ -74,16 +74,16 @@ function Expanded({
             <Link
               to="/services/$id"
               params={{ id: row.serviceId }}
-              className="btn-secondary h-7 px-2.5 text-[12px] no-underline"
+              className="btn-secondary h-7 px-3 text-[12px] no-underline"
             >
-              <Icon name="external" size={12} /> Status page
+              <Icon name="external" size={16} /> Status page
             </Link>
             {row.releasesUrl && (
               <a
                 href={row.releasesUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary h-7 px-2.5 text-[12px] no-underline"
+                className="btn-secondary h-7 px-3 text-[12px] no-underline"
               >
                 Release notes
               </a>
@@ -91,11 +91,11 @@ function Expanded({
             {canWrite && (
               <button
                 type="button"
-                className="btn-secondary h-7 px-2.5 text-[12px]"
+                className="btn-secondary h-7 px-3 text-[12px]"
                 disabled={refresh.isPending}
                 onClick={() => refresh.mutate()}
               >
-                <Icon name="refresh" size={12} /> {refresh.isPending ? 'Refreshing…' : 'Refresh'}
+                <Icon name="refresh" size={16} /> {refresh.isPending ? 'Refreshing…' : 'Refresh'}
               </button>
             )}
           </span>
@@ -167,7 +167,7 @@ export function SoftwarePage() {
               disabled={refreshAll.isPending}
               onClick={() => refreshAll.mutate()}
             >
-              <Icon name="refresh" size={14} /> Refresh all
+              <Icon name="refresh" size={16} /> Refresh all
             </button>
           )
         }
@@ -197,7 +197,7 @@ export function SoftwarePage() {
         />
       </div>
       <Section className="mt-3">
-        <div aria-hidden="true" className="flex gap-3.5 px-4 py-2.5 text-[12px] font-medium text-sec">
+        <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-muted">
           <span className="flex-1 pl-[21px]">Service</span>
           <span className="w-28">Running</span>
           <span className="w-28">Latest</span>
@@ -215,7 +215,7 @@ export function SoftwarePage() {
             .
           </Empty>
         )}
-        {inv.services.length > 0 && rows.length === 0 && <Empty>Nothing matches this filter.</Empty>}
+        {inv.services.length > 0 && rows.length === 0 && <Empty>Nothing matches this filter</Empty>}
         {rows.map((s) => {
           const level = s.urgency ?? 'unknown';
           const isOpen = open === s.serviceId;
@@ -232,12 +232,12 @@ export function SoftwarePage() {
               >
                 <Icon
                   name="chevron"
-                  size={13}
+                  size={16}
                   className={`shrink-0 text-sec transition-transform ${isOpen ? 'rotate-90' : ''}`}
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{s.serviceName}</span>
-                  <span className="block text-[12px] text-sec">
+                  <span className="block text-[12px] text-muted">
                     {s.productName} · {s.group}
                   </span>
                 </span>
@@ -263,16 +263,16 @@ export function SoftwarePage() {
                     <span className="text-sec">–</span>
                   )}
                   {s.latestInCycle && s.latestInCycle !== s.latest && (
-                    <span className="block text-[11px] text-sec">{s.latestInCycle} in cycle</span>
+                    <span className="block text-[12px] text-muted">{s.latestInCycle} in cycle</span>
                   )}
                 </span>
                 <span className="w-32 text-[12px]">
                   {s.cycle ?? s.pinnedCycle ?? <span className="text-sec">–</span>}
-                  {s.pinnedCycle && <span className="block text-[11px] text-sec">pinned</span>}
+                  {s.pinnedCycle && <span className="block text-[12px] text-muted">pinned</span>}
                   {s.eolReached ? (
-                    <span className="block text-[11px] text-bad-text">end-of-life</span>
+                    <span className="block text-[12px] text-bad-text">end-of-life</span>
                   ) : s.eol ? (
-                    <span className="block text-[11px] text-sec">until {shortDate(s.eol)}</span>
+                    <span className="block text-[12px] text-muted">until {shortDate(s.eol)}</span>
                   ) : null}
                 </span>
                 <span className="w-36">
@@ -287,7 +287,7 @@ export function SoftwarePage() {
           );
         })}
       </Section>
-      <p className="m-0 mt-3 px-1 text-[12px] text-sec">
+      <p className="m-0 mt-3 text-[12px] text-muted">
         Urgency: {URGENCY_LEVELS.map((l) => `${l} = ${URGENCY_LABEL[l].toLowerCase()}`).join(', ')}. Scores
         combine CVSS, exploitation (CISA KEV), end-of-life and how far behind the latest release a service is.{' '}
         <a href="/api/v1/software/report.csv" className="text-sec hover:text-text">

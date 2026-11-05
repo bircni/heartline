@@ -74,17 +74,17 @@ export function LoginPage() {
       </div>
       <div className="w-full max-w-[360px]">
         <div className="flex flex-col items-center text-center">
-          <Logo size={52} />
-          <h1 className="m-0 mt-4.5 text-[22px] font-semibold tracking-[-0.02em]">
+          <Logo size={48} />
+          <h1 className="m-0 mt-4 text-[20px] font-medium">
             {oauth ? 'Sign in to connect' : `Sign in to ${site?.title ?? 'Status'}`}
           </h1>
           <p className="m-0 mt-1 text-sec">
             {oauth
-              ? 'An application wants to access this status page.'
+              ? 'An application wants to access this status page'
               : (site?.description ?? window.location.host)}
           </p>
         </div>
-        <div className="card mt-7 p-5">
+        <div className="card mt-8 p-5">
           {error && (
             <div className="mb-4" role="alert">
               <Notice tone="bad">{error}</Notice>
@@ -96,14 +96,14 @@ export function LoginPage() {
               type="button"
               disabled={busy}
               onClick={() => void social(p.id)}
-              className={`flex h-10 w-full items-center justify-center gap-2 rounded-[10px] text-[14px] font-medium disabled:opacity-50 ${i === 0 ? 'bg-text text-bg' : 'mt-2 bg-fill text-text'}`}
+              className={`flex h-10 w-full items-center justify-center gap-2 rounded-[8px] text-[14px] font-medium disabled:opacity-50 ${i === 0 ? 'bg-text text-bg' : 'mt-2 bg-fill text-text'}`}
             >
               <Icon name="gitea" size={16} />
               Continue with {p.name}
             </button>
           ))}
           {providers.length > 0 && local && (
-            <div aria-hidden="true" className="my-4.5 flex items-center gap-2.5 text-[12px] text-sec">
+            <div aria-hidden="true" className="my-4 flex items-center gap-2 text-[12px] text-sec">
               <span className="h-px flex-1 bg-hair" />
               or
               <span className="h-px flex-1 bg-hair" />
@@ -138,17 +138,17 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className={`mt-4 h-10 w-full rounded-[10px] text-[14px] font-medium disabled:opacity-50 ${providers.length ? 'bg-fill text-text' : 'bg-text text-bg'}`}
+                className={`mt-4 h-10 w-full rounded-[8px] text-[14px] font-medium disabled:opacity-50 ${providers.length ? 'bg-fill text-text' : 'bg-text text-bg'}`}
               >
                 {busy ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
           )}
           {!local && providers.length === 0 && (
-            <Notice>No sign-in method is configured in status.yaml.</Notice>
+            <Notice>No sign-in method is configured in status.yaml</Notice>
           )}
         </div>
-        <p className="mt-4 text-center text-[12px] text-sec">Accounts are managed by your administrator.</p>
+        <p className="mt-4 text-center text-[12px] text-sec">Accounts are managed by your administrator</p>
       </div>
     </div>
   );

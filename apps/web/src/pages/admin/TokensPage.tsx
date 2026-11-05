@@ -18,7 +18,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className="btn-secondary h-7 shrink-0 px-2.5 text-[12px]"
+      className="btn-secondary h-7 shrink-0 px-3 text-[12px]"
       onClick={() => {
         void navigator.clipboard.writeText(text).then(() => {
           setDone(true);
@@ -26,7 +26,7 @@ function CopyButton({ text }: { text: string }) {
         });
       }}
     >
-      <Icon name={done ? 'check' : 'copy'} size={13} /> {done ? 'Copied' : 'Copy'}
+      <Icon name={done ? 'check' : 'copy'} size={16} /> {done ? 'Copied' : 'Copy'}
     </button>
   );
 }
@@ -75,20 +75,20 @@ export function TokensPage() {
           )
         }
       />
-      <div className="mt-4.5 flex flex-wrap items-start gap-3">
+      <div className="mt-4 flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-[999_1_420px]">
           <Section>
             {tokens.isPending && <Spinner />}
             {tokens.error && <ErrorNote error={tokens.error} />}
-            {tokens.data?.length === 0 && <Empty>No tokens yet.</Empty>}
+            {tokens.data?.length === 0 && <Empty>No tokens yet</Empty>}
             {tokens.data?.map((t, i) => (
               <div
                 key={t.id}
-                className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
+                className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
                 <span className="min-w-0 flex-[1_1_200px]">
                   <span className="block font-medium">{t.name}</span>
-                  <span className="block font-mono text-[11px] text-sec">
+                  <span className="block font-mono text-[12px] text-muted">
                     {t.prefix}
                     {all && ` · ${t.owner}`}
                   </span>
@@ -100,7 +100,7 @@ export function TokensPage() {
                 </span>
                 <button
                   type="button"
-                  className="btn-danger h-7 px-2.5 text-[12px]"
+                  className="btn-danger h-7 px-3 text-[12px]"
                   onClick={() => {
                     if (
                       window.confirm(`Revoke token “${t.name}”? Clients using it stop working immediately.`)
@@ -114,17 +114,17 @@ export function TokensPage() {
             ))}
           </Section>
           <Section className="mt-3 p-4">
-            <h2 className="m-0 text-[15px] font-semibold">Connect an MCP client</h2>
+            <h2 className="m-0 text-[16px] font-medium">Connect an MCP client</h2>
             <p className="m-0 mt-1 text-sec">
               Clients sign in through this page with OAuth (Gitea or a local account). No token needed.
             </p>
-            <div className="mt-2.5 flex items-center gap-2 rounded-[9px] bg-fill px-3 py-2">
+            <div className="mt-3 flex items-center gap-2 rounded-[8px] bg-fill px-3 py-2">
               <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px]">
                 {command}
               </code>
               <CopyButton text={command} />
             </div>
-            <p className="m-0 mt-2.5 text-[12px] text-sec">
+            <p className="m-0 mt-3 text-[12px] text-sec">
               Headless clients can send a token instead:{' '}
               <span className="font-mono">Authorization: Bearer hl_…</span>
             </p>
@@ -137,7 +137,7 @@ export function TokensPage() {
               create.mutate();
             }}
           >
-            <h2 className="m-0 text-[15px] font-semibold">New token</h2>
+            <h2 className="m-0 text-[16px] font-medium">New token</h2>
             <Field label="Name" htmlFor="t-name">
               <input
                 id="t-name"
@@ -150,7 +150,7 @@ export function TokensPage() {
             </Field>
             <div className="mt-3">
               <div className="label">Scopes</div>
-              <div role="group" aria-label="Scopes" className="flex gap-1.5">
+              <div role="group" aria-label="Scopes" className="flex gap-2">
                 {SCOPES.filter((s) => can(me.data?.role, s.min)).map((s) => {
                   const on = scopes.includes(s.value);
                   return (
@@ -161,7 +161,7 @@ export function TokensPage() {
                       onClick={() =>
                         setScopes(on ? scopes.filter((x) => x !== s.value) : [...scopes, s.value])
                       }
-                      className={`h-[30px] flex-1 rounded-lg text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+                      className={`h-8 flex-1 rounded-[8px] text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
                     >
                       {s.value}
                     </button>
@@ -196,8 +196,8 @@ export function TokensPage() {
             </button>
           </form>
           {created && (
-            <div className="mt-3 rounded-[10px] bg-fill p-3" role="status">
-              <div className="text-[12px] font-semibold text-warn-text">
+            <div className="mt-3 rounded-[8px] bg-fill p-3" role="status">
+              <div className="text-[12px] font-medium text-warn-text">
                 Copy it now. It won’t be shown again.
               </div>
               <div className="mt-2 flex items-center gap-2">

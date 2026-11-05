@@ -31,34 +31,34 @@ export function NotificationsPage() {
         subtitle="Channels are defined in status.yaml; secrets come from environment variables or Kubernetes secrets."
       />
       {notifiers.data.length === 0 && (
-        <Section className="mt-4.5">
+        <Section className="mt-4">
           <Empty>
             No channels configured. Add `notifiers` to status.yaml (Teams workflow webhook, SMTP e-mail or a
             generic webhook).
           </Empty>
         </Section>
       )}
-      <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
+      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
         {notifiers.data.map((n) => {
           const r = results[n.id];
           const failing = r ? !r.ok : Boolean(n.lastError);
           return (
             <section key={n.id} className="card p-4">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="m-0 text-[15px] font-semibold">
+                <h2 className="m-0 text-[16px] font-medium">
                   {TYPE_LABEL[n.type]} <span className="font-normal text-sec">· {n.id}</span>
                 </h2>
-                <span className="flex items-center gap-1.5 text-[12px] text-sec">
+                <span className="flex items-center gap-2 text-[12px] text-sec">
                   <span
                     aria-hidden="true"
-                    className="block h-1.5 w-1.5 rounded-full"
+                    className="block h-2 w-2 rounded-full"
                     style={{ background: failing ? 'var(--bad)' : 'var(--ok)' }}
                   />
                   {failing ? 'Failing' : 'Ready'}
                 </span>
               </div>
-              <div className="mt-1.5 font-mono text-[12px] text-sec">{n.target}</div>
-              <div className="mt-3.5 flex items-center justify-between gap-2">
+              <div className="mt-2 font-mono text-[12px] text-sec">{n.target}</div>
+              <div className="mt-4 flex items-center justify-between gap-2">
                 <span
                   className="min-w-0 truncate text-[12px]"
                   style={{

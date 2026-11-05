@@ -3,7 +3,7 @@ import { STATUS_LABEL, STATUS_TONE } from '../lib/format.ts';
 
 export function StatusDot({
   status,
-  size = 7,
+  size = 8,
   halo = false,
 }: {
   status: ServiceStatus;
@@ -28,7 +28,7 @@ export function StatusDot({
 export function StatusLabel({ status, className = '' }: { status: ServiceStatus; className?: string }) {
   return (
     <span
-      className={`flex items-center gap-1.5 text-[13px] font-medium ${className}`}
+      className={`flex items-center gap-2 text-[13px] ${className}`}
       style={{ color: STATUS_TONE[status].text }}
     >
       <StatusDot status={status} />
@@ -40,10 +40,10 @@ export function StatusLabel({ status, className = '' }: { status: ServiceStatus;
 export function StatusPill({ status }: { status: ServiceStatus }) {
   return (
     <span
-      className="flex h-6 items-center gap-1.5 rounded-full bg-fill px-2.5 text-[12px] font-medium"
+      className="flex h-6 items-center gap-2 rounded-[6px] bg-fill px-2 text-[12px] font-medium"
       style={{ color: STATUS_TONE[status].text }}
     >
-      <StatusDot status={status} size={7} />
+      <StatusDot status={status} />
       {STATUS_LABEL[status]}
     </span>
   );

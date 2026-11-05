@@ -49,16 +49,16 @@ export function UsersPage() {
           <Notice tone="bad">{error}</Notice>
         </div>
       )}
-      <div className="mt-4.5 flex flex-wrap items-start gap-3">
+      <div className="mt-4 flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
           {users.data.map((u, i) => (
             <div
               key={u.id}
-              className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
+              className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
             >
               <span
                 aria-hidden="true"
-                className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-fill-2 text-[13px] font-semibold"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-fill-2 text-[13px] font-medium"
               >
                 {u.name.charAt(0).toUpperCase()}
               </span>
@@ -93,14 +93,14 @@ export function UsersPage() {
               {u.id !== me.data?.id && (
                 <button
                   type="button"
-                  className="btn-danger h-8 px-2.5"
+                  className="btn-danger h-8 px-3"
                   aria-label={`Delete ${u.name}`}
                   onClick={() => {
                     if (window.confirm(`Delete ${u.name}? Their API tokens are revoked.`))
                       remove.mutate(u.id);
                   }}
                 >
-                  <Icon name="trash" size={14} />
+                  <Icon name="trash" size={16} />
                 </button>
               )}
             </div>
@@ -115,7 +115,7 @@ export function UsersPage() {
                 create.mutate();
               }}
             >
-              <h2 className="m-0 text-[15px] font-semibold">Add local user</h2>
+              <h2 className="m-0 text-[16px] font-medium">Add local user</h2>
               <Field label="Name" htmlFor="u-name">
                 <input
                   id="u-name"

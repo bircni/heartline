@@ -69,11 +69,11 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       }}
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className="m-0 text-[15px] font-semibold">
+        <h2 className="m-0 text-[16px] font-medium">
           {existing ? `Edit “${existing.title}”` : 'Schedule maintenance'}
         </h2>
         {existing && (
-          <button type="button" className="btn-secondary h-7 px-2.5 text-[12px]" onClick={onDone}>
+          <button type="button" className="btn-secondary h-7 px-3 text-[12px]" onClick={onDone}>
             Cancel
           </button>
         )}
@@ -145,7 +145,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
         <textarea
           id="mt-desc"
           rows={2}
-          className="field h-auto resize-y py-2.5"
+          className="field h-auto resize-y py-2"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
@@ -183,9 +183,9 @@ export function MaintenancePage() {
         title="Maintenance"
         subtitle="Checks keep running, but services show as in maintenance and no alerts are sent."
       />
-      <div className="mt-4.5 flex flex-wrap items-start gap-3">
+      <div className="mt-4 flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
-          {list.data.length === 0 && <Empty>No maintenance scheduled.</Empty>}
+          {list.data.length === 0 && <Empty>No maintenance scheduled</Empty>}
           {list.data.map((m, i) => {
             const start = new Date(m.nextStartsAt ?? m.startsAt);
             return (
@@ -193,17 +193,17 @@ export function MaintenancePage() {
                 key={m.id}
                 className={`flex items-center gap-4 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
-                <span className="w-[52px] shrink-0 rounded-[10px] bg-fill py-1.5 text-center">
-                  <span className="block text-[11px] font-semibold uppercase text-sec">
+                <span className="w-12 shrink-0 rounded-[8px] bg-fill py-2 text-center">
+                  <span className="block text-[12px] text-muted">
                     {start.toLocaleString(undefined, { month: 'short' })}
                   </span>
-                  <span className="block text-[20px] font-semibold leading-[1.1]">{start.getDate()}</span>
+                  <span className="block text-[20px] font-medium leading-6">{start.getDate()}</span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">
                     {m.title}
                     {m.active && (
-                      <span className="ml-2 rounded-full bg-fill px-2 py-0.5 text-[11px] text-maint">
+                      <span className="ml-2 rounded-[4px] bg-fill px-2 py-0.5 text-[12px] text-sec">
                         in progress
                       </span>
                     )}
@@ -220,21 +220,21 @@ export function MaintenancePage() {
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"
-                      className="btn-secondary h-7 px-2.5 text-[12px]"
+                      className="btn-secondary h-8 px-3"
                       aria-label={`Edit ${m.title}`}
                       onClick={() => setEditing(m.id)}
                     >
-                      <Icon name="edit" size={13} />
+                      <Icon name="edit" size={16} />
                     </button>
                     <button
                       type="button"
-                      className="btn-danger h-7 px-2.5"
+                      className="btn-danger"
                       aria-label={`Delete ${m.title}`}
                       onClick={() => {
                         if (window.confirm(`Delete “${m.title}”?`)) remove.mutate(m.id);
                       }}
                     >
-                      <Icon name="trash" size={14} />
+                      <Icon name="trash" size={16} />
                     </button>
                   </span>
                 )}

@@ -65,7 +65,8 @@ export const STATUS_LABEL: Record<ServiceStatus, string> = {
 
 /** CSS variables per status: dot colour, text colour and halo ring. */
 export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; ring: string }> = {
-  operational: { dot: 'var(--ok)', text: 'var(--ok-text)', ring: 'var(--ring-ok)' },
+  // All clear stays quiet: only the dot is green, so colored text always means trouble.
+  operational: { dot: 'var(--ok)', text: 'var(--sec)', ring: 'var(--ring-ok)' },
   degraded: { dot: 'var(--warn)', text: 'var(--warn-text)', ring: 'var(--ring-warn)' },
   down: { dot: 'var(--bad)', text: 'var(--bad-text)', ring: 'var(--ring-bad)' },
   maintenance: { dot: 'var(--maint)', text: 'var(--sec)', ring: 'transparent' },
@@ -74,7 +75,7 @@ export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; rin
 };
 
 export const DAY_COLOR: Record<DayState, string> = {
-  operational: 'var(--ok)',
+  operational: 'var(--ok-quiet)',
   degraded: 'var(--warn)',
   down: 'var(--bad)',
   maintenance: 'var(--maint)',
@@ -96,7 +97,7 @@ export const URGENCY_TONE: Record<UrgencyLevel, { dot: string; text: string }> =
   high: { dot: 'var(--bad)', text: 'var(--bad-text)' },
   medium: { dot: 'var(--warn)', text: 'var(--warn-text)' },
   low: { dot: 'var(--warn)', text: 'var(--sec)' },
-  none: { dot: 'var(--ok)', text: 'var(--ok-text)' },
+  none: { dot: 'var(--ok)', text: 'var(--sec)' },
   unknown: { dot: 'var(--fill-2)', text: 'var(--sec)' },
 };
 

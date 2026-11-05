@@ -46,6 +46,6 @@ describe('urgency components', () => {
   });
   it('has an empty state', () => {
     render(<VulnTable vulns={[]} />);
-    expect(screen.getByText('No known vulnerabilities.')).toBeTruthy();
+    expect(screen.getByText('No known vulnerabilities')).toBeTruthy();
   });
 });

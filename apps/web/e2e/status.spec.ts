@@ -94,7 +94,7 @@ test('software inventory shows the probed version and degrades without data sour
 
   await page.goto('/services/self-http');
   await expect(page.getByRole('heading', { name: /^Software/ })).toBeVisible();
-  await expect(page.getByText('No known vulnerabilities.')).toBeVisible();
+  await expect(page.getByText('No known vulnerabilities')).toBeVisible();
 });
 
 test('theme toggle persists', async ({ page }) => {

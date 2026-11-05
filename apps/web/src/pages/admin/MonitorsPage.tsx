@@ -205,7 +205,7 @@ function SoftwareFields({
   };
   const needsUrl = kind !== 'http' && kind !== 'plugin';
   return (
-    <div className="mt-3.5 rounded-[10px] bg-fill">
+    <div className="mt-4 rounded-[8px] bg-fill">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-[13px]">Track version and vulnerabilities</span>
         <Switch
@@ -666,7 +666,7 @@ function Editor({
         />
       )}
       {(notifiers.data?.length ?? 0) > 0 && (
-        <div className="mt-3.5 rounded-[10px] bg-fill">
+        <div className="mt-4 rounded-[8px] bg-fill">
           {notifiers.data?.map((n, i) => {
             const list = (s.notify as string[] | undefined) ?? [];
             return (
@@ -689,7 +689,7 @@ function Editor({
           </p>
         </div>
       )}
-      <div className="mt-3 flex items-center justify-between rounded-[10px] bg-fill px-3 py-2">
+      <div className="mt-3 flex items-center justify-between rounded-[8px] bg-fill px-3 py-2">
         <span className="text-[13px]">Open an incident automatically when down</span>
         <Switch
           label="Automatic incidents"
@@ -738,7 +738,7 @@ function MonitorPanel({
         : api<AdminMonitor>(path, { method: 'PUT', json: { group: d.group, spec: clean(d.spec) } }),
     onSuccess: async (m) => {
       await refresh();
-      setMessage({ tone: 'ok', text: 'Saved.' });
+      setMessage({ tone: 'ok', text: 'Saved' });
       onSaved(m.id);
     },
     onError,
@@ -774,7 +774,7 @@ function MonitorPanel({
   return (
     <Section className="min-w-0 flex-[1_1_320px] p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="m-0 text-[17px] font-semibold">{monitor?.name ?? 'New monitor'}</h2>
+        <h2 className="m-0 text-[16px] font-medium">{monitor?.name ?? 'New monitor'}</h2>
         {monitor && <StatusPill status={monitor.status} />}
       </div>
       {monitor && (
@@ -787,7 +787,7 @@ function MonitorPanel({
         <div className="mt-3">
           <Notice>
             <span className="flex gap-2">
-              <Icon name="lock" size={15} className="mt-px shrink-0" />
+              <Icon name="lock" size={16} className="mt-px shrink-0" />
               <span>
                 Managed in <span className="font-mono text-[12px] text-text">status.yaml</span>. Edit it in
                 git; changes load automatically.
@@ -817,10 +817,10 @@ function MonitorPanel({
                 disabled={run.isPending}
                 onClick={() => run.mutate()}
               >
-                <Icon name="play" size={13} /> {run.isPending ? 'Checking…' : 'Run check now'}
+                <Icon name="play" size={16} /> {run.isPending ? 'Checking…' : 'Run check now'}
               </button>
               <button type="button" className="btn-secondary" onClick={() => pause.mutate(!monitor.paused)}>
-                <Icon name={monitor.paused ? 'play' : 'pause'} size={13} />{' '}
+                <Icon name={monitor.paused ? 'play' : 'pause'} size={16} />{' '}
                 {monitor.paused ? 'Resume' : 'Pause'}
               </button>
             </>
@@ -838,7 +838,7 @@ function MonitorPanel({
                 if (window.confirm(`Delete ${monitor.name} and its history?`)) remove.mutate();
               }}
             >
-              <Icon name="trash" size={14} /> Delete
+              <Icon name="trash" size={16} /> Delete
             </button>
           )}
         </div>
@@ -869,15 +869,15 @@ export function MonitorsPage() {
         actions={
           isAdmin && (
             <button type="button" className="btn-primary" onClick={() => setSelected('__new')}>
-              <Icon name="plus" size={14} /> New monitor
+              <Icon name="plus" size={16} /> New monitor
             </button>
           )
         }
       />
-      <div className="mt-4.5 flex flex-wrap items-start gap-3">
+      <div className="mt-4 flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
-          <div aria-hidden="true" className="flex gap-3.5 px-4 py-2.5 text-[12px] font-medium text-sec">
-            <span className="flex-1 pl-[21px]">Name</span>
+          <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-sec">
+            <span className="flex-1 pl-6">Name</span>
             <span className="w-14">Type</span>
             <span className="w-16">Every</span>
             <span className="w-20">Source</span>
@@ -893,12 +893,12 @@ export function MonitorsPage() {
               <StatusDot status={m.status} />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{m.name}</span>
-                <span className="block truncate font-mono text-[11px] text-sec">{m.target}</span>
+                <span className="block truncate font-mono text-[12px] text-muted">{m.target}</span>
               </span>
               <span className="w-14 text-[12px]">{KIND_LABEL[m.kind]}</span>
               <span className="w-16 text-[12px] text-sec">{formatDuration(m.spec.interval)}</span>
               <span className="flex w-20 items-center gap-1 text-[12px] text-sec">
-                {m.source === 'config' && <Icon name="lock" size={12} />}
+                {m.source === 'config' && <Icon name="lock" size={16} />}
                 {m.source === 'config' ? 'yaml' : 'UI'}
               </span>
             </button>

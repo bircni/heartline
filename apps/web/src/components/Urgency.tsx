@@ -5,15 +5,11 @@ export function UrgencyBadge({ level, score }: { level: UrgencyLevel; score?: nu
   const tone = URGENCY_TONE[level];
   return (
     <span
-      className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full bg-fill px-2.5 text-[12px] font-medium"
+      className="inline-flex h-6 items-center gap-2 whitespace-nowrap rounded-[6px] bg-fill px-2 text-[12px] font-medium"
       style={{ color: tone.text }}
       title={score === null || score === undefined ? undefined : `Urgency score ${score}/100`}
     >
-      <span
-        aria-hidden="true"
-        className="block h-[7px] w-[7px] rounded-full"
-        style={{ background: tone.dot }}
-      />
+      <span aria-hidden="true" className="block h-2 w-2 rounded-full" style={{ background: tone.dot }} />
       {URGENCY_LABEL[level]}
     </span>
   );
@@ -23,7 +19,7 @@ export function SeverityDot({ severity }: { severity: VulnSeverity }) {
   return (
     <span
       aria-hidden="true"
-      className="block h-[7px] w-[7px] shrink-0 rounded-full"
+      className="block h-2 w-2 shrink-0 rounded-full"
       style={{ background: SEVERITY_TONE[severity] }}
     />
   );
@@ -48,7 +44,7 @@ export function VulnCounts({ vulns }: { vulns: Record<VulnSeverity, number> | nu
 
 export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
   if (vulns.length === 0)
-    return <p className="m-0 border-t border-hair px-4 py-3 text-sec">No known vulnerabilities.</p>;
+    return <p className="m-0 border-t border-hair px-4 py-3 text-sec">No known vulnerabilities</p>;
   return (
     <div>
       <div
@@ -61,7 +57,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
         <span className="w-24 shrink-0">Fixed in</span>
       </div>
       {vulns.map((v) => (
-        <div key={v.id} className="flex items-start gap-3 border-t border-hair px-4 py-2.5 text-[13px]">
+        <div key={v.id} className="flex items-start gap-3 border-t border-hair px-4 py-2 text-[13px]">
           <span className="flex w-[150px] shrink-0 items-start gap-2.5 pt-1">
             <SeverityDot severity={v.severity} />
             <span className="min-w-0">
@@ -74,7 +70,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
                 {v.id}
               </a>
               {v.kev && (
-                <span className="mt-0.5 inline-block rounded-md bg-fill px-1.5 text-[10px] font-semibold uppercase text-bad-text">
+                <span className="mt-1 inline-block rounded-[4px] bg-fill px-1 text-[12px] font-medium text-bad-text">
                   exploited
                 </span>
               )}
@@ -88,7 +84,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
           </span>
           <span className="min-w-0 flex-1">
             <span className="line-clamp-2 text-text">{v.summary ?? 'No summary.'}</span>
-            <span className="block text-[12px] text-sec">
+            <span className="block text-[12px] text-muted">
               {v.sources.join(' + ')}
               {v.publishedAt ? ` · ${dateTime(v.publishedAt)}` : ''}
               {v.aliases.length ? ` · ${v.aliases.join(', ')}` : ''}
