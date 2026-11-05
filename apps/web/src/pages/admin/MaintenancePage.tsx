@@ -21,37 +21,43 @@ function localInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function Create() {
+function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: () => void }) {
   const qc = useQueryClient();
   const [start] = useState(() => {
     const d = new Date(Date.now() + 86_400_000);
     d.setMinutes(0, 0, 0);
     return d;
   });
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [startsAt, setStartsAt] = useState(localInput(start));
-  const [endsAt, setEndsAt] = useState(localInput(new Date(start.getTime() + 30 * 60_000)));
-  const [recurrence, setRecurrence] = useState('');
-  const [services, setServices] = useState<string[]>([]);
-  const create = useMutation({
-    mutationFn: () =>
-      api<Maintenance>('/api/v1/admin/maintenance', {
-        method: 'POST',
-        json: {
-          title,
-          description: description || undefined,
-          startsAt: new Date(startsAt).toISOString(),
-          endsAt: new Date(endsAt).toISOString(),
-          recurrence: recurrence || undefined,
-          services,
-        },
-      }),
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [description, setDescription] = useState(existing?.description ?? '');
+  const [startsAt, setStartsAt] = useState(localInput(existing ? new Date(existing.startsAt) : start));
+  const [endsAt, setEndsAt] = useState(
+    localInput(existing ? new Date(existing.endsAt) : new Date(start.getTime() + 30 * 60_000)),
+  );
+  const [recurrence, setRecurrence] = useState(existing?.recurrence ?? '');
+  const [services, setServices] = useState<string[]>(existing?.services.map((s) => s.id) ?? []);
+  const save = useMutation({
+    mutationFn: () => {
+      const body = {
+        title,
+        description: description || (existing ? null : undefined),
+        startsAt: new Date(startsAt).toISOString(),
+        endsAt: new Date(endsAt).toISOString(),
+        recurrence: recurrence || (existing ? null : undefined),
+        services,
+      };
+      return existing
+        ? api<Maintenance>(`/api/v1/admin/maintenance/${existing.id}`, { method: 'PUT', json: body })
+        : api<Maintenance>('/api/v1/admin/maintenance', { method: 'POST', json: body });
+    },
     onSuccess: async () => {
-      setTitle('');
-      setDescription('');
+      if (!existing) {
+        setTitle('');
+        setDescription('');
+      }
       await qc.invalidateQueries({ queryKey: ['maintenance'] });
       await qc.invalidateQueries({ queryKey: ['overview'] });
+      onDone();
     },
   });
   return (
@@ -59,10 +65,19 @@ function Create() {
       className="p-4"
       onSubmit={(e) => {
         e.preventDefault();
-        create.mutate();
+        save.mutate();
       }}
     >
-      <h2 className="m-0 text-[15px] font-semibold">Schedule maintenance</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="m-0 text-[15px] font-semibold">
+          {existing ? `Edit “${existing.title}”` : 'Schedule maintenance'}
+        </h2>
+        {existing && (
+          <button type="button" className="btn-secondary h-7 px-2.5 text-[12px]" onClick={onDone}>
+            Cancel
+          </button>
+        )}
+      </div>
       <Field label="Title" htmlFor="mt-title">
         <input
           id="mt-title"
@@ -135,13 +150,13 @@ function Create() {
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>
-      {create.error && (
+      {save.error && (
         <div className="mt-3">
-          <Notice tone="bad">{create.error.message}</Notice>
+          <Notice tone="bad">{save.error.message}</Notice>
         </div>
       )}
-      <button type="submit" className="btn-primary mt-4 w-full" disabled={create.isPending}>
-        Schedule
+      <button type="submit" className="btn-primary mt-4 w-full" disabled={save.isPending}>
+        {existing ? 'Save changes' : 'Schedule'}
       </button>
     </form>
   );
@@ -152,6 +167,7 @@ export function MaintenancePage() {
   const me = useMe();
   const qc = useQueryClient();
   const canWrite = can(me.data?.role, 'editor');
+  const [editing, setEditing] = useState<string | null>(null);
   const remove = useMutation({
     mutationFn: (id: string) => api(`/api/v1/admin/maintenance/${id}`, { method: 'DELETE' }),
     onSuccess: async () => {
@@ -201,14 +217,26 @@ export function MaintenancePage() {
                   </span>
                 </span>
                 {canWrite && (
-                  <button
-                    type="button"
-                    className="btn-danger"
-                    aria-label={`Delete ${m.title}`}
-                    onClick={() => remove.mutate(m.id)}
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
+                  <span className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      className="btn-secondary h-7 px-2.5 text-[12px]"
+                      aria-label={`Edit ${m.title}`}
+                      onClick={() => setEditing(m.id)}
+                    >
+                      <Icon name="edit" size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger h-7 px-2.5"
+                      aria-label={`Delete ${m.title}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete “${m.title}”?`)) remove.mutate(m.id);
+                      }}
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </span>
                 )}
               </div>
             );
@@ -216,7 +244,11 @@ export function MaintenancePage() {
         </Section>
         {canWrite && (
           <Section className="min-w-0 flex-[1_1_320px]">
-            <Create />
+            <Editor
+              key={editing ?? '__new'}
+              existing={list.data.find((m) => m.id === editing) ?? null}
+              onDone={() => setEditing(null)}
+            />
           </Section>
         )}
       </div>

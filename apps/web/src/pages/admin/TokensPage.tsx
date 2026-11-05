@@ -101,7 +101,12 @@ export function TokensPage() {
                 <button
                   type="button"
                   className="btn-danger h-7 px-2.5 text-[12px]"
-                  onClick={() => revoke.mutate(t.id)}
+                  onClick={() => {
+                    if (
+                      window.confirm(`Revoke token “${t.name}”? Clients using it stop working immediately.`)
+                    )
+                      revoke.mutate(t.id);
+                  }}
                 >
                   Revoke
                 </button>

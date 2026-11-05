@@ -1,4 +1,4 @@
-import type { DayState, ServiceStatus } from '@heartline/shared';
+import type { DayState, ServiceStatus, UrgencyLevel, VulnSeverity } from '@heartline/shared';
 
 export function pct(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : `${v.toFixed(v === 100 ? 0 : 2)}%`;
@@ -80,6 +80,42 @@ export const DAY_COLOR: Record<DayState, string> = {
   maintenance: 'var(--maint)',
   nodata: 'var(--fill-2)',
 };
+
+export const URGENCY_LABEL: Record<UrgencyLevel, string> = {
+  critical: 'Update now',
+  high: 'Update soon',
+  medium: 'Update advised',
+  low: 'Minor update',
+  none: 'Up to date',
+  unknown: 'Unknown',
+};
+
+/** Dot and text colour per urgency level. */
+export const URGENCY_TONE: Record<UrgencyLevel, { dot: string; text: string }> = {
+  critical: { dot: 'var(--bad)', text: 'var(--bad-text)' },
+  high: { dot: 'var(--bad)', text: 'var(--bad-text)' },
+  medium: { dot: 'var(--warn)', text: 'var(--warn-text)' },
+  low: { dot: 'var(--warn)', text: 'var(--sec)' },
+  none: { dot: 'var(--ok)', text: 'var(--ok-text)' },
+  unknown: { dot: 'var(--fill-2)', text: 'var(--sec)' },
+};
+
+export const SEVERITY_TONE: Record<VulnSeverity, string> = {
+  critical: 'var(--bad)',
+  high: 'var(--bad)',
+  medium: 'var(--warn)',
+  low: 'var(--maint)',
+  unknown: 'var(--fill-2)',
+};
+
+export function shortDate(day: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(Date.parse(`${day}T00:00:00Z`));
+}
 
 export const DAY_LABEL: Record<DayState, string> = {
   operational: 'No issues',

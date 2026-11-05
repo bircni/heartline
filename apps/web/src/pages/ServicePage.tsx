@@ -2,9 +2,10 @@ import { Link, useParams } from '@tanstack/react-router';
 import { DayBars, DayLegend } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { LatencyChart } from '../components/LatencyChart.tsx';
+import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, Kpi, PageHeader, Section, Spinner } from '../components/ui.tsx';
-import { useService } from '../lib/api.ts';
+import { useMe, useService, useServiceSoftware } from '../lib/api.ts';
 import { dateTime, duration, ms, pct, shortDay, time } from '../lib/format.ts';
 import { RangeControl, useRange } from './RangeControl.tsx';
 
@@ -14,6 +15,9 @@ export function ServicePage() {
   const { id } = useParams({ from: '/public/services/$id' });
   const days = useRange(30);
   const { data, error, isPending } = useService(id, days);
+  const me = useMe();
+  // Vulnerability details need a signed-in viewer; the summary tells us whether we are one (urgency is non-null).
+  const software = useServiceSoftware(id, Boolean(data?.software && data.software.urgency !== null));
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
 
@@ -125,6 +129,15 @@ export function ServicePage() {
           </div>
         </div>
       </Section>
+
+      {data.software && (
+        <SoftwarePanel
+          serviceId={data.id}
+          summary={data.software}
+          detail={software.data}
+          signedIn={Boolean(me.data)}
+        />
+      )}
 
       <div className="mt-3 flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[1_1_320px]" title="Recent checks">

@@ -1,0 +1,104 @@
+import type { UrgencyLevel, VulnSeverity, VulnerabilityDto } from '@heartline/shared';
+import { SEVERITY_TONE, URGENCY_LABEL, URGENCY_TONE, dateTime } from '../lib/format.ts';
+
+export function UrgencyBadge({ level, score }: { level: UrgencyLevel; score?: number | null }) {
+  const tone = URGENCY_TONE[level];
+  return (
+    <span
+      className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full bg-fill px-2.5 text-[12px] font-medium"
+      style={{ color: tone.text }}
+      title={score === null || score === undefined ? undefined : `Urgency score ${score}/100`}
+    >
+      <span
+        aria-hidden="true"
+        className="block h-[7px] w-[7px] rounded-full"
+        style={{ background: tone.dot }}
+      />
+      {URGENCY_LABEL[level]}
+    </span>
+  );
+}
+
+export function SeverityDot({ severity }: { severity: VulnSeverity }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-[7px] w-[7px] shrink-0 rounded-full"
+      style={{ background: SEVERITY_TONE[severity] }}
+    />
+  );
+}
+
+/** Compact counts like "1 critical · 2 high". */
+export function VulnCounts({ vulns }: { vulns: Record<VulnSeverity, number> | null }) {
+  if (!vulns) return <span className="text-sec">–</span>;
+  const parts = (['critical', 'high', 'medium', 'low', 'unknown'] as const).filter((s) => vulns[s] > 0);
+  if (parts.length === 0) return <span className="text-sec">none</span>;
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      {parts.map((s) => (
+        <span key={s} className="flex items-center gap-1 whitespace-nowrap">
+          <SeverityDot severity={s} />
+          {vulns[s]} {s}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
+  if (vulns.length === 0)
+    return <p className="m-0 border-t border-hair px-4 py-3 text-sec">No known vulnerabilities.</p>;
+  return (
+    <div>
+      <div
+        aria-hidden="true"
+        className="flex gap-3 border-t border-hair px-4 py-2 text-[12px] font-medium text-sec"
+      >
+        <span className="w-[150px] shrink-0 pl-[17px]">Advisory</span>
+        <span className="w-14 shrink-0">CVSS</span>
+        <span className="flex-1">Summary</span>
+        <span className="w-24 shrink-0">Fixed in</span>
+      </div>
+      {vulns.map((v) => (
+        <div key={v.id} className="flex items-start gap-3 border-t border-hair px-4 py-2.5 text-[13px]">
+          <span className="flex w-[150px] shrink-0 items-start gap-2.5 pt-1">
+            <SeverityDot severity={v.severity} />
+            <span className="min-w-0">
+              <a
+                href={v.urls.nvd ?? v.urls.osv ?? '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="block truncate font-mono text-[12px] text-text"
+              >
+                {v.id}
+              </a>
+              {v.kev && (
+                <span className="mt-0.5 inline-block rounded-md bg-fill px-1.5 text-[10px] font-semibold uppercase text-bad-text">
+                  exploited
+                </span>
+              )}
+            </span>
+          </span>
+          <span
+            className="w-14 shrink-0 pt-1 font-mono text-[12px]"
+            style={{ color: SEVERITY_TONE[v.severity] }}
+          >
+            {v.score === null ? '–' : v.score.toFixed(1)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="line-clamp-2 text-text">{v.summary ?? 'No summary.'}</span>
+            <span className="block text-[12px] text-sec">
+              {v.sources.join(' + ')}
+              {v.publishedAt ? ` · ${dateTime(v.publishedAt)}` : ''}
+              {v.aliases.length ? ` · ${v.aliases.join(', ')}` : ''}
+            </span>
+          </span>
+          <span className="w-24 shrink-0 pt-1 font-mono text-[12px]">
+            {v.fixedIn ?? <span className="text-sec">no fix</span>}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

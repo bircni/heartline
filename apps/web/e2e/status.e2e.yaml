@@ -11,6 +11,7 @@ groups:
           url: 'http://127.0.0.1:3100/healthz',
           interval: 5s,
           expect: { json: { ok: true } },
+          software: { product: heartline },
         }
       - { id: self-tcp, name: Status port, type: tcp, host: 127.0.0.1, port: 3100, interval: 5s }
 auth:
