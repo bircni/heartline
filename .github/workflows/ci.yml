@@ -72,7 +72,7 @@ jobs:
           helm template ci deploy/helm/heartline > helm.yaml
           helm template ci deploy/helm/heartline --set replicaCount=2 --set database.url=postgres://ci > helm-pg.yaml
           helm template ci deploy/helm/heartline --set database.url=postgres://ci --set existingSecret=mine > helm-existing.yaml
-          grep -q 'value: postgres://ci' helm-existing.yaml
+          grep -A1 'name: DATABASE_URL' helm-existing.yaml | grep -q 'postgres://ci'
           kubectl kustomize deploy/kustomize/overlays/sqlite > kustomize-sqlite.yaml
           kubectl kustomize deploy/kustomize/overlays/postgres > kustomize-pg.yaml
           docker run --rm -v "$PWD:/w" ghcr.io/yannh/kubeconform:v0.6.7 -strict -summary /w/helm.yaml /w/helm-pg.yaml /w/helm-existing.yaml /w/kustomize-sqlite.yaml /w/kustomize-pg.yaml
@@ -124,7 +124,7 @@ jobs:
           docker logs hl | tail -20
           docker rm -f hl
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: heartline:ci
           format: sarif
@@ -132,7 +132,7 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '0'
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && github.event_name == 'push'
         continue-on-error: true
         with:
