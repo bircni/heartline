@@ -12,14 +12,14 @@
     "demo": "node --env-file=.env.demo scripts/demo.ts"
   },
   "dependencies": {
-    "@better-auth/cimd": "1.7.15",
-    "@better-auth/kysely-adapter": "1.7.15",
-    "@better-auth/mcp": "1.7.15",
-    "@better-auth/oauth-provider": "1.7.15",
+    "@better-auth/cimd": "1.7.16",
+    "@better-auth/kysely-adapter": "1.7.16",
+    "@better-auth/mcp": "1.7.16",
+    "@better-auth/oauth-provider": "1.7.16",
     "@heartline/shared": "workspace:*",
-    "@hono/node-server": "^2.1.5",
+    "@hono/node-server": "^2.1.6",
     "@modelcontextprotocol/server": "^2.4.0",
-    "better-auth": "1.7.15",
+    "better-auth": "1.7.16",
     "hono": "4.13.16",
     "kysely": "0.29.8",
     "nodemailer": "^10.3.1",
@@ -30,7 +30,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.14",
+    "@electric-sql/pglite": "^0.5.15",
     "@testcontainers/postgresql": "^12.2.1",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
