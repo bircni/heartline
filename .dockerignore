@@ -4,9 +4,10 @@
 .nx
 dev
 deploy
+!deploy/docker
 **/test-results
 **/playwright-report
 **/*.db
 **/*.db-*
-.env
-.env.*
+**/.env
+**/.env.*

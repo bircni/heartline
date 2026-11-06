@@ -109,7 +109,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
       )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-[13px] text-sec">
-          <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify Teams and e-mail
+          <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
         </span>
         <button type="submit" className="btn-primary" disabled={create.isPending}>
           Declare
@@ -151,18 +151,93 @@ function Detail({
     mutationFn: () => api(`/api/v1/admin/incidents/${incident.id}`, { method: 'DELETE' }),
     onSuccess: refresh,
   });
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(incident.title);
+  const [impact, setImpact] = useState<Impact>(incident.impact);
+  const [services, setServices] = useState<string[]>(incident.services.map((s) => s.id));
+  const edit = useMutation({
+    mutationFn: () =>
+      api<Incident>(`/api/v1/admin/incidents/${incident.id}`, {
+        method: 'PATCH',
+        json: { title, impact, services },
+      }),
+    onSuccess: async () => {
+      setEditing(false);
+      await refresh();
+    },
+  });
   const open = incident.resolvedAt === null;
   return (
     <div className="p-4">
-      <div className="text-[12px] font-medium" style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}>
-        {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
-        {incident.services.map((s) => s.name).join(', ') || 'no services'}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div
+            className="text-[12px] font-medium"
+            style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}
+          >
+            {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
+            {incident.services.map((s) => s.name).join(', ') || 'no services'}
+          </div>
+          <h2 className="m-0 mt-0.5 text-[20px] font-medium">{incident.title}</h2>
+          <div className="text-[12px] text-sec">
+            {dateTime(incident.createdAt)} · {duration(incident.createdAt, incident.resolvedAt)}
+            {incident.automatic && ' · automatic'}
+          </div>
+        </div>
+        {canWrite && !editing && (
+          <button
+            type="button"
+            className="btn-secondary h-7 shrink-0 px-3 text-[12px]"
+            onClick={() => setEditing(true)}
+          >
+            <Icon name="edit" size={16} /> Edit
+          </button>
+        )}
       </div>
-      <h2 className="m-0 mt-0.5 text-[20px] font-medium">{incident.title}</h2>
-      <div className="text-[12px] text-sec">
-        {dateTime(incident.createdAt)} · {duration(incident.createdAt, incident.resolvedAt)}
-        {incident.automatic && ' · automatic'}
-      </div>
+      {editing && (
+        <form
+          className="mt-3 rounded-[12px] bg-fill p-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            edit.mutate();
+          }}
+        >
+          <Field label="Title" htmlFor="e-title">
+            <input
+              id="e-title"
+              className="field bg-bg"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
+          <div className="mt-3">
+            <div className="label">Impact</div>
+            <div className="rounded-[8px] bg-bg p-0.5">
+              <Segmented
+                size="sm"
+                label="Impact"
+                value={impact}
+                onChange={setImpact}
+                options={IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] }))}
+              />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="label">Affected services</div>
+            <ServicePicker value={services} onChange={setServices} />
+          </div>
+          {edit.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{edit.error.message}</p>}
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={edit.isPending}>
+              Save changes
+            </button>
+          </div>
+        </form>
+      )}
       {canWrite && (
         <form
           className="mt-4 rounded-[12px] bg-fill p-4"
@@ -195,8 +270,7 @@ function Detail({
           {post.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{post.error.message}</p>}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-[13px] text-sec">
-              <Switch checked={notify} onChange={setNotify} label="Notify Teams and e-mail" /> Notify Teams
-              and e-mail
+              <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
             </span>
             <button type="submit" className="btn-primary" disabled={post.isPending}>
               Post update

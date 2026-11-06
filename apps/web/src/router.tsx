@@ -78,6 +78,13 @@ const monitors = createRoute({
   path: 'monitors',
   component: lazyRouteComponent(() => import('./pages/admin/MonitorsPage.tsx'), 'MonitorsPage'),
 });
+const software = createRoute({
+  getParentRoute: () => admin,
+  path: 'software',
+  validateSearch: (search: Record<string, unknown>): { service?: string } =>
+    typeof search.service === 'string' && search.service ? { service: search.service } : {},
+  component: lazyRouteComponent(() => import('./pages/admin/SoftwarePage.tsx'), 'SoftwarePage'),
+});
 const incidents = createRoute({
   getParentRoute: () => admin,
   path: 'incidents',
@@ -109,7 +116,7 @@ const routeTree = root.addChildren([
   publicLayout.addChildren([overview, service, incident]),
   login,
   consent,
-  admin.addChildren([adminIndex, monitors, incidents, maintenance, notifications, tokens, users]),
+  admin.addChildren([adminIndex, monitors, software, incidents, maintenance, notifications, tokens, users]),
 ]);
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: true });

@@ -50,7 +50,14 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-export async function harness(configYaml = BASE_CONFIG, opts: { db?: Db } = {}): Promise<Harness> {
+export interface HarnessOptions {
+  db?: Db;
+  env?: Partial<Env>;
+  /** Answers outbound requests (intel sources, probes); return undefined to fall through to the notifier stub. */
+  fetchImpl?: (url: string | URL | Request, init?: RequestInit) => Promise<Response | undefined>;
+}
+
+export async function harness(configYaml = BASE_CONFIG, opts: HarnessOptions = {}): Promise<Harness> {
   const port = await freePort();
   const env: Env = {
     port,
@@ -63,9 +70,18 @@ export async function harness(configYaml = BASE_CONFIG, opts: { db?: Db } = {}):
     baseUrl: BASE,
     authSecret: 'test-secret-test-secret-test-secret-1234',
     isProduction: false,
+    nvdApiKey: null,
+    offline: false,
+    githubToken: null,
+    ...opts.env,
   };
   const sent: Harness['sent'] = [];
   const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+    const stubbed = await opts.fetchImpl?.(url, init);
+    if (stubbed) return stubbed;
+    // Local test servers (version probes) are real; everything else is treated as a notifier call.
+    const host = new URL(url instanceof Request ? url.url : String(url)).hostname;
+    if (host === '127.0.0.1' || host === 'localhost' || host === '[::1]') return fetch(url, init);
     sent.push({ url: String(url), body: JSON.parse(String(init?.body ?? 'null')) });
     return new Response('ok', { status: 200 });
   }) as typeof fetch;

@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import { adminRoutes } from './api/admin.ts';
 import { onError } from './api/errors.ts';
+import { docsHtml, openApiDocument } from './api/openapi.ts';
 import { bootstrapRoutes, publicRoutes } from './api/public.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
@@ -46,6 +47,11 @@ export function createApp(app: AppContext) {
 
   const mcp = mcpHandler(app);
   h.on(['GET', 'POST', 'DELETE'], '/mcp', (c) => mcp(c.req.raw));
+
+  let openapi: Record<string, unknown> | null = null;
+  const doc = () => (openapi ??= openApiDocument(app.env.baseUrl));
+  h.get('/api/v1/openapi.json', (c) => c.json(doc()));
+  h.get('/api/docs', (c) => c.html(docsHtml(doc())));
 
   h.use('/api/v1/*', principalMiddleware(app));
   h.route('/api/v1', bootstrapRoutes(app));

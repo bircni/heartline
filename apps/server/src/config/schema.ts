@@ -59,9 +59,40 @@ export const configSchema = z
         baseUrl: z.url().optional(),
         /** When false, the status page and public API require a signed-in user. */
         public: z.boolean().default(true),
+        /** Show running versions and update urgency to anonymous visitors (vulnerability details never are). */
+        showVersions: z.boolean().default(false),
       })
-      .default({ title: 'Status', timezone: 'UTC', public: true }),
+      .default({ title: 'Status', timezone: 'UTC', public: true, showVersions: false }),
     retention: z.object({ rawDays: z.number().int().min(1).default(30) }).default({ rawDays: 30 }),
+    software: z
+      .object({
+        enabled: z.boolean().default(true),
+        /** How often vulnerability and release data is refreshed. */
+        refreshEvery: duration.default(6 * 3_600_000),
+        /** How often the CISA KEV catalog is downloaded. */
+        kevRefreshEvery: duration.default(24 * 3_600_000),
+        sources: z
+          .object({
+            osv: z.boolean().default(true),
+            /** `auto` enables NVD when NVD_API_KEY is set. */
+            nvd: z.union([z.boolean(), z.literal('auto')]).default('auto'),
+            endoflife: z.boolean().default(true),
+            kev: z.boolean().default(true),
+            /** Release pages (Gitea/Forgejo, GitHub, custom URLs) for the latest version. */
+            releases: z.boolean().default(true),
+          })
+          .default({ osv: true, nvd: 'auto', endoflife: true, kev: true, releases: true }),
+        /** Overrides the NVD_API_KEY environment variable. */
+        nvdApiKey: z.string().optional(),
+        /** Overrides the GITHUB_TOKEN environment variable (release lookups). */
+        githubToken: z.string().optional(),
+      })
+      .default({
+        enabled: true,
+        refreshEvery: 6 * 3_600_000,
+        kevRefreshEvery: 24 * 3_600_000,
+        sources: { osv: true, nvd: 'auto', endoflife: true, kev: true, releases: true },
+      }),
     groups: z.array(groupSchema).default([]),
     notifiers: z.array(notifierSchema).default([]),
     notifications: z
@@ -70,8 +101,10 @@ export const configSchema = z
         incidents: z.boolean().default(true),
         /** Repeat a down notification while the outage lasts; 0 disables reminders. */
         reminderEvery: duration.default(0),
+        /** New vulnerabilities, urgency rising to high/critical, version changes. */
+        security: z.boolean().default(true),
       })
-      .default({ recovery: true, incidents: true, reminderEvery: 0 }),
+      .default({ recovery: true, incidents: true, reminderEvery: 0, security: true }),
     auth: z
       .object({
         local: z.boolean().default(true),

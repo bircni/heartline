@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import { DayBars, DayLegend } from '../components/DayBars.tsx';
+import { Icon } from '../components/Icon.tsx';
 import { StatusDot, StatusLabel } from '../components/Status.tsx';
+import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, PageHeader, Spinner } from '../components/ui.tsx';
 import { useOverview } from '../lib/api.ts';
 import { pct, relative } from '../lib/format.ts';
@@ -32,6 +34,27 @@ export function OverviewPage() {
           Updated {relative(data.generatedAt)}
         </span>
       </div>
+
+      {data.security && data.security.critical + data.security.high > 0 && (
+        <Link
+          to="/admin/software"
+          className="card mt-3 flex items-center gap-3 px-4 py-3 text-text no-underline hover:bg-hover"
+        >
+          <Icon name="shield" size={16} className="shrink-0 text-bad-text" />
+          <span className="min-w-0 flex-1 text-[13px]">
+            <span className="font-medium">
+              {data.security.critical + data.security.high} service
+              {data.security.critical + data.security.high === 1 ? '' : 's'} need
+              {data.security.critical + data.security.high === 1 ? 's' : ''} an urgent update
+            </span>
+            <span className="text-sec">
+              {' '}
+              · {data.security.critical} critical, {data.security.high} high
+            </span>
+          </span>
+          <Icon name="chevron" size={16} className="text-muted" />
+        </Link>
+      )}
 
       {data.activeIncidents.map((i) => (
         <Link
@@ -78,7 +101,19 @@ export function OverviewPage() {
                   aria-label={`${s.name}: ${s.status}, ${pct(s.uptime)} uptime. Open details.`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium">{s.name}</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium">{s.name}</span>
+                      {s.software?.version && (
+                        <span className="shrink-0 font-mono text-[12px] text-muted">
+                          v{s.software.version}
+                        </span>
+                      )}
+                      {s.software?.urgency &&
+                        s.software.urgency !== 'none' &&
+                        s.software.urgency !== 'unknown' && (
+                          <UrgencyBadge level={s.software.urgency} score={s.software.score} />
+                        )}
+                    </span>
                     <StatusLabel status={s.status} />
                   </div>
                   <div className="mt-1">

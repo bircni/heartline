@@ -1,4 +1,11 @@
-import type { Incident, IncidentUpdateDto, NotifierDto, ServiceStatus } from '@heartline/shared';
+import type {
+  Incident,
+  IncidentUpdateDto,
+  NotifierDto,
+  ServiceRef,
+  ServiceStatus,
+  UrgencyLevel,
+} from '@heartline/shared';
 import { createTransport } from 'nodemailer';
 import type { NotifierConfig } from '../config/schema.ts';
 import type { Db } from '../db/index.ts';
@@ -15,6 +22,20 @@ export type NotificationEvent =
       reminder?: boolean;
     }
   | { kind: 'incident'; incident: Incident; update: IncidentUpdateDto }
+  | {
+      kind: 'vulnerability';
+      service: ServiceRef;
+      product: string;
+      version: string | null;
+      previousVersion: string | null;
+      latest: string | null;
+      /** Release page of the latest version, when known. */
+      latestUrl: string | null;
+      urgency: { level: UrgencyLevel; score: number; reasons: string[] };
+      newVulns: { id: string; score: number | null; kev: boolean; fixedIn: string | null }[];
+      trigger: 'new-vulns' | 'urgency' | 'version-change';
+      at: number;
+    }
   | { kind: 'test'; at: number };
 
 export interface RenderedMessage {
@@ -60,6 +81,41 @@ export function render(event: NotificationEvent, baseUrl: string, siteTitle: str
       ],
       tone: recovered ? 'Good' : event.to === 'down' ? 'Attention' : 'Warning',
       url: `${baseUrl}/services/${encodeURIComponent(event.service.id)}`,
+    };
+  }
+  if (event.kind === 'vulnerability') {
+    const { service, urgency } = event;
+    const n = event.newVulns.length;
+    const title =
+      event.trigger === 'version-change'
+        ? `${service.name} updated to ${event.version ?? 'unknown version'}`
+        : event.trigger === 'new-vulns'
+          ? `${service.name}: ${n} new vulnerabilit${n === 1 ? 'y' : 'ies'} (${urgency.level})`
+          : `${service.name} needs an update: ${urgency.level}`;
+    const text =
+      event.trigger === 'version-change'
+        ? `Version changed from ${event.previousVersion ?? 'unknown'} to ${event.version ?? 'unknown'}.`
+        : urgency.reasons.slice(0, 5).join('\n') || 'No details.';
+    const facts: [string, string][] = [
+      ['Product', event.product],
+      ['Version', event.version ?? 'unknown'],
+      ['Urgency', `${urgency.level} (${urgency.score}/100)`],
+    ];
+    if (event.latest && event.latest !== event.version) facts.push(['Latest', event.latest]);
+    const fix = event.newVulns.map((v) => v.fixedIn).find((f) => f);
+    if (fix) facts.push(['Fixed in', fix]);
+    if (event.latestUrl) facts.push(['Release notes', event.latestUrl]);
+    return {
+      title,
+      text: event.latestUrl ? `${text}\n${event.latestUrl}` : text,
+      facts,
+      tone:
+        urgency.level === 'critical' || urgency.level === 'high'
+          ? 'Attention'
+          : urgency.level === 'medium'
+            ? 'Warning'
+            : 'Accent',
+      url: `${baseUrl}/services/${encodeURIComponent(service.id)}`,
     };
   }
   const { incident, update } = event;

@@ -4,12 +4,13 @@ import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-route
 import { useEffect } from 'react';
 import { Icon, type IconName, Logo } from '../../components/Icon.tsx';
 import { Spinner } from '../../components/ui.tsx';
-import { useBootstrap, useIncidents, useMe } from '../../lib/api.ts';
+import { useBootstrap, useIncidents, useMe, useSoftwareInventory } from '../../lib/api.ts';
 import { authClient } from '../../lib/auth.ts';
 import { ThemeButton } from '../PublicLayout.tsx';
 
 const SECTIONS: { to: string; label: string; icon: IconName; min: Role }[] = [
   { to: '/admin/monitors', label: 'Monitors', icon: 'pulse', min: 'viewer' },
+  { to: '/admin/software', label: 'Software', icon: 'shield', min: 'viewer' },
   { to: '/admin/incidents', label: 'Incidents', icon: 'alert', min: 'viewer' },
   { to: '/admin/maintenance', label: 'Maintenance', icon: 'wrench', min: 'viewer' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell', min: 'viewer' },
@@ -26,6 +27,7 @@ export function AdminLayout() {
   const me = useMe();
   const boot = useBootstrap();
   const active = useIncidents(true);
+  const software = useSoftwareInventory(Boolean(me.data));
   const navigate = useNavigate();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -55,7 +57,13 @@ export function AdminLayout() {
         <nav aria-label="Admin sections" className="mt-4 flex flex-col gap-0.5">
           {SECTIONS.filter((s) => can(me.data?.role, s.min)).map((s) => {
             const current = path.startsWith(s.to);
-            const count = s.to === '/admin/incidents' ? active.data?.length : undefined;
+            const urgent = software.data ? software.data.totals.critical + software.data.totals.high : 0;
+            const count =
+              s.to === '/admin/incidents'
+                ? active.data?.length
+                : s.to === '/admin/software'
+                  ? urgent || undefined
+                  : undefined;
             return (
               <Link
                 key={s.to}

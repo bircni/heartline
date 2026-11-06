@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { ZodError, z } from 'zod';
-import { ConflictError, NotFoundError } from '../services/monitors.ts';
+import { ConflictError, NotFoundError, ValidationError } from '../services/monitors.ts';
 import { log } from '../util/log.ts';
 
 export class BadRequestError extends Error {}
@@ -12,7 +12,8 @@ export function onError(error: Error, c: Context): Response {
   if (error instanceof ZodError) return c.json({ error: z.prettifyError(error) }, 400);
   if (error instanceof NotFoundError) return c.json({ error: error.message }, 404);
   if (error instanceof ConflictError) return c.json({ error: error.message }, 409);
-  if (error instanceof BadRequestError) return c.json({ error: error.message }, 400);
+  if (error instanceof BadRequestError || error instanceof ValidationError)
+    return c.json({ error: error.message }, 400);
   if (error instanceof ForbiddenError) return c.json({ error: error.message }, 403);
   log.error('unhandled request error', { path: c.req.path, error: error.stack ?? error.message });
   return c.json({ error: 'Internal server error' }, 500);

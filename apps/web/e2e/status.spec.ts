@@ -67,6 +67,36 @@ test('admin flow: monitor, incident and token', async ({ page }) => {
   await expect(page.getByText('Loopback port').first()).toBeVisible();
 });
 
+test('software inventory shows the probed version and degrades without data sources', async ({ page }) => {
+  // Anonymous visitors see nothing about versions by default.
+  await page.goto('/services/self-http');
+  await expect(page.getByRole('heading', { name: /Status API/ })).toBeVisible();
+  await expect(page.getByText('Recent checks')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Software/ })).toHaveCount(0);
+
+  await page.goto('/login');
+  await page.getByLabel('E-mail').fill(ADMIN.email);
+  await page.getByLabel('Password').fill(ADMIN.password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('link', { name: 'Software' }).click();
+  await expect(page.getByRole('heading', { name: 'Software' })).toBeVisible();
+  const row = page.getByRole('button', { name: /Status API/ });
+  await expect(row).toBeVisible();
+  await row.click();
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByRole('status').getByText('Refreshed.')).toBeVisible();
+  // The catalog probe reads /api/v1/version of the server itself.
+  await expect(row.getByText(/^\d+\.\d+\.\d+/)).toBeVisible();
+  // No data sources are reachable in e2e and heartline has no advisory source: nothing crashes and the
+  // service is scored by what is known (nothing), with the missing source named in the reasons.
+  await expect(row.getByText('Up to date')).toBeVisible();
+  await expect(page.getByText('no vulnerability source known for heartline')).toBeVisible();
+
+  await page.goto('/services/self-http');
+  await expect(page.getByRole('heading', { name: /^Software/ })).toBeVisible();
+  await expect(page.getByText('No known vulnerabilities')).toBeVisible();
+});
+
 test('theme toggle persists', async ({ page }) => {
   await page.goto('/');
   const html = page.locator('html');

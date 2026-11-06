@@ -26,6 +26,9 @@ const PATHS = {
   x: 'M6 6l12 12M18 6L6 18',
   gitea: 'M8 12a4 4 0 1 0 0 .01M12 12h9M18 12v3M21 12v2',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  shield: 'M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6zM9 12l2 2 4-4',
+  refresh: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
+  edit: 'M4 20h4l10-10-4-4L4 16zM13 7l4 4',
 } as const;
 
 export type IconName = keyof typeof PATHS;

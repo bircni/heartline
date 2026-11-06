@@ -1,4 +1,4 @@
-import type { AdminMonitor, MonitorKind, MonitorSpecInput } from '@heartline/shared';
+import type { AdminMonitor, CatalogEntryDto, MonitorKind, MonitorSpecInput } from '@heartline/shared';
 import { MONITOR_KINDS, formatDuration } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -7,13 +7,336 @@ import { Segmented } from '../../components/Segmented.tsx';
 import { StatusDot, StatusPill } from '../../components/Status.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
-import { api, useAdminMonitors, useMe, useNotifiers, usePlugins } from '../../lib/api.ts';
+import { api, useAdminMonitors, useCatalog, useMe, useNotifiers, usePlugins } from '../../lib/api.ts';
 import { ms, relative } from '../../lib/format.ts';
 import { can } from './AdminLayout.tsx';
 
 type Draft = { group: string; spec: Record<string, unknown> };
 
 const num = (v: string) => (v === '' ? undefined : Number(v));
+
+/** `200, 204, 300-399` → [200, 204, 300, …, 399]; invalid pieces are dropped. */
+export function parseStatusList(input: string): number[] | undefined {
+  const out = new Set<number>();
+  for (const piece of input.split(/[ ,]+/).filter(Boolean)) {
+    const range = /^(\d{3})-(\d{3})$/.exec(piece);
+    if (range) {
+      const [a, b] = [Number(range[1]), Number(range[2])];
+      for (let n = Math.min(a, b); n <= Math.max(a, b); n++) out.add(n);
+    } else if (/^\d{3}$/.test(piece)) out.add(Number(piece));
+  }
+  return out.size ? [...out].toSorted((a, b) => a - b) : undefined;
+}
+
+/** Collapses consecutive codes back into ranges for display. */
+export function formatStatusList(codes: number[]): string {
+  const sorted = [...codes].toSorted((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length;) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === (sorted[j] as number) + 1) j++;
+    parts.push(j > i + 1 ? `${sorted[i]}-${sorted[j]}` : sorted.slice(i, j + 1).join(', '));
+    i = j + 1;
+  }
+  return parts.join(', ');
+}
+
+type VersionMode = 'auto' | 'json' | 'header' | 'regex' | 'static';
+
+function versionMode(v: Record<string, unknown> | undefined): VersionMode {
+  if (!v) return 'auto';
+  if (v.static !== undefined) return 'static';
+  if (v.json !== undefined) return 'json';
+  if (v.header !== undefined) return 'header';
+  if (v.regex !== undefined) return 'regex';
+  return 'auto';
+}
+
+type ReleaseMode = 'auto' | 'gitea' | 'github' | 'url';
+
+function ReleasesFields({
+  sw,
+  setSw,
+  locked,
+  entry,
+}: {
+  sw: Record<string, unknown> | undefined;
+  setSw: (patch: Record<string, unknown> | undefined) => void;
+  locked: boolean;
+  entry: CatalogEntryDto | undefined;
+}) {
+  const rel = (sw?.releases as Record<string, unknown> | undefined) ?? undefined;
+  const mode: ReleaseMode =
+    rel?.gitea !== undefined
+      ? 'gitea'
+      : rel?.github !== undefined
+        ? 'github'
+        : rel?.url !== undefined
+          ? 'url'
+          : 'auto';
+  const setRel = (patch: Record<string, unknown> | undefined) => setSw({ ...sw, releases: patch });
+  const autoLabel = entry?.endoflife ? 'endoflife.date' : entry?.github ? 'GitHub (catalog)' : 'None';
+  return (
+    <>
+      <div className="mt-3">
+        <div className="label">Latest release from</div>
+        <Segmented
+          size="sm"
+          label="Latest release from"
+          value={mode}
+          onChange={(m) =>
+            setRel(
+              m === 'auto'
+                ? undefined
+                : m === 'gitea'
+                  ? { gitea: '', repo: '' }
+                  : m === 'github'
+                    ? { github: '' }
+                    : { url: '', json: '' },
+            )
+          }
+          options={[
+            { value: 'auto', label: autoLabel },
+            { value: 'gitea', label: 'Gitea / Forgejo' },
+            { value: 'github', label: 'GitHub' },
+            { value: 'url', label: 'URL' },
+          ]}
+        />
+      </div>
+      {mode === 'gitea' && (
+        <div className="grid grid-cols-2 gap-x-3">
+          <TextField
+            id="m-rel-gitea"
+            label="Instance URL"
+            value={rel?.gitea}
+            onChange={(v) => setRel({ ...rel, gitea: v })}
+            disabled={locked}
+            placeholder="https://git.example.com"
+          />
+          <TextField
+            id="m-rel-repo"
+            label="Repository"
+            value={rel?.repo}
+            onChange={(v) => setRel({ ...rel, repo: v })}
+            disabled={locked}
+            placeholder="owner/name"
+          />
+        </div>
+      )}
+      {mode === 'github' && (
+        <TextField
+          id="m-rel-github"
+          label="GitHub repository"
+          value={rel?.github}
+          onChange={(v) => setRel({ ...rel, github: v })}
+          disabled={locked}
+          placeholder="owner/name"
+        />
+      )}
+      {mode === 'url' && (
+        <div className="grid grid-cols-2 gap-x-3">
+          <TextField
+            id="m-rel-url"
+            label="URL"
+            value={rel?.url}
+            onChange={(v) => setRel({ ...rel, url: v })}
+            disabled={locked}
+            placeholder="https://…/latest.json"
+          />
+          <TextField
+            id="m-rel-json"
+            label="JSON path or regex"
+            value={rel?.regex !== undefined ? `/${rel.regex}/` : rel?.json}
+            onChange={(v) => {
+              const m = /^\/(.+)\/$/.exec(v);
+              const { json: _j, regex: _r, ...rest } = rel ?? {};
+              setRel(m ? { ...rest, regex: m[1] } : { ...rest, json: v });
+            }}
+            disabled={locked}
+            placeholder="tag_name  or  /v(\\d+\\.\\d+\\.\\d+)/"
+          />
+        </div>
+      )}
+      {mode !== 'auto' && (
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[13px]">Count pre-releases</span>
+          <Switch
+            label="Count pre-releases"
+            checked={rel?.prerelease === true}
+            disabled={locked}
+            onChange={(on) => setRel({ ...rel, prerelease: on ? true : undefined })}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function SoftwareFields({
+  spec,
+  set,
+  locked,
+  kind,
+}: {
+  spec: Record<string, unknown>;
+  set: (key: string, value: unknown) => void;
+  locked: boolean;
+  kind: MonitorKind;
+}) {
+  const catalog = useCatalog();
+  const sw = (spec.software as Record<string, unknown> | undefined) ?? undefined;
+  const version = (sw?.version as Record<string, unknown> | undefined) ?? undefined;
+  const enabled = sw !== undefined;
+  const entry = catalog.data?.find((c) => c.slug === sw?.product);
+  const mode = versionMode(version);
+  const setSw = (patch: Record<string, unknown> | undefined) => set('software', patch);
+  const setVersion = (patch: Record<string, unknown> | undefined) =>
+    setSw({ ...sw, version: patch && Object.keys(patch).length ? patch : undefined });
+  const switchMode = (m: VersionMode) => {
+    const keep = { url: version?.url, headers: version?.headers, interval: version?.interval };
+    const base = Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined));
+    setVersion(
+      m === 'auto'
+        ? Object.keys(base).length
+          ? base
+          : undefined
+        : { ...base, [m]: m === 'json' ? 'version' : '' },
+    );
+  };
+  const needsUrl = kind !== 'http' && kind !== 'plugin';
+  return (
+    <div className="mt-4 rounded-[8px] bg-fill">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-[13px]">Track version and vulnerabilities</span>
+        <Switch
+          label="Track software"
+          checked={enabled}
+          disabled={locked}
+          onChange={(on) => setSw(on ? { product: entry?.slug ?? '' } : undefined)}
+        />
+      </div>
+      {enabled && (
+        <div className="border-t border-hair px-3 pb-3">
+          <Field
+            label="Product"
+            htmlFor="m-product"
+            hint="Catalog products come with a version probe, CPE and OSV package."
+          >
+            <div className="flex gap-2">
+              <select
+                id="m-product-select"
+                aria-label="Catalog product"
+                className="field w-44"
+                value={entry ? entry.slug : 'custom'}
+                disabled={locked}
+                onChange={(e) => setSw({ ...sw, product: e.target.value === 'custom' ? '' : e.target.value })}
+              >
+                <option value="custom">Custom…</option>
+                {catalog.data?.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                id="m-product"
+                className="field font-mono text-[13px]"
+                value={String(sw?.product ?? '')}
+                disabled={locked}
+                placeholder="slug, e.g. gitea"
+                onChange={(e) => setSw({ ...sw, product: e.target.value.toLowerCase() })}
+              />
+            </div>
+          </Field>
+          {entry?.probe?.note && <p className="m-0 mt-1 text-[12px] text-sec">{entry.probe.note}</p>}
+          <div className="mt-3">
+            <div className="label">Version source</div>
+            <Segmented
+              size="sm"
+              label="Version source"
+              value={mode}
+              onChange={switchMode}
+              options={[
+                { value: 'auto', label: kind === 'plugin' ? 'Plugin' : entry?.probe ? 'Catalog' : 'None' },
+                { value: 'json', label: 'JSON' },
+                { value: 'header', label: 'Header' },
+                { value: 'regex', label: 'Regex' },
+                { value: 'static', label: 'Fixed' },
+              ]}
+            />
+          </div>
+          {mode === 'static' ? (
+            <TextField
+              id="m-ver-static"
+              label="Version"
+              value={version?.static}
+              onChange={(v) => setVersion({ ...version, static: v })}
+              disabled={locked}
+              placeholder="16.2"
+            />
+          ) : (
+            <>
+              {mode !== 'auto' && (
+                <TextField
+                  id={`m-ver-${mode}`}
+                  label={
+                    mode === 'json' ? 'JSON path' : mode === 'header' ? 'Header name' : 'Regular expression'
+                  }
+                  value={version?.[mode]}
+                  onChange={(v) => setVersion({ ...version, [mode]: v })}
+                  disabled={locked}
+                  placeholder={
+                    mode === 'json'
+                      ? 'data.version'
+                      : mode === 'header'
+                        ? 'x-gitea-version'
+                        : 'v?(\\d+\\.\\d+\\.\\d+)'
+                  }
+                  hint={mode === 'regex' ? 'Capture groups are joined with dots.' : undefined}
+                />
+              )}
+              {(mode !== 'auto' || needsUrl || entry?.probe) && (
+                <TextField
+                  id="m-ver-url"
+                  label={needsUrl ? 'Version URL' : 'Version URL (optional)'}
+                  value={version?.url}
+                  onChange={(v) => setVersion({ ...version, url: v || undefined })}
+                  disabled={locked}
+                  placeholder={
+                    entry?.probe && kind === 'http'
+                      ? `catalog default: ${entry.probe.path}`
+                      : kind === 'http'
+                        ? 'defaults to the check URL'
+                        : 'https://…'
+                  }
+                />
+              )}
+            </>
+          )}
+          <ReleasesFields sw={sw} setSw={setSw} locked={locked} entry={entry} />
+          <TextField
+            id="m-pin-cycle"
+            label="Stay on release cycle (optional)"
+            value={sw?.pinCycle}
+            onChange={(v) => setSw({ ...sw, pinCycle: v || undefined })}
+            disabled={locked}
+            placeholder="e.g. 1.24"
+            hint="Newer cycles are then not counted as updates."
+          />
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-[13px]">Look up vulnerabilities</span>
+            <Switch
+              label="Look up vulnerabilities"
+              checked={sw?.track !== false}
+              disabled={locked}
+              onChange={(on) => setSw({ ...sw, track: on ? undefined : false })}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const KIND_LABEL: Record<MonitorKind, string> = {
   http: 'HTTP',
@@ -39,16 +362,31 @@ function toDraft(m: AdminMonitor): Draft {
   };
   if ('degradedAfter' in m.spec && m.spec.degradedAfter !== undefined)
     spec.degradedAfter = formatDuration(m.spec.degradedAfter);
+  if (m.spec.software?.version) {
+    const { interval, headers, method, ignoreTls, ...rest } = m.spec.software.version;
+    const version: Record<string, unknown> = { ...rest };
+    if (interval !== 3_600_000) version.interval = formatDuration(interval);
+    if (Object.keys(headers).length) version.headers = headers;
+    if (method !== 'GET') version.method = method;
+    if (ignoreTls) version.ignoreTls = true;
+    spec.software = { ...m.spec.software, version };
+  }
   return { group: m.group, spec };
 }
 
-/** Removes empty optional strings so the server applies its defaults. */
+/** Removes empty optional strings (recursively) so the server applies its defaults. */
 function clean(spec: Record<string, unknown>): MonitorSpecInput {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(spec)) {
-    if (v === '' || v === undefined) continue;
-    out[k] = v;
-  }
+  const strip = (obj: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === '' || v === undefined) continue;
+      out[k] = v && typeof v === 'object' && !Array.isArray(v) ? strip(v as Record<string, unknown>) : v;
+    }
+    return out;
+  };
+  const out = strip(spec);
+  const sw = out.software as Record<string, unknown> | undefined;
+  if (sw?.version && Object.keys(sw.version as object).length === 0) delete sw.version;
   return out as MonitorSpecInput;
 }
 
@@ -82,6 +420,33 @@ function TextField({
         placeholder={placeholder}
       />
     </Field>
+  );
+}
+
+/** Keeps the raw text while typing so ranges like `200-399` can be entered. */
+function StatusField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  const [text, setText] = useState(value);
+  return (
+    <TextField
+      id="m-status"
+      label="Expected status"
+      value={text}
+      onChange={(v) => {
+        setText(v);
+        onChange(v);
+      }}
+      disabled={disabled}
+      placeholder="200-399 (default 2xx and 3xx)"
+      hint="Codes or ranges, comma separated"
+    />
   );
 }
 
@@ -154,18 +519,10 @@ function Editor({
             placeholder="https://git.example.com/api/healthz"
           />
           <div className="grid grid-cols-2 gap-x-3">
-            <TextField
-              id="m-status"
-              label="Expected status"
-              value={Array.isArray(expect.status) ? (expect.status as number[]).join(', ') : ''}
-              onChange={(v) =>
-                set('expect', {
-                  ...expect,
-                  status: v ? v.split(/[ ,]+/).filter(Boolean).map(Number) : undefined,
-                })
-              }
+            <StatusField
+              value={Array.isArray(expect.status) ? formatStatusList(expect.status as number[]) : ''}
+              onChange={(v) => set('expect', { ...expect, status: parseStatusList(v) })}
               disabled={locked}
-              placeholder="200-399"
             />
             <TextField
               id="m-contains"
@@ -341,6 +698,7 @@ function Editor({
           onChange={(v) => set('autoIncident', v)}
         />
       </div>
+      <SoftwareFields spec={s} set={set} locked={locked} kind={kind} />
     </>
   );
 }

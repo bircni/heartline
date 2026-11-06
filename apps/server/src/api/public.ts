@@ -1,8 +1,10 @@
-import type { AuthProviders, DayState, Me } from '@heartline/shared';
-import { Hono } from 'hono';
+import type { AppVersion, AuthProviders, Bootstrap, DayState, Me, UrgencyLevel } from '@heartline/shared';
+import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { type Vars, requireScope } from '../auth/principal.ts';
 import type { AppContext } from '../context.ts';
+import { APP_NAME, APP_VERSION } from '../util/pkg.ts';
 import { daysParam } from './errors.ts';
+import { redactDetail, redactOverview, redactService, softwareVisibility } from './visibility.ts';
 
 const BADGE_COLORS: Record<string, string> = {
   good: '#30a14e',
@@ -33,11 +35,45 @@ export function publicRoutes(app: AppContext) {
   // Private status pages require any signed-in user (or a read token) for every public route.
   r.use('*', async (c, next) => (app.config().site.public ? next() : readGate(c, next)));
 
-  r.get('/overview', async (c) => c.json(await app.queries.overview(daysParam(c.req.query('days'), 90))));
+  const vis = (c: Context<Vars>) => softwareVisibility(c, app.config());
+
+  r.get('/overview', async (c) =>
+    c.json(redactOverview(await app.queries.overview(daysParam(c.req.query('days'), 90)), vis(c))),
+  );
 
   r.get('/services/:id', async (c) =>
-    c.json(await app.queries.detail(c.req.param('id'), daysParam(c.req.query('days'), 30))),
+    c.json(
+      redactService(await app.queries.detail(c.req.param('id'), daysParam(c.req.query('days'), 30)), vis(c)),
+    ),
   );
+
+  // Software inventory: anonymous visitors never see vulnerability details, and nothing unless showVersions.
+  const softwareGate: MiddlewareHandler<Vars> = async (c, next) =>
+    vis(c) === 'none' ? readGate(c, next) : next();
+  r.get('/software', softwareGate, async (c) => {
+    const inv = await app.software.inventory();
+    const v = vis(c);
+    return c.json({
+      ...inv,
+      services: inv.services.map((s) => {
+        const { vulnerabilities: _v, ...rest } = redactDetail({ ...s, vulnerabilities: [] }, v);
+        return rest;
+      }),
+      totals:
+        v === 'full'
+          ? inv.totals
+          : (Object.fromEntries(Object.keys(inv.totals).map((k) => [k, 0])) as Record<UrgencyLevel, number>),
+    });
+  });
+  r.get('/software/report.csv', readGate, async (c) => {
+    c.header('content-disposition', 'attachment; filename="software.csv"');
+    return c.body(await app.software.csv(), 200, { 'content-type': 'text/csv; charset=utf-8' });
+  });
+  r.get('/services/:id/software', softwareGate, async (c) => {
+    const d = await app.software.detail(c.req.param('id'));
+    if (!d) return c.json({ error: 'this service has no software block' }, 404);
+    return c.json(redactDetail(d, vis(c)));
+  });
 
   r.get('/services/:id/report.csv', async (c) => {
     const days = daysParam(c.req.query('days'), 90);
@@ -61,6 +97,7 @@ export function publicRoutes(app: AppContext) {
   r.get('/incidents/:id', async (c) => c.json(await app.incidents.get(c.req.param('id'))));
 
   r.get('/maintenance', (c) => c.json(app.maintenance.list()));
+  r.get('/maintenance/:id', (c) => c.json(app.maintenance.get(c.req.param('id'))));
 
   r.get('/badge/:id{.+\\.svg}', async (c) => {
     const id = c.req.param('id').replace(/\.svg$/, '');
@@ -69,6 +106,21 @@ export function publicRoutes(app: AppContext) {
     c.header('cache-control', 'max-age=60');
     c.header('content-type', 'image/svg+xml');
     if (!s) return c.body(badgeSvg('status', 'unknown', BADGE_COLORS.none as string), 404);
+    if (c.req.query('kind') === 'version') {
+      const v = vis(c);
+      const sw = s.software;
+      if (v === 'none' || !sw?.version)
+        return c.body(badgeSvg(s.name, 'unknown', BADGE_COLORS.none as string), 404);
+      const color =
+        v !== 'full' || sw.urgency === 'none'
+          ? BADGE_COLORS.good
+          : sw.urgency === 'critical' || sw.urgency === 'high'
+            ? BADGE_COLORS.bad
+            : sw.urgency === 'medium' || sw.urgency === 'low'
+              ? BADGE_COLORS.ok
+              : BADGE_COLORS.none;
+      return c.body(badgeSvg(s.name, `v${sw.version}`, color as string));
+    }
     const state: DayState | 'none' =
       s.uptime === null ? 'none' : s.uptime >= 99.9 ? 'operational' : s.uptime >= 99 ? 'degraded' : 'down';
     const color =
@@ -112,7 +164,17 @@ export function bootstrapRoutes(app: AppContext) {
       local: cfg.auth.local,
       oidc: cfg.auth.oidc.map((p) => ({ id: p.id, name: p.name })),
     };
-    return c.json({ site: app.site(), public: cfg.site.public, auth });
+    const boot: Bootstrap = {
+      site: app.site(),
+      public: cfg.site.public,
+      showVersions: cfg.site.showVersions,
+      auth,
+    };
+    return c.json(boot);
+  });
+  r.get('/version', (c) => {
+    const v: AppVersion = { name: APP_NAME, version: APP_VERSION, node: process.versions.node };
+    return c.json(v);
   });
   r.get('/me', async (c) => {
     const p = c.get('principal');

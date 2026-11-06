@@ -30,6 +30,8 @@ export class Scheduler {
   #abort = new AbortController();
   #inFlight = new Set<Promise<unknown>>();
   retentionDays = 30;
+  /** Called after every recorded check (version tracking). Errors are logged, never propagated. */
+  onOutcome: ((monitor: LoadedMonitor, outcome: CheckOutcome) => Promise<void>) | null = null;
 
   constructor(db: Db, monitors: MonitorService, plugins: PluginRegistry, engine: StatusEngine) {
     this.#db = db;
@@ -172,6 +174,13 @@ export class Scheduler {
       const outcome = await runCheck(monitor.spec, this.#plugins, this.#abort.signal);
       if (this.#abort.signal.aborted) return outcome;
       await this.#engine.record(monitor, outcome);
+      if (this.onOutcome) {
+        try {
+          await this.onOutcome(monitor, outcome);
+        } catch (error) {
+          log.error('post-check hook failed', { service: monitor.id, error });
+        }
+      }
       return outcome;
     } catch (error) {
       log.error('check failed unexpectedly', { service: monitor.id, error });

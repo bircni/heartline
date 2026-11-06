@@ -1,6 +1,9 @@
 import { type MonitorSpec, monitorSpecSchema } from '@heartline/shared';
+import type { Kysely, Transaction } from 'kysely';
+import type { Plugin } from '../checks/plugins.ts';
 import type { AppConfig } from '../config/schema.ts';
 import type { Db } from '../db/index.ts';
+import type { Database } from '../db/schema.ts';
 import { log } from '../util/log.ts';
 
 export interface LoadedMonitor {
@@ -15,6 +18,51 @@ export interface LoadedMonitor {
 
 export class NotFoundError extends Error {}
 export class ConflictError extends Error {}
+
+/**
+ * Checks references a monitor spec makes to the rest of the system (installed plugins, configured
+ * notifiers). Shared by the HTTP API and MCP so both reject the same specs.
+ */
+export function validateMonitorSpec(
+  spec: MonitorSpec,
+  deps: {
+    plugins: {
+      get(name: string): Plugin | undefined;
+      resolveArgs(p: Plugin, args: Record<string, string | number | boolean>): unknown;
+    };
+    notifier: { has(id: string): boolean };
+  },
+): void {
+  if (spec.type === 'plugin') {
+    const plugin = deps.plugins.get(spec.plugin);
+    if (!plugin) throw new ValidationError(`plugin "${spec.plugin}" is not installed`);
+    try {
+      deps.plugins.resolveArgs(plugin, spec.args);
+    } catch (error) {
+      throw new ValidationError((error as Error).message);
+    }
+  }
+  const unknown = spec.notify.filter((n) => !deps.notifier.has(n));
+  if (unknown.length) throw new ValidationError(`unknown notifiers: ${unknown.join(', ')}`);
+}
+
+export class ValidationError extends Error {}
+
+/** Deletes a monitor and everything that references it (there are no foreign keys). */
+export async function purgeMonitorRows(
+  trx: Kysely<Database> | Transaction<Database>,
+  id: string,
+): Promise<void> {
+  await trx.deleteFrom('monitors').where('id', '=', id).execute();
+  await trx.deleteFrom('monitor_state').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('check_results').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('daily_rollups').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('incident_services').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('maintenance_services').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('monitor_software').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('monitor_software_history').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('monitor_vulnerabilities').where('monitor_id', '=', id).execute();
+}
 
 export class MonitorService {
   #db: Db;
@@ -83,10 +131,9 @@ export class MonitorService {
           .onConflict((oc) => oc.column('id').doUpdateSet(row))
           .execute();
       }
-      const keep = wanted.map((w) => w.spec.id);
-      let del = trx.deleteFrom('monitors').where('source', '=', 'config');
-      if (keep.length) del = del.where('id', 'not in', keep);
-      await del.execute();
+      const keep = new Set(wanted.map((w) => w.spec.id));
+      const dropped = existing.filter((r) => r.source === 'config' && !keep.has(r.id)).map((r) => r.id);
+      for (const id of dropped) await purgeMonitorRows(trx, id);
     });
     this.#groupOrder = config.groups.map((g) => g.name);
     await this.reload();
@@ -164,13 +211,7 @@ export class MonitorService {
   async remove(id: string): Promise<void> {
     const current = this.require(id);
     if (current.source === 'config') throw new ConflictError('this service is managed in status.yaml');
-    const db = this.#db.kysely;
-    await db.transaction().execute(async (trx) => {
-      await trx.deleteFrom('monitors').where('id', '=', id).execute();
-      await trx.deleteFrom('monitor_state').where('monitor_id', '=', id).execute();
-      await trx.deleteFrom('check_results').where('monitor_id', '=', id).execute();
-      await trx.deleteFrom('daily_rollups').where('monitor_id', '=', id).execute();
-    });
+    await this.#db.kysely.transaction().execute((trx) => purgeMonitorRows(trx, id));
     await this.reload();
   }
 

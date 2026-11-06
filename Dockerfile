@@ -43,7 +43,8 @@ COPY apps/server/package.json ./apps/server/
 COPY apps/server/src ./apps/server/src
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY plugins /plugins
-COPY status.example.yaml /config/status.yaml
+# Minimal default config (needs only ADMIN_PASSWORD); mount your own status.yaml over it.
+COPY deploy/docker/status.yaml /config/status.yaml
 RUN mkdir -p /data && chown node:node /data
 
 ENV NODE_ENV=production \

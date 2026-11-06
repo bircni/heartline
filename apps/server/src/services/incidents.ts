@@ -1,5 +1,9 @@
 import type { Impact, Incident, IncidentStatus, IncidentUpdateDto } from '@heartline/shared';
-import type { incidentCreateSchema, incidentUpdateCreateSchema } from '@heartline/shared';
+import type {
+  incidentCreateSchema,
+  incidentPatchSchema,
+  incidentUpdateCreateSchema,
+} from '@heartline/shared';
 import type { z } from 'zod';
 import type { Db } from '../db/index.ts';
 import type { NotifierService } from '../notify/index.ts';
@@ -183,6 +187,25 @@ export class IncidentService {
         update: incident.updates[0] as IncidentUpdateDto,
       });
     return incident;
+  }
+
+  /** Edits title, impact or affected services without posting an update. */
+  async update(id: string, patch: z.output<typeof incidentPatchSchema>): Promise<Incident> {
+    await this.get(id);
+    if (patch.services) for (const s of patch.services) this.#monitors.require(s);
+    await this.#db.kysely.transaction().execute(async (trx) => {
+      const fields: { title?: string; impact?: string } = {};
+      if (patch.title !== undefined) fields.title = patch.title;
+      if (patch.impact !== undefined) fields.impact = patch.impact;
+      if (Object.keys(fields).length)
+        await trx.updateTable('incidents').set(fields).where('id', '=', id).execute();
+      if (patch.services) {
+        await trx.deleteFrom('incident_services').where('incident_id', '=', id).execute();
+        for (const s of new Set(patch.services))
+          await trx.insertInto('incident_services').values({ incident_id: id, monitor_id: s }).execute();
+      }
+    });
+    return this.get(id);
   }
 
   async remove(id: string): Promise<void> {

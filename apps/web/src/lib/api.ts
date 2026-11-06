@@ -1,7 +1,8 @@
 import type {
   AdminMonitor,
   ApiTokenDto,
-  AuthProviders,
+  Bootstrap,
+  CatalogEntryDto,
   Incident,
   Maintenance,
   Me,
@@ -9,7 +10,8 @@ import type {
   Overview,
   PluginDto,
   ServiceDetail,
-  SiteInfo,
+  SoftwareDetail,
+  SoftwareInventory,
   UserDto,
 } from '@heartline/shared';
 import { QueryClient, useQuery } from '@tanstack/react-query';
@@ -54,11 +56,7 @@ export const queryClient = new QueryClient({
   },
 });
 
-export interface Bootstrap {
-  site: SiteInfo;
-  public: boolean;
-  auth: AuthProviders;
-}
+export type { Bootstrap };
 
 export const useBootstrap = () =>
   useQuery({
@@ -120,3 +118,26 @@ export const useTokens = (all: boolean) =>
   });
 export const useUsers = () =>
   useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/api/v1/admin/users') });
+
+export const useSoftwareInventory = (enabled = true) =>
+  useQuery({
+    queryKey: ['software'],
+    queryFn: () => api<SoftwareInventory>('/api/v1/software'),
+    enabled,
+    retry: false,
+  });
+/** Full detail incl. vulnerabilities; only for viewers that may see them (the hook stays disabled otherwise). */
+export const useServiceSoftware = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['software', id],
+    queryFn: () => api<SoftwareDetail>(`/api/v1/services/${encodeURIComponent(id)}/software`),
+    enabled,
+    retry: false,
+  });
+export const useCatalog = () =>
+  useQuery({
+    queryKey: ['admin', 'software', 'catalog'],
+    queryFn: () => api<CatalogEntryDto[]>('/api/v1/admin/software/catalog'),
+    staleTime: Infinity,
+    refetchInterval: false,
+  });

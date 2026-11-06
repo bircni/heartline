@@ -4,20 +4,26 @@ import {
   IMPACTS,
   INCIDENT_STATUSES,
   type Scope,
+  URGENCY_LEVELS,
   incidentCreateSchema,
+  incidentPatchSchema,
   incidentUpdateCreateSchema,
   maintenanceCreateSchema,
+  maintenanceUpdateSchema,
   monitorSpecSchema,
 } from '@heartline/shared';
 import { z } from 'zod';
 import { type Principal, principalForUser } from '../auth/principal.ts';
 import { mcpResource } from '../auth/auth.ts';
 import { OAUTH_SCOPES, oauthScopesToScopes, scopeAtLeast } from '../auth/roles.ts';
-import { runCheck } from '../checks/index.ts';
+import { describeTarget, runCheck } from '../checks/index.ts';
 import type { AppContext } from '../context.ts';
+import { validateMonitorSpec } from '../services/monitors.ts';
+import { URGENCY_RANK } from '../software/urgency.ts';
 import { log } from '../util/log.ts';
+import { APP_VERSION } from '../util/pkg.ts';
 
-const VERSION = '0.1.0';
+const VERSION = APP_VERSION;
 
 type ToolResult = {
   content: { type: 'text'; text: string }[];
@@ -49,7 +55,7 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     { name: 'heartline', version: VERSION, title: `${app.site().title} status` },
     {
       instructions:
-        'Read service availability, uptime reports and incidents of this self-hosted status page. Write tools (incidents, maintenance, monitors) need matching permissions.',
+        'Read service availability, uptime reports, incidents and the software inventory (running versions, known vulnerabilities, update urgency) of this self-hosted status page. Write tools (incidents, maintenance, monitors, refreshes) need matching permissions.',
     },
   );
 
@@ -173,7 +179,7 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       description: 'Recent incidents with their updates. Set active to only return unresolved ones.',
       inputSchema: z.object({
         active: z.boolean().default(false),
-        limit: z.number().int().min(1).max(100).default(20),
+        limit: z.number().int().min(1).max(200).default(20),
       }),
       annotations: { readOnlyHint: true },
     },
@@ -303,13 +309,249 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     async ({ group, spec }) =>
       guard('admin', async () => {
         const parsed = monitorSpecSchema.parse(spec);
-        if (parsed.type === 'plugin') {
-          const plugin = app.plugins.get(parsed.plugin);
-          if (!plugin) return fail(`plugin "${parsed.plugin}" is not installed`);
-          app.plugins.resolveArgs(plugin, parsed.args);
-        }
+        validateMonitorSpec(parsed, app);
         const m = await app.monitors.create(parsed, group);
         return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor created.');
+      }),
+  );
+
+  server.registerTool(
+    'update_monitor',
+    {
+      title: 'Update monitor',
+      description: 'Replace the spec of a UI-managed monitor (monitors from status.yaml are read-only).',
+      inputSchema: z.object({ id: z.string(), group: z.string(), spec: z.record(z.string(), z.unknown()) }),
+    },
+    async ({ id, group, spec }) =>
+      guard('admin', async () => {
+        const parsed = monitorSpecSchema.parse(spec);
+        validateMonitorSpec(parsed, app);
+        const m = await app.monitors.update(id, parsed, group);
+        return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor updated.');
+      }),
+  );
+
+  server.registerTool(
+    'delete_monitor',
+    {
+      title: 'Delete monitor',
+      description: 'Delete a UI-managed monitor and its history.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ id }) =>
+      guard('admin', async () => {
+        await app.monitors.remove(id);
+        return ok({ id, deleted: true }, 'Monitor deleted.');
+      }),
+  );
+
+  server.registerTool(
+    'list_monitors',
+    {
+      title: 'List monitors',
+      description:
+        'Monitor definitions as seen in the admin area: kind, target, source (config or UI), paused state.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async () =>
+      guard('read', async () =>
+        ok({
+          monitors: app.monitors.list().map((m) => ({
+            id: m.id,
+            name: m.name,
+            group: m.group,
+            kind: m.spec.type,
+            target: describeTarget(m.spec),
+            source: m.source,
+            paused: m.paused,
+            intervalMs: m.spec.interval,
+            software: m.spec.software
+              ? { product: m.spec.software.product, track: m.spec.software.track }
+              : null,
+          })),
+        }),
+      ),
+  );
+
+  server.registerTool(
+    'get_incident',
+    {
+      title: 'Get incident',
+      description: 'One incident with all its updates.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ id }) => guard('read', async () => ok(await app.incidents.get(id))),
+  );
+
+  server.registerTool(
+    'edit_incident',
+    {
+      title: 'Edit incident',
+      description: 'Change the title, impact or affected services of an incident without posting an update.',
+      inputSchema: z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        impact: z.enum(IMPACTS).optional(),
+        services: z.array(z.string()).optional(),
+      }),
+    },
+    async ({ id, ...rest }) =>
+      guard('write', async () =>
+        ok(await app.incidents.update(id, incidentPatchSchema.parse(rest)), 'Incident edited.'),
+      ),
+  );
+
+  server.registerTool(
+    'delete_incident',
+    {
+      title: 'Delete incident',
+      description: 'Remove an incident and its updates from the history.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ id }) =>
+      guard('admin', async () => {
+        await app.incidents.remove(id);
+        return ok({ id, deleted: true }, 'Incident deleted.');
+      }),
+  );
+
+  server.registerTool(
+    'update_maintenance',
+    {
+      title: 'Update maintenance',
+      description: 'Change a maintenance window (ISO timestamps, optional RRULE recurrence, services).',
+      inputSchema: z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        description: z.string().nullable().optional(),
+        startsAt: z.string().optional(),
+        endsAt: z.string().optional(),
+        recurrence: z.string().nullable().optional(),
+        services: z.array(z.string()).optional(),
+      }),
+    },
+    async ({ id, ...rest }) =>
+      guard('write', async () =>
+        ok(await app.maintenance.update(id, maintenanceUpdateSchema.parse(rest)), 'Maintenance updated.'),
+      ),
+  );
+
+  server.registerTool(
+    'delete_maintenance',
+    {
+      title: 'Cancel maintenance',
+      description: 'Delete a maintenance window.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ id }) =>
+      guard('write', async () => {
+        await app.maintenance.remove(id);
+        return ok({ id, deleted: true }, 'Maintenance deleted.');
+      }),
+  );
+
+  server.registerTool(
+    'list_plugins',
+    {
+      title: 'List plugins',
+      description: 'Installed check plugins and their arguments.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async () => guard('read', async () => ok({ plugins: app.plugins.list() })),
+  );
+
+  server.registerTool(
+    'list_notifiers',
+    {
+      title: 'List notifiers',
+      description: 'Configured notification channels with their last delivery state.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async () => guard('read', async () => ok({ notifiers: await app.notifier.list() })),
+  );
+
+  server.registerTool(
+    'test_notifier',
+    {
+      title: 'Test notifier',
+      description: 'Send a test message through one notification channel.',
+      inputSchema: z.object({ id: z.string() }),
+    },
+    async ({ id }) => guard('admin', async () => ok(await app.notifier.test(id))),
+  );
+
+  server.registerTool(
+    'software_inventory',
+    {
+      title: 'Software inventory',
+      description:
+        'Running version, latest release, end-of-life and update urgency (critical, high, medium, low, none, unknown) of every tracked service, worst first.',
+      inputSchema: z.object({ minUrgency: z.enum(URGENCY_LEVELS).optional() }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ minUrgency }) =>
+      guard('read', async () => {
+        const inv = await app.software.inventory();
+        const services = inv.services.filter(
+          (s) => !minUrgency || URGENCY_RANK[s.urgency ?? 'unknown'] >= URGENCY_RANK[minUrgency],
+        );
+        const lines = services.map(
+          (s) =>
+            `- ${s.serviceName} [${s.serviceId}] ${s.productName} ${s.version ?? '?'}${s.latest && s.latest !== s.version ? ` → ${s.latest}` : ''}, urgency ${s.urgency}${s.reasons[0] ? `: ${s.reasons[0]}` : ''}`,
+        );
+        return ok(
+          { totals: inv.totals, lastRefreshAt: inv.lastRefreshAt, services },
+          `${services.length} tracked services.\n${lines.join('\n')}`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    'get_vulnerabilities',
+    {
+      title: 'Service vulnerabilities',
+      description:
+        'Known vulnerabilities (CVSS, exploited flag, fixed version) and update reasons of one service.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ id }) =>
+      guard('read', async () => {
+        const d = await app.software.detail(id);
+        if (!d) return fail(`service "${id}" has no software block`);
+        const lines = d.vulnerabilities.map(
+          (v) =>
+            `- ${v.id} ${v.score === null ? 'unscored' : `CVSS ${v.score}`}${v.kev ? ', actively exploited' : ''}${v.fixedIn ? `, fixed in ${v.fixedIn}` : ''}: ${v.summary ?? ''}`,
+        );
+        return ok(
+          d,
+          `${d.serviceName}: ${d.productName} ${d.version ?? 'unknown version'}, urgency ${d.urgency}.\n${[...d.reasons, ...lines].join('\n')}`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    'refresh_software',
+    {
+      title: 'Refresh software data',
+      description:
+        'Re-probe the version and refresh vulnerability and release data for one service (or all when id is omitted).',
+      inputSchema: z.object({ id: z.string().optional() }),
+    },
+    async ({ id }) =>
+      guard('write', async () => {
+        if (!id) return ok(await app.software.refreshAll(true), 'Refresh finished.');
+        const m = app.monitors.require(id);
+        if (!m.spec.software) return fail(`service "${id}" has no software block`);
+        await app.software.probeNow(m);
+        return ok(await app.software.refreshMonitor(id, true), 'Refreshed.');
       }),
   );
 
@@ -354,6 +596,32 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
           g.services.map((s) => ({ id: s.id, name: s.name, status: s.status, uptime30d: s.uptime })),
         ),
       };
+      return {
+        contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(data, null, 2) }],
+      };
+    },
+  );
+
+  server.registerResource(
+    'software',
+    'status://software',
+    {
+      title: 'Software inventory',
+      description: 'Versions, latest releases and update urgency per service',
+      mimeType: 'application/json',
+    },
+    async (uri) => {
+      const inv = await app.software.inventory();
+      const data = inv.services.map((s) => ({
+        id: s.serviceId,
+        name: s.serviceName,
+        product: s.productName,
+        version: s.version,
+        latest: s.latest,
+        eol: s.eol,
+        urgency: s.urgency,
+        reasons: s.reasons,
+      }));
       return {
         contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(data, null, 2) }],
       };
