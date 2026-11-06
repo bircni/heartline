@@ -17,7 +17,7 @@
     "@better-auth/mcp": "1.7.15",
     "@better-auth/oauth-provider": "1.7.15",
     "@heartline/shared": "workspace:*",
-    "@hono/node-server": "^2.1.5",
+    "@hono/node-server": "^2.1.6",
     "@modelcontextprotocol/server": "^2.4.0",
     "better-auth": "1.7.15",
     "hono": "4.13.16",
