@@ -42,14 +42,6 @@ MCP server for you. One container, one YAML file.
     <td align="center">Every service: uptime, response times, incidents</td>
     <td align="center">Incidents with public updates</td>
   </tr>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/visitor.png" alt="The public status page in light mode, as visitors see it"></td>
-    <td width="50%" align="center"><img src="docs/screenshots/phone.png" alt="The status page on a phone" width="45%"></td>
-  </tr>
-  <tr>
-    <td align="center">What visitors see</td>
-    <td align="center">On a phone</td>
-  </tr>
 </table>
 
 ## Quick start
