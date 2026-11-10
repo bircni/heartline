@@ -337,9 +337,10 @@ export class QueryService {
     };
   }
 
-  async csv(id: string | null, daysCount: number, now = Date.now()): Promise<string> {
+  /** Daily report for the `daysCount` days ending with the day of `end`. */
+  async csv(id: string | null, daysCount: number, end = Date.now()): Promise<string> {
     const monitors = id ? [this.#d.monitors.require(id)] : this.#d.monitors.list();
-    const days = lastDays(daysCount, now, this.#d.site().timezone);
+    const days = lastDays(daysCount, end, this.#d.site().timezone);
     const rollups = await this.#rollups(
       monitors.map((m) => m.id),
       days,

@@ -36,7 +36,9 @@ export async function body<T extends z.ZodType>(c: Context, schema: T): Promise<
  */
 export function rangeEndParam(value: string | undefined, timeZone: string, now = Date.now()): number {
   if (!value) return now;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+  // The round trip rejects days that do not exist, such as 2026-02-31, which Date.parse rolls over.
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00Z`) : null;
+  if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value)
     throw new BadRequestError('to must be a date like 2026-01-31');
   return Math.min(now, dayRange(value, timeZone)[1] - 1);
 }

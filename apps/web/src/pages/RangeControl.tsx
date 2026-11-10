@@ -3,7 +3,8 @@ import { type FormEvent, useState } from 'react';
 import { Icon } from '../components/Icon.tsx';
 import { usePopover } from '../components/Popover.tsx';
 import { Segmented } from '../components/Segmented.tsx';
-import { addDays, isoDay, shortDate, shortDay } from '../lib/format.ts';
+import { useBootstrap } from '../lib/api.ts';
+import { addDays, dayIn, shortDate, shortDay } from '../lib/format.ts';
 
 export const RANGES = [7, 30, 90] as const;
 /** Longest range the API serves. */
@@ -37,7 +38,10 @@ export function RangeControl({ fallback = 90 }: { fallback?: number }) {
   const navigate = useNavigate();
   const { ref: popRef, ...pop } = usePopover();
   // Fixed for the lifetime of the control; a range picked across midnight still ends on the day shown.
-  const [today] = useState(() => isoDay(new Date()));
+  const timeZone = useBootstrap().data?.site.timezone ?? 'UTC';
+  // The server's days follow the site time zone, so "today" does too. Fixed for the lifetime of the control.
+  const [now] = useState(() => Date.now());
+  const today = dayIn(now, timeZone);
   const end = range.to ?? today;
   const [from, setFrom] = useState(addDays(end, 1 - range.days));
   const [to, setTo] = useState(end);

@@ -64,6 +64,8 @@ export function useTheme(): {
 export function useSiteAccent(siteDefault: Theme | undefined) {
   useEffect(() => {
     if (!siteDefault) return;
+    // theme-init.js paints this before the next visit's bootstrap request returns.
+    save('site-accent', siteDefault);
     const own = saved('accent');
     if (own && (THEMES as readonly string[]).includes(own)) return;
     root().dataset.accent = siteDefault;

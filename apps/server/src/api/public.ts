@@ -85,7 +85,7 @@ export function publicRoutes(app: AppContext) {
   r.get('/services/:id/report.csv', async (c) => {
     const days = daysParam(c.req.query('days'), 90);
     c.header('content-disposition', `attachment; filename="${c.req.param('id')}-${days}d.csv"`);
-    return c.body(await app.queries.csv(c.req.param('id'), days), 200, {
+    return c.body(await app.queries.csv(c.req.param('id'), days, rangeEnd(c)), 200, {
       'content-type': 'text/csv; charset=utf-8',
     });
   });
@@ -93,7 +93,9 @@ export function publicRoutes(app: AppContext) {
   r.get('/report.csv', async (c) => {
     const days = daysParam(c.req.query('days'), 90);
     c.header('content-disposition', `attachment; filename="status-${days}d.csv"`);
-    return c.body(await app.queries.csv(null, days), 200, { 'content-type': 'text/csv; charset=utf-8' });
+    return c.body(await app.queries.csv(null, days, rangeEnd(c)), 200, {
+      'content-type': 'text/csv; charset=utf-8',
+    });
   });
 
   r.get('/incidents', async (c) => {

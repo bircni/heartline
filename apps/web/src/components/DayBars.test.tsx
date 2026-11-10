@@ -22,7 +22,7 @@ describe('DayBars', () => {
   it('renders one bar per day and a screen-reader summary', () => {
     const { container } = render(<DayBars bars={bars} />);
     expect(container.querySelectorAll('[aria-hidden="true"] > span')).toHaveLength(3);
-    expect(screen.getByText(/1 outage days, 0 degraded days in the last 3 days/)).toBeTruthy();
+    expect(screen.getByText(/1 outage days, 0 degraded days in these 3 days/)).toBeTruthy();
   });
 
   it('shows details for the hovered day', () => {

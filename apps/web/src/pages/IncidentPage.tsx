@@ -5,6 +5,9 @@ import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui
 import { useIncident, useIncidents } from '../lib/api.ts';
 import { dateTime, duration } from '../lib/format.ts';
 
+/** Incidents the history page loads; the API serves at most 200 per request. */
+const HISTORY_LIMIT = 200;
+
 const IMPACT_LABEL = { major: 'Major outage', partial: 'Partial outage', degraded: 'Degraded performance' };
 
 /** Text colour of an incident: red or amber while open, grey once resolved. */
@@ -123,7 +126,7 @@ function HistoryRow({ incident: i }: { incident: Incident }) {
 
 /** Every incident, newest first, open ones on top. */
 export function IncidentHistoryPage() {
-  const { data, error, isPending } = useIncidents();
+  const { data, error, isPending } = useIncidents(false, HISTORY_LIMIT);
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
   const open = data.filter((i) => i.resolvedAt === null);
@@ -144,6 +147,11 @@ export function IncidentHistoryPage() {
           <Empty>No incidents so far.</Empty>
         ) : (
           past.map((i) => <HistoryRow key={i.id} incident={i} />)
+        )}
+        {data.length >= HISTORY_LIMIT && (
+          <p className="m-0 border-t border-hair px-3.5 py-2.5 text-[12px] text-muted">
+            Showing the {HISTORY_LIMIT} most recent incidents; older ones are not listed.
+          </p>
         )}
       </Section>
     </>

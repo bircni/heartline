@@ -14,7 +14,7 @@ import { Segmented } from '../components/Segmented.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
-import { useMe, useService, useServiceSoftware } from '../lib/api.ts';
+import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
 import { dateTime, dayTicks, duration, ms, pct, relative, shortDay, time } from '../lib/format.ts';
 import { RangeControl, rangeSearch, useRange } from './RangeControl.tsx';
 
@@ -55,8 +55,13 @@ export function ServicePage() {
 
   const active = data.incidents.find((i) => i.resolvedAt === null);
   const daily = data.seriesBucketMs >= DAY;
-  const to = data.rangeEnd;
-  const from = to - range.days * DAY;
+  // Daily points sit on calendar days, so the chart spans whole days; finer buckets end at the range end.
+  const firstDay = data.bars[0]?.day;
+  const lastDay = data.bars.at(-1)?.day;
+  const [from, to] =
+    daily && firstDay && lastDay
+      ? [Date.parse(`${firstDay}T00:00:00`), Date.parse(`${lastDay}T00:00:00`) + DAY]
+      : [data.rangeEnd - range.days * DAY, data.rangeEnd];
   const endLabel = range.to ? shortDay(range.to) : 'Today';
   const every =
     data.intervalMs >= 60_000
@@ -91,7 +96,7 @@ export function ServicePage() {
             <RangeControl fallback={30} />
             <a
               className="btn"
-              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?days=${range.days}`}
+              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?${rangeQuery(range)}`}
               download
             >
               <Icon name="download" size={14} /> Export CSV
@@ -174,9 +179,13 @@ export function ServicePage() {
               key={i.id}
               to="/incidents/$id"
               params={{ id: i.id }}
-              className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair bg-bad-bg px-3.5 py-2.5 text-text no-underline transition-opacity hover:opacity-85"
+              // The marker matches the red band in the graph; only an open incident tints the whole row.
+              className={`flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 text-text no-underline transition-colors ${i.resolvedAt === null ? 'bg-bad-bg' : 'hover:bg-hover'}`}
             >
-              <span aria-hidden="true" className="h-2 w-2 shrink-0 self-center rounded-[2px] bg-bad" />
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 shrink-0 self-center rounded-[2px] ${i.resolvedAt === null ? 'bg-bad' : 'bg-bad/60'}`}
+              />
               <span className="font-semibold">{dateTime(i.createdAt)}</span>
               <span className="min-w-0 flex-1">{i.title}</span>
               <span className="text-[12px] text-sec">

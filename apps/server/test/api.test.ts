@@ -203,11 +203,19 @@ describe('history ranges', () => {
     ).json()) as ServiceDetail;
     expect(detail.bars.map((b) => b.day)).toEqual(['2026-01-29', '2026-01-30', '2026-01-31']);
     expect(detail.rangeEnd).toBe(overview.rangeEnd);
+
+    const csv = await (await h.request('/api/v1/report.csv?days=2&to=2026-01-31')).text();
+    const webDays = csv
+      .split('\n')
+      .filter((l) => l.startsWith('web,'))
+      .map((l) => l.split(',')[1]);
+    expect(webDays).toEqual(['2026-01-30', '2026-01-31']);
   });
 
   it('treats a day in the future as today and rejects anything that is not a date', async () => {
     const future = (await (await h.request('/api/v1/overview?days=1&to=2999-01-01')).json()) as Overview;
     expect(future.rangeEnd).toBeLessThanOrEqual(Date.now());
     expect((await h.request('/api/v1/overview?to=yesterday')).status).toBe(400);
+    expect((await h.request('/api/v1/overview?to=2026-02-31')).status).toBe(400);
   });
 });

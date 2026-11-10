@@ -4,6 +4,9 @@ try {
   if (t === 'light' || (!t && window.matchMedia('(prefers-color-scheme: light)').matches)) {
     document.documentElement.classList.remove('dark');
   }
-  var a = localStorage.getItem('accent');
-  if (a) document.documentElement.dataset.accent = a;
+  // The viewer's own colour, else the site default remembered from the last visit.
+  var a = localStorage.getItem('accent') || localStorage.getItem('site-accent');
+  if (a === 'green' || a === 'blue' || a === 'violet' || a === 'amber' || a === 'rose') {
+    document.documentElement.dataset.accent = a;
+  }
 } catch {}

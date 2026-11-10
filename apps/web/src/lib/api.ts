@@ -77,7 +77,8 @@ export interface RangeQuery {
   days: number;
   to?: string;
 }
-const rangeQuery = ({ days, to }: RangeQuery) => `days=${days}${to ? `&to=${to}` : ''}`;
+/** Query string of a range, shared by the JSON endpoints and the CSV reports. */
+export const rangeQuery = ({ days, to }: RangeQuery) => `days=${days}${to ? `&to=${to}` : ''}`;
 
 export const useOverview = (range: RangeQuery) =>
   useQuery({
@@ -97,10 +98,10 @@ export const useIncident = (id: string) =>
     queryKey: ['incident', id],
     queryFn: () => api<Incident>(`/api/v1/incidents/${encodeURIComponent(id)}`),
   });
-export const useIncidents = (active = false) =>
+export const useIncidents = (active = false, limit = 100) =>
   useQuery({
-    queryKey: ['incidents', active],
-    queryFn: () => api<Incident[]>(`/api/v1/incidents?limit=100${active ? '&active=true' : ''}`),
+    queryKey: ['incidents', active, limit],
+    queryFn: () => api<Incident[]>(`/api/v1/incidents?limit=${limit}${active ? '&active=true' : ''}`),
   });
 export const useMaintenance = () =>
   useQuery({ queryKey: ['maintenance'], queryFn: () => api<Maintenance[]>('/api/v1/maintenance') });

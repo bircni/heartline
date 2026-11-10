@@ -6,7 +6,7 @@ import { Segmented } from '../components/Segmented.tsx';
 import { StatusIcon } from '../components/Status.tsx';
 import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
-import { useOverview } from '../lib/api.ts';
+import { rangeQuery, useOverview } from '../lib/api.ts';
 import { STATUS_LABEL, STATUS_TONE, dayTicks, pct, relative, shortDay } from '../lib/format.ts';
 import { RangeControl, rangeSearch, useRange } from './RangeControl.tsx';
 
@@ -210,7 +210,7 @@ export function OverviewPage() {
               <DayLegend />
               <span className="flex-1" />
               <a
-                href={`/api/v1/report.csv?days=${range.days}`}
+                href={`/api/v1/report.csv?${rangeQuery(range)}`}
                 className="flex items-center gap-1.5 text-[12px] text-muted no-underline hover:text-text"
               >
                 <Icon name="download" size={13} /> Uptime report (CSV)

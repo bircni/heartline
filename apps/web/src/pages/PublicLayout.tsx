@@ -10,7 +10,8 @@ import { rangeSearch, useRange } from './RangeControl.tsx';
 /** Sidebar navigation of the status page: overview, incident history and every service. */
 function StatusNav() {
   const range = useRange();
-  const overview = useOverview(range);
+  // Names and current status are all the sidebar needs, so one day of history keeps the request small.
+  const overview = useOverview({ days: 1 });
   const active = useIncidents(true);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const open = active.data?.length ?? 0;
@@ -91,7 +92,6 @@ function Visitor() {
 
 export function PublicLayout() {
   const me = useMe();
-  // Wait for the session check so signed-in users never see the visitor page flash first.
-  if (me.isPending) return null;
+  // Visitors get the page at once; signed-in users switch to the sidebar when the session check returns.
   return me.data ? <SignedIn me={me.data} /> : <Visitor />;
 }

@@ -45,9 +45,14 @@ export function shortDay(day: string): string {
   );
 }
 
-/** The local calendar day of `d` as `YYYY-MM-DD`. */
-export function isoDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** The calendar day (`YYYY-MM-DD`) of `at` in `timeZone`, the zone the server builds its days in. */
+export function dayIn(at: number, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(at);
 }
 
 /** `day` (`YYYY-MM-DD`) moved by `n` calendar days. */

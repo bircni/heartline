@@ -236,7 +236,7 @@ export function DayBars({
       view={view}
       height={height}
       floor={floor}
-      summary={`${count('down')} outage days, ${count('degraded')} degraded days in the last ${bars.length} days`}
+      summary={`${count('down')} outage days, ${count('degraded')} degraded days in these ${bars.length} days`}
     />
   );
 }
