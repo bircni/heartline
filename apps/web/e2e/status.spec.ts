@@ -86,8 +86,9 @@ test('software inventory shows the probed version and degrades without data sour
   await row.click();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.getByRole('status').getByText('Refreshed.')).toBeVisible();
-  // The catalog probe reads /api/v1/version of the server itself.
-  await expect(row.getByText(/^\d+\.\d+\.\d+/)).toBeVisible();
+  // The catalog probe reads /api/v1/version of the server itself. Once a release with the same version
+  // is published, the latest-release column shows it too, so the first match is the running version.
+  await expect(row.getByText(/^\d+\.\d+\.\d+/).first()).toBeVisible();
   // No data sources are reachable in e2e and heartline has no advisory source: nothing crashes and the
   // service is scored by what is known (nothing), with the missing source named in the reasons.
   await expect(row.getByText('Up to date')).toBeVisible();
