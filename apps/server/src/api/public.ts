@@ -3,7 +3,7 @@ import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { type Vars, requireScope } from '../auth/principal.ts';
 import type { AppContext } from '../context.ts';
 import { APP_NAME, APP_VERSION } from '../util/pkg.ts';
-import { daysParam } from './errors.ts';
+import { daysParam, rangeEndParam } from './errors.ts';
 import { redactDetail, redactOverview, redactService, softwareVisibility } from './visibility.ts';
 
 const BADGE_COLORS: Record<string, string> = {
@@ -37,13 +37,20 @@ export function publicRoutes(app: AppContext) {
 
   const vis = (c: Context<Vars>) => softwareVisibility(c, app.config());
 
+  const rangeEnd = (c: Context<Vars>) => rangeEndParam(c.req.query('to'), app.site().timezone);
+
   r.get('/overview', async (c) =>
-    c.json(redactOverview(await app.queries.overview(daysParam(c.req.query('days'), 90)), vis(c))),
+    c.json(
+      redactOverview(await app.queries.overview(daysParam(c.req.query('days'), 90), rangeEnd(c)), vis(c)),
+    ),
   );
 
   r.get('/services/:id', async (c) =>
     c.json(
-      redactService(await app.queries.detail(c.req.param('id'), daysParam(c.req.query('days'), 30)), vis(c)),
+      redactService(
+        await app.queries.detail(c.req.param('id'), daysParam(c.req.query('days'), 30), rangeEnd(c)),
+        vis(c),
+      ),
     ),
   );
 

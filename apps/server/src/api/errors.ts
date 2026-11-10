@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { ZodError, z } from 'zod';
 import { ConflictError, NotFoundError, ValidationError } from '../services/monitors.ts';
 import { log } from '../util/log.ts';
+import { dayRange } from '../util/time.ts';
 
 export class BadRequestError extends Error {}
 export class ForbiddenError extends Error {}
@@ -27,6 +28,17 @@ export async function body<T extends z.ZodType>(c: Context, schema: T): Promise<
     throw new BadRequestError('request body must be JSON');
   }
   return schema.parse(raw);
+}
+
+/**
+ * End of a range whose last day is `to` (`YYYY-MM-DD` in the site time zone): the end of that day, or
+ * `now` when the day is today, in the future or not given.
+ */
+export function rangeEndParam(value: string | undefined, timeZone: string, now = Date.now()): number {
+  if (!value) return now;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+    throw new BadRequestError('to must be a date like 2026-01-31');
+  return Math.min(now, dayRange(value, timeZone)[1] - 1);
 }
 
 export function daysParam(value: string | undefined, fallback: number): number {

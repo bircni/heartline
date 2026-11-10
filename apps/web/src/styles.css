@@ -1,73 +1,80 @@
 @import 'tailwindcss';
 
 /*
- * Graphite neutrals; colour is reserved for status and the response-time trace.
+ * Chart paper and instrument glass: every neutral leans towards the green of a healthy trace, so an
+ * all-clear page is one quiet tone and trouble (amber, red) is the only thing that stands out.
  * Dark is the default, `html:not(.dark)` is light.
  */
 :root {
-  --bg: #fafafa;
-  --side: #f4f4f5;
-  --surface: #ffffff;
-  --fill: #ececee;
-  --fill-2: #d4d4d8;
-  --seg: #ffffff;
-  --sel: rgb(23 23 23 / 0.08);
-  --hover: rgb(23 23 23 / 0.05);
-  --text: #171717;
-  --sec: #525252;
-  --muted: #6b6b6b;
-  --hair: rgb(23 23 23 / 0.08);
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 0 0 1px var(--hair);
-  --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
-  --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
-  --ok: #16a34a;
-  --ok-quiet: #73c88f;
-  --warn: #d97706;
-  --bad: #dc2626;
-  --maint: #3b82c4;
-  --ok-text: #15803d;
-  --warn-text: #b45309;
-  --bad-text: #b91c1c;
-  --ring-warn: rgb(217 119 6 / 0.18);
-  --ring-bad: rgb(220 38 38 / 0.18);
-  --ring-ok: rgb(22 163 74 / 0.18);
+  --bg: #f1f4f0;
+  --side: #e8ece7;
+  --surface: #fbfcfa;
+  --fill: #e3e8e2;
+  --fill-2: #c5cec6;
+  --seg: #fbfcfa;
+  --sel: rgb(22 32 28 / 0.09);
+  --hover: rgb(22 32 28 / 0.045);
+  --text: #16201c;
+  --sec: #47544e;
+  --muted: #5d6a63;
+  --hair: rgb(22 32 28 / 0.1);
+  --grid: rgb(22 32 28 / 0.06);
+  --shadow: 0 0 0 1px var(--hair), 0 1px 2px rgb(22 32 28 / 0.04);
+  --seg-shadow: 0 0 0 1px var(--hair), 0 1px 2px rgb(22 32 28 / 0.08);
+  --pop-shadow: 0 0 0 1px var(--hair), 0 10px 28px rgb(22 32 28 / 0.14);
+  --ok: #17935a;
+  --ok-quiet: #9fcab2;
+  --warn: #cf7c00;
+  --bad: #d4372c;
+  --maint: #3b7fc4;
+  --ok-text: #0f7445;
+  --warn-text: #945700;
+  --bad-text: #b3261e;
+  --ring-warn: rgb(207 124 0 / 0.18);
+  --ring-bad: rgb(212 55 44 / 0.18);
+  --ring-ok: rgb(23 147 90 / 0.18);
+  --tint-warn: rgb(207 124 0 / 0.07);
+  --tint-bad: rgb(212 55 44 / 0.06);
   --chart: var(--ok);
-  --chart-2: #8a8a8f;
-  --area: rgb(22 163 74 / 0.08);
+  --chart-2: #86928b;
+  --area: rgb(23 147 90 / 0.09);
   --knob: #ffffff;
-  --focus: var(--sec);
+  --focus: var(--text);
 }
 
 .dark {
-  --bg: #141415;
-  --side: #0f0f10;
-  --surface: #19191b;
-  --fill: #232325;
-  --fill-2: #3a3a3d;
-  --seg: #3a3a3d;
-  --sel: rgb(237 237 237 / 0.08);
-  --hover: rgb(237 237 237 / 0.05);
-  --text: #ededed;
-  --sec: #a1a1a6;
-  --muted: #85858b;
-  --hair: rgb(237 237 237 / 0.08);
+  --bg: #0d1412;
+  --side: #0a100e;
+  --surface: #131c19;
+  --fill: #1c2723;
+  --fill-2: #33423c;
+  --seg: #33423c;
+  --sel: rgb(227 235 230 / 0.09);
+  --hover: rgb(227 235 230 / 0.045);
+  --text: #e3ebe6;
+  --sec: #a3b1a9;
+  --muted: #7f8e86;
+  --hair: rgb(227 235 230 / 0.09);
+  --grid: rgb(227 235 230 / 0.055);
   --shadow: 0 0 0 1px var(--hair);
   --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
-  --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
-  --ok: #4cc38a;
-  --ok-quiet: #2f6f52;
-  --warn: #f0a541;
-  --bad: #e5484d;
-  --maint: #6b9bd1;
-  --ok-text: #4cc38a;
-  --warn-text: #f0a541;
-  --bad-text: #f2777a;
-  --ring-warn: rgb(240 165 65 / 0.2);
-  --ring-bad: rgb(229 72 77 / 0.22);
-  --ring-ok: rgb(76 195 138 / 0.18);
-  --chart-2: #6e6e73;
-  --area: rgb(76 195 138 / 0.08);
-  --knob: #ededed;
+  --pop-shadow: 0 0 0 1px var(--hair), 0 10px 28px rgb(0 0 0 / 0.5);
+  --ok: #56cf9a;
+  --ok-quiet: #2f6b54;
+  --warn: #f0a63c;
+  --bad: #f0564f;
+  --maint: #6aa3dc;
+  --ok-text: #56cf9a;
+  --warn-text: #f0a63c;
+  --bad-text: #f58079;
+  --ring-warn: rgb(240 166 60 / 0.2);
+  --ring-bad: rgb(240 86 79 / 0.22);
+  --ring-ok: rgb(86 207 154 / 0.18);
+  --tint-warn: rgb(240 166 60 / 0.07);
+  --tint-bad: rgb(240 86 79 / 0.08);
+  --chart-2: #6f7e76;
+  --area: rgb(86 207 154 / 0.09);
+  --knob: #e3ebe6;
 }
 
 @theme inline {
@@ -85,6 +92,7 @@
   --color-sec: var(--sec);
   --color-muted: var(--muted);
   --color-hair: var(--hair);
+  --color-grid: var(--grid);
   --color-ok: var(--ok);
   --color-ok-quiet: var(--ok-quiet);
   --color-warn: var(--warn);
@@ -101,7 +109,8 @@
   --shadow-pop: var(--pop-shadow);
   --default-transition-duration: 160ms;
   --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-sans:
+    'Instrument Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, 'Cascadia Mono', monospace;
 }
 
@@ -114,6 +123,11 @@
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
   :focus-visible {
     outline: 2px solid var(--focus);
@@ -131,7 +145,25 @@
   }
 }
 
-/* Full-viewport app shell: a sidebar against the left edge, content filling the rest. */
+/* The page statement: the narrow cut of the face, set large. */
+@utility display {
+  @apply text-[32px] leading-[1.08] font-semibold tracking-[-0.015em] md:text-[44px];
+  font-stretch: 82%;
+}
+
+/* Page and record titles. */
+@utility title {
+  @apply text-[26px] leading-[1.15] font-semibold tracking-[-0.01em];
+  font-stretch: 85%;
+}
+
+/* Figures that are read as measurements: narrow, so columns of them stay compact. */
+@utility figure {
+  font-stretch: 85%;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Admin shell: a sidebar against the left edge, content filling the rest. */
 @utility app-shell {
   @apply flex min-h-screen flex-col md:flex-row;
 }
@@ -144,12 +176,29 @@
   @apply min-w-0 flex-1 p-4 md:px-8 md:py-6;
 }
 
+/* Public pages: the full width of the window, with one gutter shared by every band. */
+@utility gutter {
+  @apply px-4 md:px-8;
+}
+
 @utility card {
-  @apply rounded-[12px] bg-surface shadow-card;
+  @apply rounded-[10px] bg-surface shadow-card;
+}
+
+/*
+ * One service per row, every row on the same time axis: name, trace, uptime.
+ * On phones the trace drops below the name and takes the full width.
+ */
+@utility lead-grid {
+  @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem] md:gap-x-6 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_4.5rem];
+}
+
+@utility lead-trace {
+  @apply min-w-0 max-md:order-last max-md:col-span-2;
 }
 
 @utility field {
-  @apply block h-9 w-full rounded-[8px] border-0 bg-fill px-3 text-[14px] text-text disabled:text-sec;
+  @apply block h-9 w-full rounded-[6px] border-0 bg-fill px-3 text-[14px] text-text shadow-[inset_0_0_0_1px_var(--hair)] disabled:text-sec;
 }
 
 @utility label {
@@ -157,7 +206,7 @@
 }
 
 @utility btn {
-  @apply inline-flex h-8 items-center justify-center gap-2 rounded-[8px] px-3 text-[13px] font-medium transition-[color,background-color,opacity,transform] active:scale-[0.98] disabled:opacity-40;
+  @apply inline-flex h-8 items-center justify-center gap-2 rounded-[6px] px-3 text-[13px] font-medium transition-[color,background-color,opacity,transform] active:scale-[0.98] disabled:opacity-40;
 }
 
 @utility btn-primary {
@@ -174,4 +223,34 @@
 
 @utility row-btn {
   @apply flex w-full items-center gap-4 border-t border-hair px-4 py-2 text-left transition-colors hover:bg-hover;
+}
+
+/* The one piece of motion on the page: the heart trace under the status draws itself once. */
+@keyframes trace-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trace-run {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .trace-beat {
+    stroke-dasharray: 1;
+    animation: trace-draw 700ms cubic-bezier(0.4, 0, 0.2, 1) 120ms both;
+  }
+  .trace-run {
+    transform-origin: left;
+    animation: trace-run 900ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
+  }
 }

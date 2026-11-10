@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { UrgencyBadge, VulnCounts, VulnTable } from '../../components/Urgency.tsx';
-import { Empty, ErrorNote, Kpi, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { Empty, ErrorNote, Notice, PageHeader, Section, Spinner, Stats } from '../../components/ui.tsx';
 import { api, useMe, useServiceSoftware, useSoftwareInventory } from '../../lib/api.ts';
 import { URGENCY_LABEL, relative, shortDate } from '../../lib/format.ts';
 import { can } from './AdminLayout.tsx';
@@ -177,12 +177,16 @@ export function SoftwarePage() {
           <Notice tone="ok">Refresh started; results appear as the sources answer.</Notice>
         </div>
       )}
-      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
-        <Kpi label="Update now" value={inv.totals.critical} hint="critical" />
-        <Kpi label="Update soon" value={inv.totals.high} hint="high" />
-        <Kpi label="Advised" value={inv.totals.medium} hint="medium" />
-        <Kpi label="Up to date" value={inv.totals.none + inv.totals.low} hint="none or minor" />
-        <Kpi label="Unknown" value={inv.totals.unknown} hint="no version or no data" />
+      <div className="mt-4">
+        <Stats
+          items={[
+            { label: 'Update now', value: inv.totals.critical, hint: 'critical' },
+            { label: 'Update soon', value: inv.totals.high, hint: 'high' },
+            { label: 'Advised', value: inv.totals.medium, hint: 'medium' },
+            { label: 'Up to date', value: inv.totals.none + inv.totals.low, hint: 'none or minor' },
+            { label: 'Unknown', value: inv.totals.unknown, hint: 'no version or no data' },
+          ]}
+        />
       </div>
       <div className="mt-4">
         <Segmented

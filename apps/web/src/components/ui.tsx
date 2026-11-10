@@ -1,11 +1,20 @@
 import type { ReactNode } from 'react';
 
-export function Kpi({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
+/** Headline figures of a record, side by side on one surface. */
+export function Stats({ items }: { items: { label: string; value: ReactNode; hint?: string }[] }) {
   return (
-    <div className="card px-4 py-3">
-      <div className="text-[12px] text-sec">{label}</div>
-      <div className="mt-1 text-[28px] font-medium leading-8">{value}</div>
-      {hint && <div className="text-[12px] text-sec">{hint}</div>}
+    <div className="card overflow-hidden">
+      <dl className="m-0 grid grid-cols-2 gap-px bg-hair md:auto-cols-fr md:grid-flow-col md:grid-cols-none">
+        {items.map((i) => (
+          <div key={i.label} className="flex flex-col-reverse bg-surface px-4 py-3">
+            <dt className="mt-1 text-[12px] text-sec">
+              {i.label}
+              {i.hint && <span className="text-muted"> ({i.hint})</span>}
+            </dt>
+            <dd className="figure m-0 text-[28px] font-medium leading-8">{i.value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -20,9 +29,9 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <h1 className="m-0 text-[28px] font-medium leading-8">{title}</h1>
+        <h1 className="title m-0">{title}</h1>
         {subtitle && <div className="mt-1 text-[13px] text-sec">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -44,7 +53,7 @@ export function Section({
   return (
     <section className={`card overflow-hidden ${className}`}>
       {(title || actions) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pb-2 pt-4">
           {title && <h2 className="m-0 text-[14px] font-medium">{title}</h2>}
           {actions}
         </div>
@@ -113,7 +122,7 @@ export function Notice({
           ? 'var(--ok-text)'
           : 'var(--sec)';
   return (
-    <div className="rounded-[8px] bg-fill px-3 py-2 text-[13px]" style={{ color }}>
+    <div className="rounded-[6px] bg-fill px-3 py-2 text-[13px]" style={{ color }}>
       {children}
     </div>
   );

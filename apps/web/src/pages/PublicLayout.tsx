@@ -1,14 +1,11 @@
-import type { Overview } from '@heartline/shared';
 import { Link, Outlet, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
-import { useState } from 'react';
 import { Icon, Logo } from '../components/Icon.tsx';
 import { StatusDot } from '../components/Status.tsx';
 import { useBootstrap, useMe, useOverview } from '../lib/api.ts';
-import { pct, relative } from '../lib/format.ts';
 import { useTheme } from '../lib/theme.ts';
 
-const NAV_ROW =
-  'flex h-9 w-full items-center gap-2 rounded-[8px] px-3 text-text no-underline transition-colors hover:bg-hover';
+const BAR_LINK =
+  'flex h-8 items-center rounded-[6px] px-2.5 text-[13px] text-sec no-underline transition-colors hover:bg-hover hover:text-text';
 
 export function ThemeButton() {
   const { dark, toggle } = useTheme();
@@ -17,187 +14,117 @@ export function ThemeButton() {
       type="button"
       onClick={toggle}
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="flex h-8 w-8 items-center justify-center rounded-[8px] text-sec transition-colors hover:bg-hover hover:text-text"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-sec transition-colors hover:bg-hover hover:text-text"
     >
-      <Icon name="moon" size={16} />
+      <Icon name={dark ? 'sun' : 'moon'} size={16} />
     </button>
   );
 }
 
-function Brand({ range }: { range: number }) {
+function Brand({ days }: { days: number | undefined }) {
   const boot = useBootstrap();
   return (
-    <Link to="/" search={{ days: range }} className="flex items-center gap-2 text-text no-underline">
+    <Link to="/" search={{ days }} className="flex min-w-0 items-center gap-2.5 text-text no-underline">
       {boot.data?.site.logoUrl ? (
-        <img src={boot.data.site.logoUrl} alt="" className="h-6 w-6 rounded-[6px] object-cover" />
+        <img src={boot.data.site.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-[6px] object-cover" />
       ) : (
         <Logo />
       )}
-      <span className="text-[16px] font-medium">{boot.data?.site.title ?? 'Status'}</span>
+      <span className="truncate text-[15px] font-semibold">{boot.data?.site.title ?? 'Status'}</span>
     </Link>
-  );
-}
-
-/** Overall status for pages that don't show it themselves. */
-function OverallStatus({ overview }: { overview: Overview }) {
-  return (
-    <div className="mt-4 px-3">
-      <div className="flex items-center gap-2">
-        <span className="flex w-4 shrink-0 justify-center">
-          <StatusDot status={overview.status} />
-        </span>
-        <span className="font-medium">{overview.headline}</span>
-      </div>
-      <div className="ml-6 mt-0.5 text-[12px] text-muted">
-        {overview.operational} of {overview.total} operational · updated {relative(overview.generatedAt)}
-      </div>
-    </div>
   );
 }
 
 export function PublicLayout() {
   const { days } = useSearch({ strict: false }) as { days?: number };
-  const range = days ?? 90;
-  const overview = useOverview(range);
+  const overview = useOverview(days ?? 90);
   const me = useMe();
-  const [q, setQ] = useState('');
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const filter = q.trim().toLowerCase();
+  const groups = overview.data?.groups ?? [];
+  const serviceId = path.startsWith('/services/')
+    ? decodeURIComponent(path.slice('/services/'.length))
+    : null;
+  const listed = serviceId !== null && groups.some((g) => g.services.some((s) => s.id === serviceId));
 
   return (
-    <div className="app-shell">
-      {/* On phones the status comes first and the service list follows. */}
-      <div className="flex items-center justify-between px-4 pt-4 md:hidden">
-        <Brand range={range} />
-        <ThemeButton />
-      </div>
-      <aside className="app-rail order-last border-t md:order-none md:w-70 md:border-t-0">
-        <div className="hidden items-center justify-between pl-3 pr-1 md:flex">
-          <Brand range={range} />
-          <ThemeButton />
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="gutter flex h-14 shrink-0 items-center gap-2 border-b border-hair">
+        <Brand days={path === '/' ? days : undefined} />
 
-        {overview.data && path !== '/' && <OverallStatus overview={overview.data} />}
-
-        <label htmlFor="svc-filter" className="sr-only">
-          Filter services
-        </label>
-        <div className="mt-4 flex h-8 items-center gap-2 rounded-[8px] bg-fill px-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-(--focus)">
-          <Icon name="search" size={16} className="shrink-0 text-muted" />
-          <input
-            id="svc-filter"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter services"
-            className="h-full min-w-0 flex-1 border-0 bg-transparent text-[13px] text-text outline-none"
-          />
-        </div>
-
-        <nav aria-label="Services" className="mt-2">
-          <Link
-            to="/"
-            search={{ days: range }}
-            className={`${NAV_ROW} ${path === '/' ? 'bg-sel' : ''}`}
-            aria-current={path === '/' ? 'page' : undefined}
-          >
-            <Icon name="list" size={16} className="shrink-0 text-muted" />
-            <span className="flex-1">Overview</span>
-            <span className="font-mono text-[12px] text-muted">{overview.data?.total ?? ''}</span>
-          </Link>
-          {overview.data?.groups.map((g) => {
-            const services = g.services.filter((s) => !filter || s.name.toLowerCase().includes(filter));
-            if (services.length === 0) return null;
-            return (
-              <div key={g.name}>
-                <div className="px-3 pb-1 pt-6 text-[12px] text-muted">{g.name}</div>
-                <div className="flex flex-col gap-0.5">
-                  {services.map((s) => {
-                    const current = path === `/services/${s.id}`;
-                    return (
-                      <Link
-                        key={s.id}
-                        to="/services/$id"
-                        params={{ id: s.id }}
-                        search={{ days: range }}
-                        aria-current={current ? 'page' : undefined}
-                        className={`${NAV_ROW} ${current ? 'bg-sel' : ''}`}
-                      >
-                        <span className="flex w-4 shrink-0 justify-center">
-                          <StatusDot status={s.status} />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                        <span className="font-mono text-[12px] text-muted">{pct(s.uptime)}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
-
-        {overview.data && overview.data.upcomingMaintenance.length > 0 && (
-          <div className="mx-3 mt-6 border-t border-hair pt-4">
-            <div className="text-[12px] text-muted">
-              {overview.data.upcomingMaintenance.some((m) => m.active) ? 'Maintenance' : 'Upcoming'}
-            </div>
-            {overview.data.upcomingMaintenance.slice(0, 3).map((m) => {
-              const start = new Date(m.nextStartsAt ?? m.startsAt);
-              return (
-                <div key={m.id} className="mt-2 flex gap-3">
-                  <span className="w-10 shrink-0 rounded-[6px] bg-fill py-1 text-center">
-                    <span className="block text-[12px] leading-4 text-muted">
-                      {start.toLocaleString(undefined, { month: 'short' })}
-                    </span>
-                    <span className="block font-medium leading-4">{start.getDate()}</span>
-                  </span>
-                  <span className="min-w-0 text-[13px]">
-                    <span className="block truncate">{m.title}</span>
-                    <span className="block font-mono text-[12px] text-muted">
-                      {m.active
-                        ? 'in progress'
-                        : `${start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} – ${new Date(m.nextEndsAt ?? m.endsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+        {/* On a service page the bar doubles as the way to the next service. */}
+        {listed && (
+          <>
+            <span aria-hidden="true" className="text-[16px] text-fill-2">
+              /
+            </span>
+            <label className="relative flex min-w-0 items-center">
+              <span className="sr-only">Service</span>
+              <select
+                value={serviceId}
+                onChange={(e) =>
+                  void navigate({ to: '/services/$id', params: { id: e.target.value }, search: { days } })
+                }
+                className="h-8 min-w-0 max-w-[42vw] cursor-pointer appearance-none truncate rounded-[6px] [field-sizing:content] border-0 bg-transparent py-0 pl-2 pr-7 text-[14px] font-medium text-text transition-colors hover:bg-hover"
+              >
+                {groups.map((g) => (
+                  <optgroup key={g.name} label={g.name}>
+                    {g.services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <Icon
+                name="chevronDown"
+                size={14}
+                className="pointer-events-none absolute right-2 text-muted"
+              />
+            </label>
+          </>
         )}
 
-        <div className="mx-3 mt-6 flex flex-wrap gap-4 text-[12px]">
-          <a
-            className="text-muted no-underline transition-colors hover:text-text"
-            href="/api/v1/incidents.rss"
-          >
-            RSS
-          </a>
-          <a
-            className="text-muted no-underline transition-colors hover:text-text"
-            href="/api/v1/report.csv?days=90"
-          >
-            CSV
-          </a>
-          {me.data ? (
-            <button
-              type="button"
-              className="text-muted transition-colors hover:text-text"
-              onClick={() => void navigate({ to: '/admin' })}
-            >
-              Admin
-            </button>
-          ) : (
-            <Link to="/login" className="text-muted no-underline transition-colors hover:text-text">
-              Sign in
-            </Link>
-          )}
-        </div>
-      </aside>
+        <span className="flex-1" />
 
-      <main className="app-main">
+        {/* The overview states the overall status itself; everywhere else it stays one glance away. */}
+        {overview.data && path !== '/' && (
+          <Link to="/" className={`${BAR_LINK} min-w-0 gap-2 max-sm:hidden`}>
+            <StatusDot status={overview.data.status} />
+            <span className="truncate">{overview.data.headline}</span>
+          </Link>
+        )}
+        {me.data ? (
+          <button type="button" className={BAR_LINK} onClick={() => void navigate({ to: '/admin' })}>
+            Admin
+          </button>
+        ) : (
+          <Link to="/login" className={`${BAR_LINK} whitespace-nowrap`}>
+            Sign in
+          </Link>
+        )}
+        <ThemeButton />
+      </header>
+
+      <main className="gutter flex-1 pb-12 pt-6 md:pt-8">
         <Outlet />
       </main>
+
+      <footer className="gutter flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-hair py-4 text-[12px]">
+        <a
+          className="flex items-center gap-1.5 text-muted no-underline transition-colors hover:text-text"
+          href="/api/v1/incidents.rss"
+        >
+          <Icon name="rss" size={14} /> Incident feed
+        </a>
+        <a
+          className="flex items-center gap-1.5 text-muted no-underline transition-colors hover:text-text"
+          href="/api/v1/report.csv?days=90"
+        >
+          <Icon name="download" size={14} /> Uptime report, 90 days (CSV)
+        </a>
+      </footer>
     </div>
   );
 }

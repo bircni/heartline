@@ -1,5 +1,5 @@
 import type { MonitorKind, MonitorSpec } from './schemas.ts';
-import type { IMPACTS, INCIDENT_STATUSES, ROLES, SCOPES, URGENCY_LEVELS } from './schemas.ts';
+import type { IMPACTS, INCIDENT_STATUSES, ROLES, SCOPES, THEMES, URGENCY_LEVELS } from './schemas.ts';
 
 export type Role = (typeof ROLES)[number];
 export type Scope = (typeof SCOPES)[number];
@@ -102,11 +102,15 @@ export type CheckStatus = 'up' | 'degraded' | 'down';
 export type ServiceStatus = 'operational' | 'degraded' | 'down' | 'maintenance' | 'paused' | 'unknown';
 export type DayState = 'operational' | 'degraded' | 'down' | 'maintenance' | 'nodata';
 
+export type Theme = (typeof THEMES)[number];
+
 export interface SiteInfo {
   title: string;
   description: string | null;
   timezone: string;
   logoUrl: string | null;
+  /** Default colour theme; visitors can pick another one for themselves. */
+  theme: Theme;
 }
 
 export interface DayBar {
@@ -141,6 +145,8 @@ export interface Overview {
   operational: number;
   total: number;
   days: number;
+  /** End of the covered range: now, or the end of the `to` day for a range in the past. */
+  rangeEnd: number;
   groups: { name: string; services: ServiceSummary[] }[];
   activeIncidents: Incident[];
   upcomingMaintenance: Maintenance[];
@@ -184,6 +190,8 @@ export interface ServiceDetail extends ServiceSummary {
   /** Response times at the finest resolution available for the range. */
   series: LatencyPoint[];
   seriesBucketMs: number;
+  /** End of the covered range: now, or the end of the `to` day for a range in the past. */
+  rangeEnd: number;
   generatedAt: number;
 }
 

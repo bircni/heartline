@@ -75,7 +75,7 @@ export function LoginPage() {
       <div className="w-full max-w-[360px]">
         <div className="flex flex-col items-center text-center">
           <Logo size={48} />
-          <h1 className="m-0 mt-4 text-[20px] font-medium">
+          <h1 className="title m-0 mt-5 text-[24px]">
             {oauth ? 'Sign in to connect' : `Sign in to ${site?.title ?? 'Status'}`}
           </h1>
           <p className="m-0 mt-1 text-sec">
@@ -96,7 +96,7 @@ export function LoginPage() {
               type="button"
               disabled={busy}
               onClick={() => void social(p.id)}
-              className={`flex h-10 w-full items-center justify-center gap-2 rounded-[8px] text-[14px] font-medium disabled:opacity-50 ${i === 0 ? 'bg-text text-bg' : 'mt-2 bg-fill text-text'}`}
+              className={`flex h-10 w-full items-center justify-center gap-2 rounded-[6px] text-[14px] font-medium disabled:opacity-50 ${i === 0 ? 'bg-text text-bg' : 'mt-2 bg-fill text-text'}`}
             >
               <Icon name="gitea" size={16} />
               Continue with {p.name}
@@ -138,7 +138,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className={`mt-4 h-10 w-full rounded-[8px] text-[14px] font-medium disabled:opacity-50 ${providers.length ? 'bg-fill text-text' : 'bg-text text-bg'}`}
+                className={`mt-4 h-10 w-full rounded-[6px] text-[14px] font-medium disabled:opacity-50 ${providers.length ? 'bg-fill text-text' : 'bg-text text-bg'}`}
               >
                 {busy ? 'Signing in…' : 'Sign in'}
               </button>

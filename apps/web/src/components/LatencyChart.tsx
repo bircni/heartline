@@ -6,9 +6,9 @@ import { ParentSize } from '@visx/responsive';
 import { scaleLinear } from '@visx/scale';
 import { AreaClosed, Line, LinePath } from '@visx/shape';
 import { useState } from 'react';
-import { ms } from '../lib/format.ts';
+import { ms, timeTicks } from '../lib/format.ts';
 
-const MARGIN = { top: 8, right: 4, bottom: 8, left: 56 };
+const MARGIN = { top: 8, right: 4, bottom: 24, left: 52 };
 
 interface Props {
   points: LatencyPoint[];
@@ -43,6 +43,15 @@ function Chart({
   const x = scaleLinear({ domain: [from, to], range: [0, innerW], clamp: true });
   const y = scaleLinear({ domain: [0, top], range: [innerH, 0], nice: true });
   const active = hover === null ? null : data[hover];
+  // A line across a stretch without checks would invent response times, so it breaks there instead.
+  const runs: LatencyPoint[][] = [];
+  for (const p of data) {
+    const run = runs.at(-1);
+    const last = run?.at(-1);
+    if (run && last && p.at - last.at <= bucketMs * 1.5) run.push(p);
+    else runs.push([p]);
+  }
+  const ticks = timeTicks(from, to);
 
   if (data.length === 0)
     return (
@@ -72,54 +81,75 @@ function Chart({
           {y.ticks(3).map((t) => (
             <g key={t}>
               <line x1={0} x2={innerW} y1={y(t)} y2={y(t)} stroke="var(--hair)" />
-              <text
-                x={-8}
-                y={y(t)}
-                dy="0.32em"
-                textAnchor="end"
-                fontSize={12}
-                fontFamily="var(--font-mono)"
-                fill="var(--muted)"
-              >
+              <text x={-8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={12} fill="var(--muted)">
                 {ms(t)}
               </text>
             </g>
           ))}
-          <LinePath<LatencyPoint>
-            data={data}
-            x={(p) => x(p.at)}
-            y={(p) => y(p.highLatencyMs ?? 0)}
-            defined={(p) => p.highLatencyMs !== null}
-            curve={curveMonotoneX}
-            stroke="var(--chart-2)"
-            strokeWidth={1.5}
-            strokeDasharray="1 4"
-            strokeLinecap="round"
-          />
-          <AreaClosed<LatencyPoint>
-            data={data}
-            x={(p) => x(p.at)}
-            y={(p) => y(p.avgLatencyMs ?? 0)}
-            yScale={y}
-            curve={curveMonotoneX}
-            fill="var(--area)"
-          />
-          <LinePath<LatencyPoint>
-            data={data}
-            x={(p) => x(p.at)}
-            y={(p) => y(p.avgLatencyMs ?? 0)}
-            curve={curveMonotoneX}
-            stroke="var(--chart)"
-            strokeWidth={1.75}
-          />
-          {data.length === 1 && (
-            <circle
-              cx={x((data[0] as LatencyPoint).at)}
-              cy={y((data[0] as LatencyPoint).avgLatencyMs ?? 0)}
-              r={3}
-              fill="var(--chart)"
-            />
-          )}
+          {ticks.map((t) => (
+            <g key={t.pos}>
+              {t.pos > 0 && (
+                <line x1={t.pos * innerW} x2={t.pos * innerW} y1={0} y2={innerH + 6} stroke="var(--grid)" />
+              )}
+              {t.pos * innerW < innerW - 96 && (
+                <text
+                  x={t.pos * innerW + (t.pos > 0 ? 6 : 0)}
+                  y={innerH + 18}
+                  fontSize={12}
+                  fill="var(--muted)"
+                >
+                  {t.label}
+                </text>
+              )}
+            </g>
+          ))}
+          <text x={innerW} y={innerH + 18} textAnchor="end" fontSize={12} fill="var(--muted)">
+            Today
+          </text>
+          {runs.map((run) => {
+            const start = run[0] as LatencyPoint;
+            if (run.length === 1)
+              return (
+                <circle
+                  key={start.at}
+                  cx={x(start.at)}
+                  cy={y(start.avgLatencyMs ?? 0)}
+                  r={2}
+                  fill="var(--chart)"
+                />
+              );
+            return (
+              <g key={start.at}>
+                <LinePath<LatencyPoint>
+                  data={run}
+                  x={(p) => x(p.at)}
+                  y={(p) => y(p.highLatencyMs ?? 0)}
+                  defined={(p) => p.highLatencyMs !== null}
+                  curve={curveMonotoneX}
+                  stroke="var(--chart-2)"
+                  strokeWidth={1.5}
+                  strokeDasharray="1 4"
+                  strokeLinecap="round"
+                />
+                <AreaClosed<LatencyPoint>
+                  data={run}
+                  x={(p) => x(p.at)}
+                  y={(p) => y(p.avgLatencyMs ?? 0)}
+                  yScale={y}
+                  curve={curveMonotoneX}
+                  fill="var(--area)"
+                />
+                <LinePath<LatencyPoint>
+                  data={run}
+                  x={(p) => x(p.at)}
+                  y={(p) => y(p.avgLatencyMs ?? 0)}
+                  curve={curveMonotoneX}
+                  stroke="var(--chart)"
+                  strokeWidth={1.75}
+                />
+              </g>
+            );
+          })}
           {active && (
             <>
               <Line
@@ -152,12 +182,12 @@ function Chart({
       {active && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute top-0 z-10 rounded-[8px] bg-surface px-3 py-2 text-[12px] shadow-pop ring-1 ring-hair"
+          className="pointer-events-none absolute top-0 z-10 rounded-[6px] bg-surface px-3 py-2 text-[12px] shadow-pop"
           style={{ left: Math.min(width - 170, Math.max(0, MARGIN.left + x(active.at) + 12)) }}
         >
           <div className="font-medium">{label(active.at, bucketMs)}</div>
-          <div className="font-mono text-sec">
-            avg {ms(active.avgLatencyMs)} · {highLabel} {ms(active.highLatencyMs)}
+          <div className="text-sec">
+            avg {ms(active.avgLatencyMs)}, {highLabel} {ms(active.highLatencyMs)}
           </div>
         </div>
       )}
@@ -165,7 +195,7 @@ function Chart({
   );
 }
 
-export function LatencyChart({ height = 280, ...props }: Props & { height?: number }) {
+export function LatencyChart({ height = 260, ...props }: Props & { height?: number }) {
   return (
     <div style={{ height }}>
       <ParentSize debounceTime={50}>

@@ -4,8 +4,9 @@ const ADMIN = { email: 'admin@e2e.local', password: 'e2e-admin-password' };
 
 test('public overview shows services, day bars and details', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
-  await expect(page.getByText('All systems operational').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1, name: 'All systems operational' })).toBeVisible({
+    timeout: 15_000,
+  });
   const row = page.getByRole('link', { name: /Status API: operational/ });
   await expect(row).toBeVisible();
   await page.getByRole('button', { name: '30D' }).click();

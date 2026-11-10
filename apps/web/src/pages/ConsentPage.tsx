@@ -53,7 +53,7 @@ export function ConsentPage() {
       <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center text-center">
           <Logo size={48} />
-          <h1 className="m-0 mt-4 text-[20px] font-medium">{name ? `Allow ${name}?` : 'Loading…'}</h1>
+          <h1 className="title m-0 mt-5 text-[24px]">{name ? `Allow ${name}?` : 'Loading…'}</h1>
           <p className="m-0 mt-1 text-sec">
             {me.data
               ? `Signed in as ${me.data.name}. Access is limited by your role (${me.data.role}).`

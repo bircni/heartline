@@ -205,7 +205,7 @@ function SoftwareFields({
   };
   const needsUrl = kind !== 'http' && kind !== 'plugin';
   return (
-    <div className="mt-4 rounded-[8px] bg-fill">
+    <div className="mt-4 rounded-[6px] bg-fill">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-[13px]">Track version and vulnerabilities</span>
         <Switch
@@ -666,7 +666,7 @@ function Editor({
         />
       )}
       {(notifiers.data?.length ?? 0) > 0 && (
-        <div className="mt-4 rounded-[8px] bg-fill">
+        <div className="mt-4 rounded-[6px] bg-fill">
           {notifiers.data?.map((n, i) => {
             const list = (s.notify as string[] | undefined) ?? [];
             return (
@@ -689,7 +689,7 @@ function Editor({
           </p>
         </div>
       )}
-      <div className="mt-3 flex items-center justify-between rounded-[8px] bg-fill px-3 py-2">
+      <div className="mt-3 flex items-center justify-between rounded-[6px] bg-fill px-3 py-2">
         <span className="text-[13px]">Open an incident automatically when down</span>
         <Switch
           label="Automatic incidents"

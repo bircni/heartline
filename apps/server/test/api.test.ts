@@ -1,4 +1,4 @@
-import type { Incident, Maintenance } from '@heartline/shared';
+import type { Incident, Maintenance, Overview, ServiceDetail } from '@heartline/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type Harness, harness } from './helpers.ts';
 
@@ -179,5 +179,33 @@ describe('admin hardening', () => {
       .execute();
     expect(links).toEqual([]);
     expect((await h.request('/api/v1/admin/monitors/x', { cookie })).status).toBe(404);
+  });
+});
+
+describe('history ranges', () => {
+  it('ends the overview and service history on the requested day', async () => {
+    const overview = (await (await h.request('/api/v1/overview?days=7&to=2026-01-31')).json()) as Overview;
+    const bars = overview.groups.flatMap((g) => g.services)[0]?.bars ?? [];
+    expect(bars.map((b) => b.day)).toEqual([
+      '2026-01-25',
+      '2026-01-26',
+      '2026-01-27',
+      '2026-01-28',
+      '2026-01-29',
+      '2026-01-30',
+      '2026-01-31',
+    ]);
+    expect(overview.rangeEnd).toBe(Date.parse('2026-02-01T00:00:00Z') - 1);
+    expect(overview.site.theme).toBe('green');
+
+    const detail = (await (await h.request('/api/v1/services/web?days=3&to=2026-01-31')).json()) as ServiceDetail;
+    expect(detail.bars.map((b) => b.day)).toEqual(['2026-01-29', '2026-01-30', '2026-01-31']);
+    expect(detail.rangeEnd).toBe(overview.rangeEnd);
+  });
+
+  it('treats a day in the future as today and rejects anything that is not a date', async () => {
+    const future = (await (await h.request('/api/v1/overview?days=1&to=2999-01-01')).json()) as Overview;
+    expect(future.rangeEnd).toBeLessThanOrEqual(Date.now());
+    expect((await h.request('/api/v1/overview?to=yesterday')).status).toBe(400);
   });
 });

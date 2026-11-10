@@ -69,7 +69,7 @@ export function AdminLayout() {
                 key={s.to}
                 to={s.to}
                 aria-current={current ? 'page' : undefined}
-                className={`flex h-9 w-full items-center gap-2 rounded-[8px] px-3 text-text no-underline transition-colors hover:bg-hover ${current ? 'bg-sel' : ''}`}
+                className={`flex h-9 w-full items-center gap-2 rounded-[6px] px-3 text-text no-underline transition-colors hover:bg-hover ${current ? 'bg-sel' : ''}`}
               >
                 <Icon name={s.icon} size={16} className="shrink-0 text-muted" />
                 <span className="flex-1">{s.label}</span>
@@ -80,7 +80,7 @@ export function AdminLayout() {
         </nav>
         <Link
           to="/"
-          className="mt-2 flex h-9 items-center gap-2 rounded-[8px] px-3 text-[13px] text-sec no-underline transition-colors hover:bg-hover hover:text-text"
+          className="mt-2 flex h-9 items-center gap-2 rounded-[6px] px-3 text-[13px] text-sec no-underline transition-colors hover:bg-hover hover:text-text"
         >
           <Icon name="external" size={16} /> View status page
         </Link>
@@ -102,7 +102,7 @@ export function AdminLayout() {
           <button
             type="button"
             onClick={() => void signOut()}
-            className="h-8 rounded-[8px] px-2 text-[12px] text-sec transition-colors hover:bg-hover hover:text-text"
+            className="h-8 rounded-[6px] px-2 text-[12px] text-sec transition-colors hover:bg-hover hover:text-text"
           >
             Sign out
           </button>

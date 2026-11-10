@@ -125,3 +125,54 @@ export const DAY_LABEL: Record<DayState, string> = {
   maintenance: 'Maintenance',
   nodata: 'No data',
 };
+
+/** A labelled position on a time axis, as a fraction of its width. */
+export interface Tick {
+  pos: number;
+  label: string;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Calendar ticks between two instants: every day for a week, Mondays for a month, the first of each
+ * month beyond that. `snap` rounds positions to a grid of that many equal marks so ticks fall between them.
+ */
+export function timeTicks(from: number, to: number, snap?: number): Tick[] {
+  const span = to - from;
+  if (span <= 0) return [];
+  const days = span / DAY_MS;
+  const mode = days <= 10 ? 'day' : days <= 45 ? 'week' : 'month';
+  const format = new Intl.DateTimeFormat(
+    undefined,
+    mode === 'day'
+      ? { weekday: 'short' }
+      : mode === 'week'
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short' },
+  );
+  const ticks: Tick[] = [];
+  const d = new Date(from);
+  d.setHours(24, 0, 0, 0);
+  for (; d.getTime() < to; d.setDate(d.getDate() + 1)) {
+    if (mode === 'week' && d.getDay() !== 1) continue;
+    if (mode === 'month' && d.getDate() !== 1) continue;
+    const pos = (d.getTime() - from) / span;
+    ticks.push({ pos: snap ? Math.round(pos * snap) / snap : pos, label: format.format(d) });
+  }
+  // Longer ranges rarely start on a tick, so the left edge says where the axis begins.
+  if (mode !== 'day' && (ticks[0]?.pos ?? 1) > 0.12)
+    ticks.unshift({
+      pos: 0,
+      label: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(from),
+    });
+  return ticks;
+}
+
+/** Ticks for a run of consecutive `YYYY-MM-DD` days, one mark per day. */
+export function dayTicks(days: string[]): Tick[] {
+  const first = days[0];
+  if (!first) return [];
+  const from = new Date(`${first}T00:00:00`).getTime();
+  return timeTicks(from, from + days.length * DAY_MS, days.length);
+}

@@ -13,62 +13,73 @@ export function IncidentPage() {
   const tone = open ? (data.impact === 'major' ? 'var(--bad-text)' : 'var(--warn-text)') : 'var(--sec)';
 
   return (
-    <article>
+    <article className="max-w-[46rem]">
       <Link
         to="/"
-        className="inline-flex items-center gap-1 py-1 text-[13px] text-sec no-underline hover:text-text"
+        className="-ml-1 inline-flex items-center gap-1 py-1 text-[13px] text-sec no-underline hover:text-text"
       >
-        <Icon name="arrowLeft" size={16} /> Overview
+        <Icon name="arrowLeft" size={16} /> All services
       </Link>
-      <div className="mt-3 text-[13px] font-medium first-letter:uppercase" style={{ color: tone }}>
-        {data.status} ·{' '}
+      <div className="mt-4 text-[13px] font-medium" style={{ color: tone }}>
         {data.impact === 'major'
           ? 'Major outage'
           : data.impact === 'partial'
             ? 'Partial outage'
             : 'Degraded performance'}
+        , {open ? `ongoing for ${duration(data.createdAt, null)}` : 'resolved'}
       </div>
-      <h1 className="m-0 mt-1 text-[28px] font-medium">{data.title}</h1>
-      <div className="mt-1 flex flex-wrap gap-x-2 text-[13px] text-sec">
-        {data.services.map((s, i) => (
-          <span key={s.id}>
-            <Link to="/services/$id" params={{ id: s.id }} className="text-text">
-              {s.name}
-            </Link>
-            {i < data.services.length - 1 && ','}
-          </span>
-        ))}
-        {data.services.length > 0 && <span>·</span>}
-        <span>
-          started {dateTime(data.createdAt)} ·{' '}
-          {open
-            ? `ongoing for ${duration(data.createdAt, null)}`
-            : `lasted ${duration(data.createdAt, data.resolvedAt)}`}
-        </span>
-        {data.automatic && <span>· opened automatically</span>}
-      </div>
+      <h1 className="title m-0 mt-1">{data.title}</h1>
+      <dl className="m-0 mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1 text-[13px]">
+        {data.services.length > 0 && (
+          <>
+            <dt className="text-muted">Affected</dt>
+            <dd className="m-0 flex flex-wrap gap-x-3">
+              {data.services.map((s) => (
+                <Link key={s.id} to="/services/$id" params={{ id: s.id }} className="text-text">
+                  {s.name}
+                </Link>
+              ))}
+            </dd>
+          </>
+        )}
+        <dt className="text-muted">Started</dt>
+        <dd className="m-0">
+          {dateTime(data.createdAt)}
+          {data.automatic && <span className="text-muted"> (opened automatically)</span>}
+        </dd>
+        {data.resolvedAt !== null && (
+          <>
+            <dt className="text-muted">Lasted</dt>
+            <dd className="m-0">{duration(data.createdAt, data.resolvedAt)}</dd>
+          </>
+        )}
+      </dl>
 
-      <ol className="card mt-5 list-none px-5 py-2">
+      <h2 className="m-0 mt-8 text-[16px] font-semibold">Updates</h2>
+      {/* Newest first; the rail ties the updates into one timeline. */}
+      <ol className="m-0 mt-3 list-none p-0">
         {data.updates.map((u, i) => (
-          <li key={u.id} className="flex gap-4 border-t border-hair py-3 first:border-t-0">
-            <div aria-hidden="true" className="flex w-3 shrink-0 flex-col items-center pt-2">
-              <span
-                className="block h-2 w-2 rounded-full border"
-                style={{
-                  background: i === 0 ? tone : 'transparent',
-                  borderColor: i === 0 ? tone : 'var(--fill-2)',
-                }}
-              />
-            </div>
+          <li key={u.id} className="relative flex gap-4 pb-6 last:pb-0">
+            {i < data.updates.length - 1 && (
+              <span aria-hidden="true" className="absolute bottom-0 left-[4.5px] top-3 w-px bg-fill-2" />
+            )}
+            <span
+              aria-hidden="true"
+              className="relative mt-[5px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
+              style={{
+                background: i === 0 ? tone : 'var(--bg)',
+                borderColor: i === 0 ? tone : 'var(--fill-2)',
+              }}
+            />
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="text-[14px] font-medium capitalize">{u.status}</span>
-                <span className="font-mono text-[12px] text-muted">
+                <span className="text-[14px] font-semibold capitalize">{u.status}</span>
+                <span className="text-[12px] text-muted">
                   {dateTime(u.createdAt)}
-                  {u.author && ` · ${u.author}`}
+                  {u.author && `, ${u.author}`}
                 </span>
               </div>
-              <p className="m-0 mt-1 whitespace-pre-line text-[14px]">{u.message}</p>
+              <p className="m-0 mt-1 whitespace-pre-line text-[14px] text-sec">{u.message}</p>
             </div>
           </li>
         ))}

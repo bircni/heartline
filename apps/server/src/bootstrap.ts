@@ -66,6 +66,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     description: config.site.description ?? null,
     timezone: config.site.timezone,
     logoUrl: config.site.logoUrl ?? null,
+    theme: config.site.theme,
   });
   const queries = new QueryService({
     db,

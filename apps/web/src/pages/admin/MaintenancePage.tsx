@@ -193,7 +193,7 @@ export function MaintenancePage() {
                 key={m.id}
                 className={`flex items-center gap-4 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
-                <span className="w-12 shrink-0 rounded-[8px] bg-fill py-2 text-center">
+                <span className="w-12 shrink-0 rounded-[6px] bg-fill py-2 text-center">
                   <span className="block text-[12px] text-muted">
                     {start.toLocaleString(undefined, { month: 'short' })}
                   </span>

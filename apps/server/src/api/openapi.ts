@@ -4,6 +4,7 @@ import {
   MONITOR_KINDS,
   ROLES,
   SCOPES,
+  THEMES,
   URGENCY_LEVELS,
   incidentCreateSchema,
   incidentPatchSchema,
@@ -53,7 +54,13 @@ const SEVERITIES = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
 
 const schemas: Record<string, Schema> = {
   Error: obj({ error: str() }),
-  SiteInfo: obj({ title: str(), description: nullable(str()), timezone: str(), logoUrl: nullable(str()) }),
+  SiteInfo: obj({
+    title: str(),
+    description: nullable(str()),
+    timezone: str(),
+    logoUrl: nullable(str()),
+    theme: en(THEMES),
+  }),
   Bootstrap: obj({
     site: ref('SiteInfo'),
     public: bool(),
@@ -136,6 +143,7 @@ const schemas: Record<string, Schema> = {
     operational: int(),
     total: int(),
     days: int(),
+    rangeEnd: ts(),
     groups: arr(obj({ name: str(), services: arr(ref('ServiceSummary')) })),
     activeIncidents: arr(ref('Incident')),
     upcomingMaintenance: arr(ref('Maintenance')),
@@ -175,6 +183,7 @@ const schemas: Record<string, Schema> = {
         incidents: arr(ref('Incident')),
         series: arr(ref('LatencyPoint')),
         seriesBucketMs: int(),
+        rangeEnd: ts(),
         generatedAt: ts(),
       }),
     ],
@@ -325,6 +334,12 @@ const days = (fallback: number) => ({
   in: 'query',
   schema: int({ minimum: 1, maximum: 365, default: fallback }),
 });
+const to = {
+  name: 'to',
+  in: 'query',
+  schema: str({ format: 'date' }),
+  description: 'Last day of the range (YYYY-MM-DD, site time zone); defaults to today',
+};
 const E401 = {
   description: 'Sign in or provide an API token',
   content: { 'application/json': { schema: ref('Error') } },
@@ -400,8 +415,8 @@ const paths: Record<string, Record<string, Op>> = {
       ...pub,
       summary: 'Overview with day bars per service',
       tags: ['Public'],
-      parameters: [days(90)],
-      responses: { 200: json(ref('Overview')), 401: E401 },
+      parameters: [days(90), to],
+      responses: { 200: json(ref('Overview')), 400: E400, 401: E401 },
     },
   },
   '/api/v1/services/{id}': {
@@ -409,8 +424,8 @@ const paths: Record<string, Record<string, Op>> = {
       ...pub,
       summary: 'Service detail',
       tags: ['Public'],
-      parameters: [pathId(), days(30)],
-      responses: { 200: json(ref('ServiceDetail')), 404: E404 },
+      parameters: [pathId(), days(30), to],
+      responses: { 200: json(ref('ServiceDetail')), 400: E400, 404: E404 },
     },
   },
   '/api/v1/services/{id}/report.csv': {

@@ -29,7 +29,7 @@ function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: str
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== m.id) : [...value, m.id])}
-            className={`h-7 rounded-[8px] px-3 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+            className={`h-7 rounded-[6px] px-3 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
           >
             {m.name}
           </button>
@@ -213,7 +213,7 @@ function Detail({
           </Field>
           <div className="mt-3">
             <div className="label">Impact</div>
-            <div className="rounded-[8px] bg-bg p-0.5">
+            <div className="rounded-[6px] bg-bg p-0.5">
               <Segmented
                 size="sm"
                 label="Impact"
@@ -246,7 +246,7 @@ function Detail({
             post.mutate();
           }}
         >
-          <div className="rounded-[8px] bg-bg p-0.5">
+          <div className="rounded-[6px] bg-bg p-0.5">
             <Segmented
               size="sm"
               label="New status"
@@ -262,7 +262,7 @@ function Detail({
             id="u-msg"
             rows={3}
             required
-            className="mt-3 block w-full resize-y rounded-[8px] border-0 bg-surface px-3 py-2 text-[14px] text-text"
+            className="mt-3 block w-full resize-y rounded-[6px] border-0 bg-surface px-3 py-2 text-[14px] text-text"
             placeholder="What changed? This is shown publicly."
             value={message}
             onChange={(e) => setMessage(e.target.value)}

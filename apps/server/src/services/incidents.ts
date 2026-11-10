@@ -69,7 +69,7 @@ export class IncidentService {
   }
 
   async list(
-    opts: { activeOnly?: boolean; since?: number; monitorId?: string; limit?: number } = {},
+    opts: { activeOnly?: boolean; since?: number; until?: number; monitorId?: string; limit?: number } = {},
   ): Promise<Incident[]> {
     let q = this.#db.kysely
       .selectFrom('incidents')
@@ -86,6 +86,7 @@ export class IncidentService {
         ]),
       );
     }
+    if (opts.until !== undefined) q = q.where('incidents.created_at', '<', opts.until);
     if (opts.monitorId) {
       q = q
         .innerJoin('incident_services', 'incident_services.incident_id', 'incidents.id')

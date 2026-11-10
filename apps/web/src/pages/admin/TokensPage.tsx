@@ -118,7 +118,7 @@ export function TokensPage() {
             <p className="m-0 mt-1 text-sec">
               Clients sign in through this page with OAuth (Gitea or a local account). No token needed.
             </p>
-            <div className="mt-3 flex items-center gap-2 rounded-[8px] bg-fill px-3 py-2">
+            <div className="mt-3 flex items-center gap-2 rounded-[6px] bg-fill px-3 py-2">
               <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px]">
                 {command}
               </code>
@@ -161,7 +161,7 @@ export function TokensPage() {
                       onClick={() =>
                         setScopes(on ? scopes.filter((x) => x !== s.value) : [...scopes, s.value])
                       }
-                      className={`h-8 flex-1 rounded-[8px] text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+                      className={`h-8 flex-1 rounded-[6px] text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
                     >
                       {s.value}
                     </button>
@@ -196,7 +196,7 @@ export function TokensPage() {
             </button>
           </form>
           {created && (
-            <div className="mt-3 rounded-[8px] bg-fill p-3" role="status">
+            <div className="mt-3 rounded-[6px] bg-fill p-3" role="status">
               <div className="text-[12px] font-medium text-warn-text">
                 Copy it now. It won’t be shown again.
               </div>
