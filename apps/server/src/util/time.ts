@@ -1,18 +1,6 @@
-const formatters = new Map<string, Intl.DateTimeFormat>();
+import { dayKey } from '@heartline/shared';
 
-function dayFormatter(timeZone: string): Intl.DateTimeFormat {
-  let f = formatters.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
-    formatters.set(timeZone, f);
-  }
-  return f;
-}
-
-/** Calendar day (`YYYY-MM-DD`) of an instant in the given time zone. */
-export function dayKey(at: number, timeZone: string): string {
-  return dayFormatter(timeZone).format(at);
-}
+export { dayKey };
 
 function offsetMs(at: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })

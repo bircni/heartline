@@ -118,5 +118,5 @@ export function Notice({
   tone?: 'neutral' | 'warn' | 'bad' | 'ok';
   children: ReactNode;
 }) {
-  return <div className={`rounded-[6px] px-3 py-2 text-[13px] ${NOTICE[tone]}`}>{children}</div>;
+  return <div className={`rounded-md px-3 py-2 text-[13px] ${NOTICE[tone]}`}>{children}</div>;
 }

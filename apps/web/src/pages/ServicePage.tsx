@@ -1,4 +1,4 @@
-import type { DayState, ServiceDetail } from '@heartline/shared';
+import type { ServiceDetail } from '@heartline/shared';
 import { Link, useParams } from '@tanstack/react-router';
 import {
   BucketBars,
@@ -6,38 +6,37 @@ import {
   DayLegend,
   TraceAxis,
   bucketTicks,
+  TraceViewToggle,
   useTraceView,
 } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { type ChartBand, LatencyChart } from '../components/LatencyChart.tsx';
-import { Segmented } from '../components/Segmented.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
 import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
-import { dateTime, dayTicks, duration, ms, pct, relative, shortDay, time } from '../lib/format.ts';
-import { RangeControl, rangeSearch, useRange } from './RangeControl.tsx';
+import { DAY_BG, dateTime, dayTicks, incidentAge, ms, pct, relative, shortDay, time } from '../lib/format.ts';
+import { RangeControl, useRange } from './RangeControl.tsx';
 
 const CHECK_TONE = { up: 'var(--ok)', degraded: 'var(--warn)', down: 'var(--bad)' } as const;
-const BAND_FILL: Partial<Record<DayState, string>> = { down: 'var(--bad-bg)', degraded: 'var(--warn-bg)' };
 const DAY = 86_400_000;
 
-/** Stretches of trouble in the range, shaded behind the response-time chart. */
+/** Stretches of trouble in the range, shaded behind the response-time chart like in the availability graph. */
 function troubleBands(data: ServiceDetail): ChartBand[] {
-  const daily = data.seriesBucketMs >= DAY;
-  const periods = daily
-    ? data.bars.map((b) => ({
-        from: Date.parse(`${b.day}T00:00:00`),
-        to: Date.parse(`${b.day}T00:00:00`) + DAY,
-        state: b.state,
-      }))
-    : data.series.map((p) => ({
-        from: p.at - data.seriesBucketMs / 2,
-        to: p.at + data.seriesBucketMs / 2,
-        state: p.state ?? 'nodata',
-      }));
+  const periods =
+    data.seriesBucketMs >= DAY
+      ? data.bars.map((b, i) => ({
+          from: data.rangeStart + i * DAY,
+          to: data.rangeStart + (i + 1) * DAY,
+          state: b.state,
+        }))
+      : data.series.map((p) => ({
+          from: p.at - data.seriesBucketMs / 2,
+          to: p.at + data.seriesBucketMs / 2,
+          state: p.state ?? 'nodata',
+        }));
   return periods.flatMap((p) => {
-    const fill = BAND_FILL[p.state];
+    const fill = DAY_BG[p.state];
     return fill ? [{ from: p.from, to: p.to, fill }] : [];
   });
 }
@@ -45,7 +44,7 @@ function troubleBands(data: ServiceDetail): ChartBand[] {
 export function ServicePage() {
   const { id } = useParams({ from: '/public/services/$id' });
   const range = useRange(30);
-  const [view, setView] = useTraceView();
+  const [view] = useTraceView();
   const { data, error, isPending } = useService(id, range);
   const me = useMe();
   // Vulnerability details need a signed-in viewer; the summary tells us whether we are one (urgency is non-null).
@@ -56,12 +55,10 @@ export function ServicePage() {
   const active = data.incidents.find((i) => i.resolvedAt === null);
   const daily = data.seriesBucketMs >= DAY;
   // Daily points sit on calendar days, so the chart spans whole days; finer buckets end at the range end.
-  const firstDay = data.bars[0]?.day;
-  const lastDay = data.bars.at(-1)?.day;
-  const [from, to] =
-    daily && firstDay && lastDay
-      ? [Date.parse(`${firstDay}T00:00:00`), Date.parse(`${lastDay}T00:00:00`) + DAY]
-      : [data.rangeEnd - range.days * DAY, data.rangeEnd];
+  const [from, to] = daily
+    ? [data.rangeStart, data.rangeStart + data.bars.length * DAY]
+    : [data.rangeEnd - range.days * DAY, data.rangeEnd];
+  const traceHeight = view === 'graph' ? 120 : 34;
   const endLabel = range.to ? shortDay(range.to) : 'Today';
   const every =
     data.intervalMs >= 60_000
@@ -73,11 +70,7 @@ export function ServicePage() {
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <Link
-              to="/"
-              search={rangeSearch(range)}
-              className="font-normal text-muted no-underline hover:text-text"
-            >
+            <Link to="/" search={range} className="font-normal text-muted no-underline hover:text-text">
               Overview /
             </Link>
             {data.name}
@@ -117,7 +110,7 @@ export function ServicePage() {
             <span className="flex flex-wrap items-baseline gap-x-2.5">
               <span className="font-semibold">{active.title}</span>
               <span className="text-[12px] font-medium text-bad-text capitalize">
-                {active.status}, for {duration(active.createdAt, null)}
+                {active.status}, {incidentAge(active)}
               </span>
             </span>
             <span className="block text-sec">{active.updates[0]?.message}</span>
@@ -140,21 +133,13 @@ export function ServicePage() {
         actions={
           <>
             <DayLegend />
-            <Segmented
-              label="Show availability as"
-              value={view}
-              onChange={setView}
-              options={[
-                { value: 'graph', label: 'Graph' },
-                { value: 'timeline', label: 'Timeline' },
-              ]}
-            />
+            <TraceViewToggle />
           </>
         }
       >
         <div className="px-3.5 pt-3 pb-3">
           {daily ? (
-            <DayBars bars={data.bars} view={view} height={view === 'graph' ? 120 : 34} />
+            <DayBars bars={data.bars} view={view} height={traceHeight} />
           ) : (
             <BucketBars
               points={data.series}
@@ -162,7 +147,7 @@ export function ServicePage() {
               to={to}
               bucketMs={data.seriesBucketMs}
               view={view}
-              height={view === 'graph' ? 120 : 34}
+              height={traceHeight}
             />
           )}
           <TraceAxis
@@ -184,15 +169,11 @@ export function ServicePage() {
             >
               <span
                 aria-hidden="true"
-                className={`h-2 w-2 shrink-0 self-center rounded-[2px] ${i.resolvedAt === null ? 'bg-bad' : 'bg-bad/60'}`}
+                className={`h-2 w-2 shrink-0 self-center rounded-xs ${i.resolvedAt === null ? 'bg-bad' : 'bg-bad/60'}`}
               />
               <span className="font-semibold">{dateTime(i.createdAt)}</span>
               <span className="min-w-0 flex-1">{i.title}</span>
-              <span className="text-[12px] text-sec">
-                {i.resolvedAt
-                  ? `lasted ${duration(i.createdAt, i.resolvedAt)}`
-                  : `ongoing for ${duration(i.createdAt, null)}`}
-              </span>
+              <span className="text-[12px] text-sec">{incidentAge(i)}</span>
               <span className="font-medium">View incident</span>
             </Link>
           ))

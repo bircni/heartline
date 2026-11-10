@@ -5,7 +5,7 @@ import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { scaleLinear } from '@visx/scale';
 import { AreaClosed, Line, LinePath } from '@visx/shape';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ms, timeTicks } from '../lib/format.ts';
 
 const MARGIN = { top: 8, right: 4, bottom: 24, left: 52 };
@@ -48,22 +48,29 @@ function Chart({
   height,
 }: Props & { width: number; height: number }) {
   const [hover, setHover] = useState<number | null>(null);
-  const data = points.filter((p) => p.avgLatencyMs !== null);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = Math.max(0, height - MARGIN.top - MARGIN.bottom);
-  const top = Math.max(1, ...data.map((p) => Math.max(p.highLatencyMs ?? 0, p.avgLatencyMs ?? 0))) * 1.1;
-  const x = scaleLinear({ domain: [from, to], range: [0, innerW], clamp: true });
-  const y = scaleLinear({ domain: [0, top], range: [innerH, 0], nice: true });
+  // Everything below depends on the data and size only, so moving the pointer does not rebuild it.
+  const { data, runs, ticks, x, y } = useMemo(() => {
+    const data = points.filter((p) => p.avgLatencyMs !== null);
+    const top = Math.max(1, ...data.map((p) => Math.max(p.highLatencyMs ?? 0, p.avgLatencyMs ?? 0))) * 1.1;
+    // A line across a stretch without checks would invent response times, so it breaks there instead.
+    const runs: LatencyPoint[][] = [];
+    for (const p of data) {
+      const run = runs.at(-1);
+      const last = run?.at(-1);
+      if (run && last && p.at - last.at <= bucketMs * 1.5) run.push(p);
+      else runs.push([p]);
+    }
+    return {
+      data,
+      runs,
+      ticks: timeTicks(from, to),
+      x: scaleLinear({ domain: [from, to], range: [0, innerW], clamp: true }),
+      y: scaleLinear({ domain: [0, top], range: [innerH, 0], nice: true }),
+    };
+  }, [points, from, to, bucketMs, innerW, innerH]);
   const active = hover === null ? null : data[hover];
-  // A line across a stretch without checks would invent response times, so it breaks there instead.
-  const runs: LatencyPoint[][] = [];
-  for (const p of data) {
-    const run = runs.at(-1);
-    const last = run?.at(-1);
-    if (run && last && p.at - last.at <= bucketMs * 1.5) run.push(p);
-    else runs.push([p]);
-  }
-  const ticks = timeTicks(from, to);
 
   if (data.length === 0)
     return (
@@ -204,7 +211,7 @@ function Chart({
       {active && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute top-0 z-10 rounded-[6px] bg-surface px-3 py-2 text-[12px] shadow-pop"
+          className="pointer-events-none absolute top-0 z-10 rounded-md bg-surface px-3 py-2 text-[12px] shadow-pop"
           style={{ left: Math.min(width - 170, Math.max(0, MARGIN.left + x(active.at) + 12)) }}
         >
           <div className="font-medium">{label(active.at, bucketMs)}</div>

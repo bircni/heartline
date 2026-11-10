@@ -4,9 +4,8 @@ try {
   if (t === 'light' || (!t && window.matchMedia('(prefers-color-scheme: light)').matches)) {
     document.documentElement.classList.remove('dark');
   }
-  // The viewer's own colour, else the site default remembered from the last visit.
+  // The viewer's own colour, else the site default remembered from the last visit. A name without a
+  // matching [data-accent] rule in styles.css simply keeps the default hue.
   var a = localStorage.getItem('accent') || localStorage.getItem('site-accent');
-  if (a === 'green' || a === 'blue' || a === 'violet' || a === 'amber' || a === 'rose') {
-    document.documentElement.dataset.accent = a;
-  }
+  if (a && /^[a-z]+$/.test(a)) document.documentElement.dataset.accent = a;
 } catch {}

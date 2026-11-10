@@ -35,7 +35,7 @@ export function StatusPill({ status }: { status: ServiceStatus }) {
   const tone = STATUS_TONE[status];
   return (
     <span
-      className="inline-flex h-[22px] items-center gap-1.5 rounded-[5px] px-2 text-[12px] font-medium"
+      className="inline-flex h-[22px] items-center gap-1.5 rounded-sm px-2 text-[12px] font-medium"
       style={{ color: tone.text, background: tone.bg }}
     >
       <StatusDot status={status} size={6} />

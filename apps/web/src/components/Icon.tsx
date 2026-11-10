@@ -2,10 +2,6 @@ import type { SVGProps } from 'react';
 
 const PATHS = {
   pulse: 'M3 12h4l2-5 4 10 2-5h6',
-  moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z',
-  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
-  search: 'M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM20 20l-4-4',
-  list: 'M4 6h16M4 12h16M4 18h16',
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z',
   alert: 'M12 3l9 16H3zM12 10v4M12 17h.01',
   wrench:
@@ -16,7 +12,6 @@ const PATHS = {
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   arrowLeft: 'M15 18l-6-6 6-6',
   chevron: 'M9 18l6-6-6-6',
-  chevronDown: 'M6 9l6 6 6-6',
   rss: 'M5 19h.01M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16',
   palette:
     'M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-1.3-.5-1.5-.5-2.5 0-1.1.9-2 2-2H18a3 3 0 0 0 3-3c0-4.7-4-8.5-9-8.5zM7.5 12h.01M9.5 8h.01M14.5 7.5h.01',
@@ -24,8 +19,6 @@ const PATHS = {
   calendar: 'M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
   updown: 'M8 9l4-4 4 4M8 15l4 4 4-4',
   menu: 'M4 7h16M4 12h16M4 17h16',
-  circleCheck: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8.5 12.2l2.3 2.3 4.7-5',
-  circleAlert: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5M12 16.2h.01',
   plus: 'M12 5v14M5 12h14',
   play: 'M7 5l12 7-12 7z',
   pause: 'M8 5v14M16 5v14',
@@ -65,17 +58,5 @@ export function Icon({
     >
       <path d={PATHS[name]} />
     </svg>
-  );
-}
-
-export function Logo({ size = 24 }: { size?: number }) {
-  return (
-    <span
-      className="flex shrink-0 items-center justify-center bg-text text-bg"
-      style={{ width: size, height: size, borderRadius: size * 0.25 }}
-      aria-hidden="true"
-    >
-      <Icon name="pulse" size={size * 0.58} strokeWidth={2.2} />
-    </span>
   );
 }

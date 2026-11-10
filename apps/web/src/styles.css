@@ -98,10 +98,8 @@
   --color-sec: var(--sec);
   --color-muted: var(--muted);
   --color-hair: var(--hair);
-  --color-grid: var(--grid);
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
-  --color-tint: var(--tint);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
@@ -112,10 +110,15 @@
   --color-ok-bg: var(--ok-bg);
   --color-warn-bg: var(--warn-bg);
   --color-bad-bg: var(--bad-bg);
-  --color-maint-bg: var(--maint-bg);
   --color-bad-line: var(--bad-line);
   --color-knob: var(--knob);
   --shadow-pop: var(--pop-shadow);
+  /* One radius scale for every surface: marks, controls, panels. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
   --default-transition-duration: 120ms;
   --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
@@ -162,7 +165,7 @@
 
 /* A bordered surface: every panel, list and form uses it. */
 @utility card {
-  @apply rounded-[8px] border border-hair bg-surface;
+  @apply rounded-lg border border-hair bg-surface;
 }
 
 /* Header row of a panel: title on the left, controls on the right. */
@@ -176,7 +179,7 @@
 }
 
 @utility field {
-  @apply block h-8 w-full rounded-[6px] border border-hair bg-bg px-2.5 text-[13px] text-text disabled:bg-fill disabled:text-sec;
+  @apply block h-8 w-full rounded-md border border-hair bg-bg px-2.5 text-[13px] text-text disabled:bg-fill disabled:text-sec;
 }
 
 @utility label {
@@ -184,15 +187,11 @@
 }
 
 @utility btn {
-  @apply inline-flex h-[30px] items-center justify-center gap-[7px] rounded-[6px] border border-hair bg-surface px-[11px] text-[13px] font-medium whitespace-nowrap text-text no-underline transition-colors hover:bg-hover disabled:opacity-40;
+  @apply inline-flex h-[30px] items-center justify-center gap-[7px] rounded-md border border-hair bg-surface px-[11px] text-[13px] font-medium whitespace-nowrap text-text no-underline transition-colors hover:bg-hover disabled:opacity-40;
 }
 
 @utility btn-primary {
   @apply btn border-transparent bg-accent text-on-accent hover:bg-accent hover:opacity-90;
-}
-
-@utility btn-secondary {
-  @apply btn;
 }
 
 @utility btn-danger {
@@ -201,7 +200,7 @@
 
 /* Square icon-only button. */
 @utility icon-btn {
-  @apply inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[6px] text-sec transition-colors hover:bg-hover hover:text-text;
+  @apply inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md text-sec transition-colors hover:bg-hover hover:text-text;
 }
 
 @utility row-btn {
@@ -210,14 +209,14 @@
 
 /* A floating menu or popover. */
 @utility popover {
-  @apply absolute z-40 rounded-[8px] bg-surface p-1 shadow-pop;
+  @apply absolute z-40 rounded-lg bg-surface p-1 shadow-pop;
 }
 
 @utility menu-item {
-  @apply flex w-full items-center gap-2.5 rounded-[5px] px-2 py-[7px] text-left text-text no-underline transition-colors hover:bg-fill;
+  @apply flex w-full items-center gap-2.5 rounded-sm px-2 py-[7px] text-left text-text no-underline transition-colors hover:bg-fill;
 }
 
 /* Sidebar navigation row. */
 @utility nav-item {
-  @apply flex h-8 items-center gap-[9px] rounded-[6px] px-2 text-sec no-underline transition-colors hover:bg-fill hover:text-text aria-[current=page]:bg-fill aria-[current=page]:font-medium aria-[current=page]:text-text;
+  @apply flex h-8 items-center gap-[9px] rounded-md px-2 text-sec no-underline transition-colors hover:bg-fill hover:text-text aria-[current=page]:bg-fill aria-[current=page]:font-medium aria-[current=page]:text-text;
 }

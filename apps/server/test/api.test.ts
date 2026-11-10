@@ -195,14 +195,14 @@ describe('history ranges', () => {
       '2026-01-30',
       '2026-01-31',
     ]);
-    expect(overview.rangeEnd).toBe(Date.parse('2026-02-01T00:00:00Z') - 1);
     expect(overview.site.theme).toBe('green');
 
     const detail = (await (
       await h.request('/api/v1/services/web?days=3&to=2026-01-31')
     ).json()) as ServiceDetail;
     expect(detail.bars.map((b) => b.day)).toEqual(['2026-01-29', '2026-01-30', '2026-01-31']);
-    expect(detail.rangeEnd).toBe(overview.rangeEnd);
+    expect(detail.rangeStart).toBe(Date.parse('2026-01-29T00:00:00Z'));
+    expect(detail.rangeEnd).toBe(Date.parse('2026-02-01T00:00:00Z') - 1);
 
     const csv = await (await h.request('/api/v1/report.csv?days=2&to=2026-01-31')).text();
     const webDays = csv
@@ -213,7 +213,9 @@ describe('history ranges', () => {
   });
 
   it('treats a day in the future as today and rejects anything that is not a date', async () => {
-    const future = (await (await h.request('/api/v1/overview?days=1&to=2999-01-01')).json()) as Overview;
+    const future = (await (
+      await h.request('/api/v1/services/web?days=1&to=2999-01-01')
+    ).json()) as ServiceDetail;
     expect(future.rangeEnd).toBeLessThanOrEqual(Date.now());
     expect((await h.request('/api/v1/overview?to=yesterday')).status).toBe(400);
     expect((await h.request('/api/v1/overview?to=2026-02-31')).status).toBe(400);

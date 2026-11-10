@@ -1,4 +1,12 @@
-import type { DayState, ServiceStatus, UrgencyLevel, VulnSeverity } from '@heartline/shared';
+import type {
+  DayState,
+  Impact,
+  Incident,
+  ServiceRef,
+  ServiceStatus,
+  UrgencyLevel,
+  VulnSeverity,
+} from '@heartline/shared';
 
 export function pct(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : `${v.toFixed(v === 100 ? 0 : 2)}%`;
@@ -45,16 +53,6 @@ export function shortDay(day: string): string {
   );
 }
 
-/** The calendar day (`YYYY-MM-DD`) of `at` in `timeZone`, the zone the server builds its days in. */
-export function dayIn(at: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(at);
-}
-
 /** `day` (`YYYY-MM-DD`) moved by `n` calendar days. */
 export function addDays(day: string, n: number): string {
   const d = new Date(`${day}T00:00:00Z`);
@@ -89,6 +87,37 @@ export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; bg:
   paused: { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)' },
   unknown: { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)' },
 };
+
+/** Background of a troubled period, behind the availability graph and the response-time chart. */
+export const DAY_BG: Partial<Record<DayState, string>> = {
+  down: 'var(--bad-bg)',
+  degraded: 'var(--warn-bg)',
+  maintenance: 'var(--maint-bg)',
+};
+
+export const IMPACT_LABEL: Record<Impact, string> = {
+  degraded: 'Degraded performance',
+  partial: 'Partial outage',
+  major: 'Major outage',
+};
+
+/** Text colour of an incident: red or amber while open, grey once resolved. */
+export function incidentTone(i: Pick<Incident, 'impact' | 'resolvedAt'>): string {
+  if (i.resolvedAt !== null) return 'var(--sec)';
+  return i.impact === 'degraded' ? 'var(--warn-text)' : 'var(--bad-text)';
+}
+
+/** "lasted 1 h 5 min" or "ongoing for 20 min". */
+export function incidentAge(i: Pick<Incident, 'createdAt' | 'resolvedAt'>): string {
+  return i.resolvedAt === null
+    ? `ongoing for ${duration(i.createdAt, null)}`
+    : `lasted ${duration(i.createdAt, i.resolvedAt)}`;
+}
+
+/** Names of the affected services, or "All services" when an incident or window names none. */
+export function serviceNames(services: ServiceRef[]): string {
+  return services.map((s) => s.name).join(', ') || 'All services';
+}
 
 export const DAY_COLOR: Record<DayState, string> = {
   operational: 'var(--ok)',

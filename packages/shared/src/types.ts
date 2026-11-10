@@ -145,8 +145,6 @@ export interface Overview {
   operational: number;
   total: number;
   days: number;
-  /** End of the covered range: now, or the end of the `to` day for a range in the past. */
-  rangeEnd: number;
   groups: { name: string; services: ServiceSummary[] }[];
   activeIncidents: Incident[];
   upcomingMaintenance: Maintenance[];
@@ -190,6 +188,8 @@ export interface ServiceDetail extends ServiceSummary {
   /** Response times at the finest resolution available for the range. */
   series: LatencyPoint[];
   seriesBucketMs: number;
+  /** Start of the first day in `bars` (site time zone). */
+  rangeStart: number;
   /** End of the covered range: now, or the end of the `to` day for a range in the past. */
   rangeEnd: number;
   generatedAt: number;

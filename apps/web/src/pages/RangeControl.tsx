@@ -3,27 +3,19 @@ import { type FormEvent, useState } from 'react';
 import { Icon } from '../components/Icon.tsx';
 import { usePopover } from '../components/Popover.tsx';
 import { Segmented } from '../components/Segmented.tsx';
-import { useBootstrap } from '../lib/api.ts';
-import { addDays, dayIn, shortDate, shortDay } from '../lib/format.ts';
+import { type Range, useBootstrap } from '../lib/api.ts';
+import { dayKey } from '@heartline/shared';
+import { addDays, shortDate, shortDay } from '../lib/format.ts';
 
 export const RANGES = [7, 30, 90] as const;
 /** Longest range the API serves. */
 export const MAX_DAYS = 365;
 
-export interface Range {
-  days: number;
-  /** Last day (`YYYY-MM-DD`); undefined means today. */
-  to?: string;
-}
+export type { Range };
 
 export function useRange(fallback = 90): Range {
   const { days, to } = useSearch({ strict: false }) as { days?: number; to?: string };
   return { days: days ?? fallback, to };
-}
-
-/** Search params of a range, for links that keep the current one. */
-export function rangeSearch(range: Range): Record<string, unknown> {
-  return { days: range.days, to: range.to };
 }
 
 /** "Aug 13 – Nov 10, 2026" for the range ending on `to`, or on `today` when it has no end day. */
@@ -37,14 +29,15 @@ export function RangeControl({ fallback = 90 }: { fallback?: number }) {
   const range = useRange(fallback);
   const navigate = useNavigate();
   const { ref: popRef, ...pop } = usePopover();
-  // Fixed for the lifetime of the control; a range picked across midnight still ends on the day shown.
   const timeZone = useBootstrap().data?.site.timezone ?? 'UTC';
-  // The server's days follow the site time zone, so "today" does too. Fixed for the lifetime of the control.
+  // The server's days follow the site time zone, so "today" does too. Fixed for the lifetime of the
+  // control, so a range picked across midnight still ends on the day shown.
   const [now] = useState(() => Date.now());
-  const today = dayIn(now, timeZone);
+  const today = dayKey(now, timeZone);
   const end = range.to ?? today;
-  const [from, setFrom] = useState(addDays(end, 1 - range.days));
-  const [to, setTo] = useState(end);
+  // Filled from the current range each time the picker opens.
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const go = (next: Range) =>
     void navigate({
       to: '.',

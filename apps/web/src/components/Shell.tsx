@@ -22,14 +22,14 @@ export function SiteLogo({ size = 26 }: { size?: number }) {
       <img
         src={url}
         alt=""
-        className="shrink-0 rounded-[6px] object-cover"
+        className="shrink-0 rounded-md object-cover"
         style={{ width: size, height: size }}
       />
     );
   return (
     <span
       aria-hidden="true"
-      className="flex shrink-0 items-center justify-center rounded-[6px] bg-accent text-on-accent"
+      className="flex shrink-0 items-center justify-center rounded-md bg-accent text-on-accent"
       style={{ width: size, height: size }}
     >
       <Icon name="pulse" size={size * 0.62} strokeWidth={2.4} />
@@ -49,7 +49,7 @@ function ViewSwitcher({ view }: { view: ShellView }) {
         aria-haspopup="menu"
         aria-expanded={pop.open}
         onClick={pop.toggle}
-        className={`flex h-[46px] w-full items-center gap-2.5 rounded-[8px] border bg-surface px-2 text-left transition-colors hover:bg-hover ${pop.open ? 'border-accent' : 'border-hair'}`}
+        className={`flex h-[46px] w-full items-center gap-2.5 rounded-lg border bg-surface px-2 text-left transition-colors hover:bg-hover ${pop.open ? 'border-accent' : 'border-hair'}`}
       >
         <SiteLogo />
         <span className="min-w-0 flex-1">
@@ -102,7 +102,7 @@ function UserMenu({ me }: { me: Me }) {
         aria-haspopup="menu"
         aria-expanded={pop.open}
         onClick={pop.toggle}
-        className="flex h-11 w-full items-center gap-[9px] rounded-[6px] px-1.5 text-left transition-colors hover:bg-fill"
+        className="flex h-11 w-full items-center gap-[9px] rounded-md px-1.5 text-left transition-colors hover:bg-fill"
       >
         {me.image ? (
           <img src={me.image} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
@@ -140,26 +140,37 @@ function initials(name: string): string {
 
 export function NavItem({
   to,
+  params,
+  search,
   icon,
+  leading,
   label,
   count,
   urgent,
   current,
-  search,
 }: {
   to: string;
+  params?: Record<string, string>;
+  search?: Record<string, unknown>;
   icon?: IconName;
+  /** Shown in the icon slot instead of `icon`, e.g. a status dot. */
+  leading?: ReactNode;
   label: ReactNode;
-  count?: ReactNode;
+  count?: string | number;
   urgent?: boolean;
   current: boolean;
-  search?: Record<string, unknown>;
 }) {
   return (
-    <Link to={to} search={search} aria-current={current ? 'page' : undefined} className="nav-item">
-      {icon && <Icon name={icon} size={15} className="shrink-0" />}
+    <Link
+      to={to}
+      params={params}
+      search={search}
+      aria-current={current ? 'page' : undefined}
+      className="nav-item"
+    >
+      {leading ?? (icon && <Icon name={icon} size={15} className="shrink-0" />)}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {count !== undefined && count !== null && count !== '' && (
+      {count !== undefined && (
         <span className={`text-[12px] ${urgent ? 'font-medium text-bad-text' : 'text-muted'}`}>{count}</span>
       )}
     </Link>

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import type { IconName } from '../../components/Icon.tsx';
 import { NavGroup, NavItem, Shell } from '../../components/Shell.tsx';
 import { Spinner } from '../../components/ui.tsx';
-import { useAdminMonitors, useIncidents, useMe, useSoftwareInventory } from '../../lib/api.ts';
+import { useIncidents, useMe, useSoftwareInventory } from '../../lib/api.ts';
 
 interface Section {
   to: string;
@@ -34,11 +34,9 @@ export function can(role: Role | undefined, needed: Role): boolean {
 function AdminNav({ role }: { role: Role }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const active = useIncidents(true);
-  const monitors = useAdminMonitors();
   const software = useSoftwareInventory();
   const urgent = software.data ? software.data.totals.critical + software.data.totals.high : 0;
-  const counts: Record<string, { count?: string | number; urgent?: boolean }> = {
-    '/admin/monitors': { count: monitors.data?.length },
+  const counts: Record<string, { count?: string; urgent?: boolean }> = {
     '/admin/software': urgent ? { count: `${urgent} urgent`, urgent: true } : {},
     '/admin/incidents': active.data?.length ? { count: `${active.data.length} open`, urgent: true } : {},
   };

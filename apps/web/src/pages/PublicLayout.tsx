@@ -4,21 +4,21 @@ import { Icon } from '../components/Icon.tsx';
 import { NavGroup, NavItem, Shell, SiteLogo } from '../components/Shell.tsx';
 import { StatusDot } from '../components/Status.tsx';
 import { ThemeMenu } from '../components/ThemeMenu.tsx';
-import { useBootstrap, useIncidents, useMe, useOverview } from '../lib/api.ts';
-import { rangeSearch, useRange } from './RangeControl.tsx';
+import { useBootstrap, useMe, useOverview } from '../lib/api.ts';
+import { useRange } from './RangeControl.tsx';
 
 /** Sidebar navigation of the status page: overview, incident history and every service. */
 function StatusNav() {
   const range = useRange();
-  // Names and current status are all the sidebar needs, so one day of history keeps the request small.
-  const overview = useOverview({ days: 1 });
-  const active = useIncidents(true);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const open = active.data?.length ?? 0;
+  // On the overview the page's own query serves the sidebar too; elsewhere one day of history is enough
+  // for names and status.
+  const overview = useOverview(path === '/' ? range : { days: 1 });
+  const open = overview.data?.activeIncidents.length ?? 0;
   return (
     <>
       <NavGroup>
-        <NavItem to="/" search={rangeSearch(range)} icon="grid" label="Overview" current={path === '/'} />
+        <NavItem to="/" search={range} icon="grid" label="Overview" current={path === '/'} />
         <NavItem
           to="/incidents"
           icon="alert"
@@ -31,19 +31,19 @@ function StatusNav() {
       {overview.data?.groups.map((g) => (
         <NavGroup key={g.name} label={g.name}>
           {g.services.map((s) => (
-            <Link
+            <NavItem
               key={s.id}
               to="/services/$id"
               params={{ id: s.id }}
-              search={rangeSearch(range)}
-              aria-current={path === `/services/${s.id}` ? 'page' : undefined}
-              className="nav-item"
-            >
-              <span className="flex w-[15px] justify-center">
-                <StatusDot status={s.status} />
-              </span>
-              <span className="min-w-0 flex-1 truncate">{s.name}</span>
-            </Link>
+              search={range}
+              leading={
+                <span className="flex w-[15px] justify-center">
+                  <StatusDot status={s.status} />
+                </span>
+              }
+              label={s.name}
+              current={path === `/services/${s.id}`}
+            />
           ))}
         </NavGroup>
       ))}

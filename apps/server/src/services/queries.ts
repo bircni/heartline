@@ -15,7 +15,7 @@ import { sql } from 'kysely';
 import { describeTarget } from '../checks/index.ts';
 import type { Db } from '../db/index.ts';
 import type { DailyRollupTable } from '../db/schema.ts';
-import { lastDays } from '../util/time.ts';
+import { dayRange, lastDays } from '../util/time.ts';
 import type { IncidentService } from './incidents.ts';
 import type { MaintenanceService } from './maintenance.ts';
 import type { LoadedMonitor, MonitorService } from './monitors.ts';
@@ -188,7 +188,6 @@ export class QueryService {
       operational,
       total: relevant.length,
       days: daysCount,
-      rangeEnd: end,
       groups,
       activeIncidents,
       upcomingMaintenance: this.#d.maintenance.upcoming(now),
@@ -253,6 +252,7 @@ export class QueryService {
       incidents,
       series: series.points,
       seriesBucketMs: series.bucketMs,
+      rangeStart: dayRange(days[0] as string, this.#d.site().timezone)[0],
       rangeEnd: end,
       generatedAt: now,
     };

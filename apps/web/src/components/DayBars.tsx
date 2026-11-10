@@ -1,54 +1,49 @@
 import type { DayBar, DayState, LatencyPoint } from '@heartline/shared';
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { DAY_COLOR, DAY_LABEL, type Tick, dateTime, ms, pct, shortDay, timeTicks } from '../lib/format.ts';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  DAY_BG,
+  DAY_COLOR,
+  DAY_LABEL,
+  type Tick,
+  dateTime,
+  ms,
+  pct,
+  shortDay,
+  timeTicks,
+} from '../lib/format.ts';
+import { useStoredChoice } from '../lib/store.ts';
+import { Segmented } from './Segmented.tsx';
 
 /** Availability drawn as a stepped uptime line (graph) or as one coloured bar per period (timeline). */
 export type TraceView = 'graph' | 'timeline';
-
-const VIEW_KEY = 'availability-view';
-const viewListeners = new Set<() => void>();
-function readView(): TraceView {
-  try {
-    return localStorage.getItem(VIEW_KEY) === 'timeline' ? 'timeline' : 'graph';
-  } catch {
-    return 'graph';
-  }
-}
+const VIEWS = ['graph', 'timeline'] as const;
 
 /** The viewer's preferred availability view, shared by every trace on the page; the graph is the default. */
 export function useTraceView(): [TraceView, (view: TraceView) => void] {
-  const view = useSyncExternalStore(
-    (cb) => {
-      viewListeners.add(cb);
-      return () => {
-        viewListeners.delete(cb);
-      };
-    },
-    readView,
-    () => 'graph' as TraceView,
-  );
-  const set = (next: TraceView) => {
-    try {
-      localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      /* private mode */
-    }
-    for (const l of viewListeners) l();
-  };
-  return [view, set];
+  return useStoredChoice('availability-view', VIEWS, 'graph');
 }
 
-/** Background of a troubled period in the graph, so an incident stands out behind the line. */
-const BAND: Partial<Record<DayState, string>> = {
-  down: 'var(--bad-bg)',
-  degraded: 'var(--warn-bg)',
-  maintenance: 'var(--maint-bg)',
-};
-/** Line colour of a period; healthy periods use the plain green line. */
+/** Switch between the graph and the timeline; every trace on the page follows it. */
+export function TraceViewToggle() {
+  const [view, setView] = useTraceView();
+  return (
+    <Segmented
+      label="Show availability as"
+      value={view}
+      onChange={setView}
+      options={[
+        { value: 'graph', label: 'Graph' },
+        { value: 'timeline', label: 'Timeline' },
+      ]}
+    />
+  );
+}
+
+/** Line colour of a troubled period; healthy periods use the plain green line. */
 const STROKE: Partial<Record<DayState, string>> = {
-  down: 'var(--bad)',
   degraded: 'var(--warn)',
   maintenance: 'var(--maint)',
+  down: 'var(--bad)',
 };
 
 interface Mark {
@@ -64,7 +59,8 @@ interface Mark {
  * then the next 10% step below the worst value. Pass the same floor to traces that are compared row by row.
  */
 export function traceFloor(values: (number | null)[]): number {
-  const min = Math.min(100, ...values.filter((v): v is number => v !== null));
+  let min = 100;
+  for (const v of values) if (v !== null && v < min) min = v;
   if (min >= 99) return 99;
   if (min >= 95) return 95;
   return Math.max(0, Math.floor(min / 10) * 10);
@@ -86,12 +82,52 @@ function steps(marks: Mark[], y: (u: number) => number, only?: (m: Mark) => bool
   return d;
 }
 
+/** The uptime line with its status bands. It only changes with the data, not while the pointer moves. */
+function TraceGraph({ marks, floor }: { marks: Mark[]; floor: number }) {
+  // Keeps the line off the very top and bottom so a 100% day is not hidden by the edge.
+  const pad = 8;
+  const y = (u: number) =>
+    pad + ((100 - Math.max(floor, Math.min(100, u))) / (100 - floor)) * (100 - 2 * pad);
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox={`0 0 ${marks.length} 100`}
+      preserveAspectRatio="none"
+      className="absolute inset-0 h-full w-full"
+    >
+      {marks.map((m, i) => {
+        const band = DAY_BG[m.state];
+        return band ? <rect key={m.key} x={i} y={0} width={1} height={100} fill={band} /> : null;
+      })}
+      <path
+        d={steps(marks, y)}
+        fill="none"
+        stroke="var(--ok)"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      {Object.entries(STROKE).map(([state, stroke]) => (
+        <path
+          key={state}
+          d={steps(marks, y, (m) => m.state === state)}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </svg>
+  );
+}
+
 function Trace({
   marks,
   summary,
   view,
   height,
-  floor = traceFloor(marks.map((m) => m.uptime)),
+  floor: sharedFloor,
 }: {
   marks: Mark[];
   summary: string;
@@ -121,53 +157,24 @@ function Trace({
     window.addEventListener('scroll', hide, { capture: true, passive: true });
     return () => window.removeEventListener('scroll', hide, { capture: true });
   }, [hover]);
-
-  // Keeps the line off the very top and bottom so a 100% day is not hidden by the edge.
-  const pad = 8;
-  const y = (u: number) =>
-    pad + ((100 - Math.max(floor, Math.min(100, u))) / (100 - floor)) * (100 - 2 * pad);
-  const n = marks.length;
+  // Built once per data change; hovering only re-renders the hit areas and the tooltip.
+  const graph = useMemo(
+    () =>
+      view === 'graph' ? (
+        <TraceGraph marks={marks} floor={sharedFloor ?? traceFloor(marks.map((m) => m.uptime))} />
+      ) : null,
+    [marks, sharedFloor, view],
+  );
 
   return (
     <div ref={wrap} className="relative" style={{ height }} onMouseLeave={() => setHover(null)}>
-      {view === 'graph' && (
-        <svg
-          aria-hidden="true"
-          viewBox={`0 0 ${n} 100`}
-          preserveAspectRatio="none"
-          className="absolute inset-0 h-full w-full"
-        >
-          {marks.map((m, i) => {
-            const band = BAND[m.state];
-            return band ? <rect key={m.key} x={i} y={0} width={1} height={100} fill={band} /> : null;
-          })}
-          <path
-            d={`${steps(marks, y)}`}
-            fill="none"
-            stroke="var(--ok)"
-            strokeWidth={1.5}
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
-          {(['degraded', 'maintenance', 'down'] as const).map((s) => (
-            <path
-              key={s}
-              d={steps(marks, y, (m) => m.state === s)}
-              fill="none"
-              stroke={STROKE[s]}
-              strokeWidth={2}
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </svg>
-      )}
+      {graph}
       <div className="absolute inset-0 flex" style={{ gap }} aria-hidden="true">
         {marks.map((m, i) => (
           <span
             key={m.key}
             onMouseEnter={() => setHover(i)}
-            className="min-w-0 flex-1 rounded-[2px] transition-opacity"
+            className="min-w-0 flex-1 rounded-xs transition-opacity"
             style={
               view === 'graph'
                 ? { background: hover === i ? 'var(--fill-2)' : 'transparent', opacity: 0.5 }
@@ -180,7 +187,7 @@ function Trace({
         <div
           ref={tip}
           role="tooltip"
-          className="pointer-events-none fixed z-50 w-max max-w-[240px] rounded-[6px] bg-surface px-3 py-2 text-[12px] font-normal text-text shadow-pop"
+          className="pointer-events-none fixed z-50 w-max max-w-[240px] rounded-md bg-surface px-3 py-2 text-[12px] font-normal text-text shadow-pop"
           style={pos}
         >
           {active.tip()}
@@ -194,7 +201,7 @@ function Trace({
 function StateLine({ state, children }: { state: DayState; children?: ReactNode }) {
   return (
     <div className="mt-0.5 flex items-center gap-2 text-sec">
-      <span className="block h-2 w-2 rounded-[2px]" style={{ background: DAY_COLOR[state] }} />
+      <span className="block h-2 w-2 rounded-xs" style={{ background: DAY_COLOR[state] }} />
       {DAY_LABEL[state]}
       {children}
     </div>
@@ -353,7 +360,7 @@ export function DayLegend() {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted" aria-hidden="true">
       {items.map(([label, state]) => (
         <span key={label} className="flex items-center gap-1.5">
-          <span className="block h-2 w-2 rounded-[2px]" style={{ background: DAY_COLOR[state] }} />
+          <span className="block h-2 w-2 rounded-xs" style={{ background: DAY_COLOR[state] }} />
           {label}
         </span>
       ))}

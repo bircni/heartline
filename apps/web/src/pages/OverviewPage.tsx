@@ -1,16 +1,29 @@
 import type { Incident, Maintenance, Overview } from '@heartline/shared';
 import { Link } from '@tanstack/react-router';
-import { DayBars, DayLegend, TraceAxis, traceFloor, useTraceView } from '../components/DayBars.tsx';
+import {
+  DayBars,
+  DayLegend,
+  TraceAxis,
+  TraceViewToggle,
+  traceFloor,
+  useTraceView,
+} from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
-import { Segmented } from '../components/Segmented.tsx';
 import { StatusIcon } from '../components/Status.tsx';
 import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
 import { rangeQuery, useOverview } from '../lib/api.ts';
-import { STATUS_LABEL, STATUS_TONE, dayTicks, pct, relative, shortDay } from '../lib/format.ts';
-import { RangeControl, rangeSearch, useRange } from './RangeControl.tsx';
-
-const IMPACT_TONE = { major: 'var(--bad-text)', partial: 'var(--bad-text)', degraded: 'var(--warn-text)' };
+import {
+  STATUS_LABEL,
+  STATUS_TONE,
+  dayTicks,
+  incidentTone,
+  pct,
+  relative,
+  serviceNames,
+  shortDay,
+} from '../lib/format.ts';
+import { RangeControl, useRange } from './RangeControl.tsx';
 
 /** One active incident inside the status banner. */
 function IncidentRow({ incident: i }: { incident: Incident }) {
@@ -23,12 +36,11 @@ function IncidentRow({ incident: i }: { incident: Incident }) {
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-baseline gap-x-2.5">
           <span className="font-semibold">{i.title}</span>
-          <span className="text-[12px] font-medium capitalize" style={{ color: IMPACT_TONE[i.impact] }}>
+          <span className="text-[12px] font-medium capitalize" style={{ color: incidentTone(i) }}>
             {i.status}
           </span>
           <span className="text-[12px] text-muted">
-            {i.services.map((s) => s.name).join(', ') || 'All services'}, updated{' '}
-            {relative(i.updates[0]?.createdAt ?? i.createdAt)}
+            {serviceNames(i.services)}, updated {relative(i.updates[0]?.createdAt ?? i.createdAt)}
           </span>
         </span>
         {i.updates[0] && <span className="mt-0.5 block line-clamp-2 text-sec">{i.updates[0].message}</span>}
@@ -84,9 +96,7 @@ function MaintenanceRow({ window: m }: { window: Maintenance }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 first:border-t-0">
       <span className="min-w-0 flex-[1_1_14rem] font-medium">{m.title}</span>
-      <span className="min-w-0 flex-[1_1_10rem] truncate text-sec">
-        {m.services.map((s) => s.name).join(', ') || 'All services'}
-      </span>
+      <span className="min-w-0 flex-[1_1_10rem] truncate text-sec">{serviceNames(m.services)}</span>
       <span className="text-sec">
         {m.active ? (
           <span className="font-medium text-maint">In progress until {clock.format(end)}</span>
@@ -100,7 +110,7 @@ function MaintenanceRow({ window: m }: { window: Maintenance }) {
 
 export function OverviewPage() {
   const range = useRange();
-  const [view, setView] = useTraceView();
+  const [view] = useTraceView();
   const { data, error, isPending } = useOverview(range);
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
@@ -138,15 +148,7 @@ export function OverviewPage() {
           <h2 id="system-status" className="m-0 flex-1 text-[13px] font-semibold">
             System status
           </h2>
-          <Segmented
-            label="Show availability as"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: 'graph', label: 'Graph' },
-              { value: 'timeline', label: 'Timeline' },
-            ]}
-          />
+          <TraceViewToggle />
           <RangeControl />
         </div>
         {services.length === 0 ? (
@@ -174,7 +176,7 @@ export function OverviewPage() {
                         key={s.id}
                         to="/services/$id"
                         params={{ id: s.id }}
-                        search={rangeSearch(range)}
+                        search={range}
                         className={`${ROW} items-center border-b border-hair py-2 text-text no-underline transition-colors last:border-b-0 hover:bg-hover`}
                         aria-label={`${s.name}: ${STATUS_LABEL[s.status]}, ${pct(s.uptime)} uptime. Open details.`}
                       >

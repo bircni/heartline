@@ -3,18 +3,10 @@ import { Link, useParams } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
 import { useIncident, useIncidents } from '../lib/api.ts';
-import { dateTime, duration } from '../lib/format.ts';
+import { IMPACT_LABEL, dateTime, duration, incidentAge, incidentTone, serviceNames } from '../lib/format.ts';
 
 /** Incidents the history page loads; the API serves at most 200 per request. */
 const HISTORY_LIMIT = 200;
-
-const IMPACT_LABEL = { major: 'Major outage', partial: 'Partial outage', degraded: 'Degraded performance' };
-
-/** Text colour of an incident: red or amber while open, grey once resolved. */
-function tone(i: Incident): string {
-  if (i.resolvedAt !== null) return 'var(--sec)';
-  return i.impact === 'degraded' ? 'var(--warn-text)' : 'var(--bad-text)';
-}
 
 export function IncidentPage() {
   const { id } = useParams({ from: '/public/incidents/$id' });
@@ -34,8 +26,8 @@ export function IncidentPage() {
       <PageHeader
         title={data.title}
         subtitle={
-          <span className="font-medium" style={{ color: tone(data) }}>
-            {IMPACT_LABEL[data.impact]}, {open ? `ongoing for ${duration(data.createdAt, null)}` : 'resolved'}
+          <span className="font-medium" style={{ color: incidentTone(data) }}>
+            {IMPACT_LABEL[data.impact]}, {open ? incidentAge(data) : 'resolved'}
           </span>
         }
       />
@@ -77,8 +69,8 @@ export function IncidentPage() {
                 aria-hidden="true"
                 className="relative mt-[4px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
                 style={{
-                  background: i === 0 ? tone(data) : 'var(--surface)',
-                  borderColor: i === 0 ? tone(data) : 'var(--fill-2)',
+                  background: i === 0 ? incidentTone(data) : 'var(--surface)',
+                  borderColor: i === 0 ? incidentTone(data) : 'var(--fill-2)',
                 }}
               />
               <div className="min-w-0">
@@ -108,17 +100,14 @@ function HistoryRow({ incident: i }: { incident: Incident }) {
       className={`flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 text-text no-underline transition-colors first:border-t-0 hover:bg-hover ${i.resolvedAt === null ? 'bg-bad-bg' : ''}`}
     >
       <span className="min-w-0 flex-[1_1_16rem] font-medium">{i.title}</span>
-      <span className="text-[12px] font-medium" style={{ color: tone(i) }}>
+      <span className="text-[12px] font-medium" style={{ color: incidentTone(i) }}>
         {IMPACT_LABEL[i.impact]}
       </span>
       <span className="min-w-0 flex-[1_1_10rem] truncate text-[12px] text-muted">
-        {i.services.map((s) => s.name).join(', ') || 'All services'}
+        {serviceNames(i.services)}
       </span>
       <span className="text-[12px] text-sec">
-        {dateTime(i.createdAt)},{' '}
-        {i.resolvedAt
-          ? `lasted ${duration(i.createdAt, i.resolvedAt)}`
-          : `ongoing for ${duration(i.createdAt, null)}`}
+        {dateTime(i.createdAt)}, {incidentAge(i)}
       </span>
     </Link>
   );

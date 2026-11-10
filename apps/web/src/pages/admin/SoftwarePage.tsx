@@ -74,7 +74,7 @@ function Expanded({
             <Link
               to="/services/$id"
               params={{ id: row.serviceId }}
-              className="btn-secondary h-7 px-3 text-[12px] no-underline"
+              className="btn h-7 px-3 text-[12px] no-underline"
             >
               <Icon name="external" size={16} /> Status page
             </Link>
@@ -83,7 +83,7 @@ function Expanded({
                 href={row.releasesUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary h-7 px-3 text-[12px] no-underline"
+                className="btn h-7 px-3 text-[12px] no-underline"
               >
                 Release notes
               </a>
@@ -91,7 +91,7 @@ function Expanded({
             {canWrite && (
               <button
                 type="button"
-                className="btn-secondary h-7 px-3 text-[12px]"
+                className="btn h-7 px-3 text-[12px]"
                 disabled={refresh.isPending}
                 onClick={() => refresh.mutate()}
               >
@@ -163,7 +163,7 @@ export function SoftwarePage() {
           canWrite && (
             <button
               type="button"
-              className="btn-secondary"
+              className="btn"
               disabled={refreshAll.isPending}
               onClick={() => refreshAll.mutate()}
             >

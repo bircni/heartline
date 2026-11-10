@@ -82,7 +82,7 @@ export function NotificationsPage() {
                 {can(me.data?.role, 'admin') && (
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="btn"
                     disabled={test.isPending && test.variables === n.id}
                     onClick={() => test.mutate(n.id)}
                   >

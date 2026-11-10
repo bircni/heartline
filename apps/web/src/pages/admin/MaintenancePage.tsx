@@ -73,7 +73,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           {existing ? `Edit “${existing.title}”` : 'Schedule maintenance'}
         </h2>
         {existing && (
-          <button type="button" className="btn-secondary h-7 px-3 text-[12px]" onClick={onDone}>
+          <button type="button" className="btn h-7 px-3 text-[12px]" onClick={onDone}>
             Cancel
           </button>
         )}
@@ -193,7 +193,7 @@ export function MaintenancePage() {
                 key={m.id}
                 className={`flex items-center gap-4 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
-                <span className="w-12 shrink-0 rounded-[6px] bg-fill py-2 text-center">
+                <span className="w-12 shrink-0 rounded-md bg-fill py-2 text-center">
                   <span className="block text-[12px] text-muted">
                     {start.toLocaleString(undefined, { month: 'short' })}
                   </span>
@@ -203,7 +203,7 @@ export function MaintenancePage() {
                   <span className="block font-medium">
                     {m.title}
                     {m.active && (
-                      <span className="ml-2 rounded-[4px] bg-fill px-2 py-0.5 text-[12px] text-sec">
+                      <span className="ml-2 rounded-sm bg-fill px-2 py-0.5 text-[12px] text-sec">
                         in progress
                       </span>
                     )}
@@ -220,7 +220,7 @@ export function MaintenancePage() {
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"
-                      className="btn-secondary h-8 px-3"
+                      className="btn h-8 px-3"
                       aria-label={`Edit ${m.title}`}
                       onClick={() => setEditing(m.id)}
                     >

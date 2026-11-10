@@ -11,8 +11,6 @@ const NAMES: Record<Theme, string> = {
   amber: 'Amber',
   rose: 'Rose',
 };
-/** Swatch hue per theme, matching `--h` in styles.css. */
-const HUE: Record<Theme, number> = { green: 155, blue: 255, violet: 295, amber: 75, rose: 15 };
 
 /** Theme button with a popover for the colour and dark or light appearance. */
 export function ThemeMenu({ placement = 'below' }: { placement?: 'below' | 'above' }) {
@@ -45,11 +43,8 @@ export function ThemeMenu({ placement = 'below' }: { placement?: 'below' | 'abov
               onClick={() => setAccent(t)}
               className={`menu-item ${accent === t ? 'bg-fill font-medium' : ''}`}
             >
-              <span
-                aria-hidden="true"
-                className="h-3.5 w-3.5 rounded-[4px]"
-                style={{ background: `oklch(62% 0.15 ${HUE[t]})` }}
-              />
+              {/* The theme's own accent, scoped by data-accent, so the swatch always matches. */}
+              <span aria-hidden="true" data-accent={t} className="h-3.5 w-3.5 rounded-sm bg-accent" />
               <span className="flex-1">{NAMES[t]}</span>
               {accent === t && <Icon name="check" size={14} />}
             </button>

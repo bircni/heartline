@@ -73,14 +73,15 @@ export const useMe = () =>
     refetchInterval: false,
   });
 /** History range of the overview and service pages: `days` ending with the day `to` (today when unset). */
-export interface RangeQuery {
+export type Range = {
   days: number;
+  /** Last day (`YYYY-MM-DD`, site time zone); undefined means today. */
   to?: string;
-}
+};
 /** Query string of a range, shared by the JSON endpoints and the CSV reports. */
-export const rangeQuery = ({ days, to }: RangeQuery) => `days=${days}${to ? `&to=${to}` : ''}`;
+export const rangeQuery = ({ days, to }: Range) => `days=${days}${to ? `&to=${to}` : ''}`;
 
-export const useOverview = (range: RangeQuery) =>
+export const useOverview = (range: Range) =>
   useQuery({
     queryKey: ['overview', range.days, range.to],
     queryFn: () => api<Overview>(`/api/v1/overview?${rangeQuery(range)}`),
@@ -88,7 +89,7 @@ export const useOverview = (range: RangeQuery) =>
     refetchInterval: (q) =>
       q.state.data?.groups.some((g) => g.services.some((s) => s.status === 'unknown')) ? 5_000 : 30_000,
   });
-export const useService = (id: string, range: RangeQuery) =>
+export const useService = (id: string, range: Range) =>
   useQuery({
     queryKey: ['service', id, range.days, range.to],
     queryFn: () => api<ServiceDetail>(`/api/v1/services/${encodeURIComponent(id)}?${rangeQuery(range)}`),
@@ -127,11 +128,10 @@ export const useTokens = (all: boolean) =>
 export const useUsers = () =>
   useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/api/v1/admin/users') });
 
-export const useSoftwareInventory = (enabled = true) =>
+export const useSoftwareInventory = () =>
   useQuery({
     queryKey: ['software'],
     queryFn: () => api<SoftwareInventory>('/api/v1/software'),
-    enabled,
     retry: false,
   });
 /** Full detail incl. vulnerabilities; only for viewers that may see them (the hook stays disabled otherwise). */
