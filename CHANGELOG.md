@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-11-10
+
+### Bug Fixes
+
+- **docker:** Apply base image security updates and drop the bundled npm from the runtime image (#10)
+
 ## [1.0.0] - 2026-11-10
 
 ### Bug Fixes
