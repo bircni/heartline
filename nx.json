@@ -21,5 +21,6 @@
     "typecheck": { "inputs": ["default", "^production"], "cache": true },
     "test": { "inputs": ["default", "^production"], "cache": true },
     "dev": { "cache": false }
-  }
+  },
+  "nxCloudId": "6af3521869a81388a16c7316"
 }
