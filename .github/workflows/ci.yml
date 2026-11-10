@@ -12,13 +12,13 @@ concurrency:
 
 permissions:
   contents: read
-
-env:
-  NX_NO_CLOUD: true
+  actions: read # nx-set-shas looks up the last successful main run
 
 jobs:
+  # Nx Cloud (nxCloudId in nx.json) provides remote caching, run insights and self-healing CI.
+  # Only projects affected since the last successful main build run; the image job below always runs.
   check:
-    name: Lint, typecheck and test
+    name: Lint, typecheck, test and build (affected)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -31,28 +31,35 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - uses: nrwl/nx-set-shas@v5
-      - run: pnpm lint
-      - run: pnpm format:check
       # Unit, integration, PGlite and Postgres (testcontainers) tests; Docker is available on the runner.
-      - run: pnpm exec nx affected -t typecheck test build
+      - run: pnpm exec nx affected -t lint format:check typecheck test build
       - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level high
+        run: pnpm exec nx record -- pnpm audit --prod --audit-level high
         continue-on-error: true
+      - run: pnpm exec nx fix-ci
+        if: always()
 
   e2e:
-    name: End-to-end
+    name: End-to-end (affected)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @heartline/web build
-      - run: pnpm --filter @heartline/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @heartline/web e2e
+      - uses: nrwl/nx-set-shas@v5
+      - id: affected
+        run: echo "projects=$(pnpm exec nx show projects --affected -t e2e --json)" >> "$GITHUB_OUTPUT"
+      - if: steps.affected.outputs.projects != '[]'
+        run: pnpm --filter @heartline/web exec playwright install --with-deps chromium
+      - run: pnpm exec nx affected -t e2e
+      - run: pnpm exec nx fix-ci
+        if: always()
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

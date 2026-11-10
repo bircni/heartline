@@ -318,9 +318,12 @@ Requires Node 26 and pnpm 12.
 pnpm install
 pnpm dev          # API on :3000 (dev/status.yaml) + UI on :5173
 pnpm test         # unit, integration, PGlite and (with Docker) Postgres tests
-pnpm --filter @heartline/web e2e   # Playwright against the built UI
-pnpm lint && pnpm format:check && pnpm typecheck
+pnpm e2e          # Playwright against the built UI
+pnpm check        # lint, format, typecheck, test and build across all projects
+pnpm affected     # the same plus e2e, only for projects changed since main
 ```
+
+Tasks run through [Nx](https://nx.dev) with local and Nx Cloud remote caching; CI runs only affected projects.
 
 The dev admin is `admin@status.local` / `change-me-please`.
 
