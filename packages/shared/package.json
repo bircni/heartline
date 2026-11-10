@@ -8,7 +8,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint",
+    "format:check": "oxfmt --check"
   },
   "dependencies": {
     "zod": "^4.6.7"

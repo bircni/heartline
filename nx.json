@@ -7,9 +7,22 @@
       "default",
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/**/*.test.tsx",
-      "!{projectRoot}/e2e/**/*"
+      "!{projectRoot}/test/**/*",
+      "!{projectRoot}/e2e/**/*",
+      "!{projectRoot}/playwright.config.ts"
     ],
-    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/pnpm-lock.yaml"]
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/.node-version"
+    ],
+    "rootFiles": [
+      "{workspaceRoot}/*",
+      "{workspaceRoot}/.github/**/*",
+      "{workspaceRoot}/deploy/**/*",
+      "{workspaceRoot}/dev/**/*",
+      "{workspaceRoot}/plugins/**/*"
+    ]
   },
   "targetDefaults": {
     "build": {
@@ -20,6 +33,14 @@
     },
     "typecheck": { "inputs": ["default", "^production"], "cache": true },
     "test": { "inputs": ["default", "^production"], "cache": true },
+    "lint": { "inputs": ["default", "{workspaceRoot}/.oxlintrc.json"], "cache": true },
+    "format:check": { "inputs": ["default", "{workspaceRoot}/.oxfmtrc.json"], "cache": true },
+    "e2e": {
+      "dependsOn": ["build"],
+      "inputs": ["default", "^production", "{workspaceRoot}/plugins/**/*"],
+      "outputs": ["{projectRoot}/test-results", "{projectRoot}/playwright-report"],
+      "cache": true
+    },
     "dev": { "cache": false }
   },
   "nxCloudId": "6af3521869a81388a16c7316"

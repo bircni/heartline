@@ -8,20 +8,42 @@
     "build": "nx run-many -t build",
     "typecheck": "nx run-many -t typecheck",
     "test": "nx run-many -t test",
-    "lint": "oxlint",
+    "e2e": "nx run-many -t e2e",
+    "lint": "nx run-many -t lint",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "nx run-many -t format:check",
+    "check": "nx run-many -t lint format:check typecheck test build",
+    "affected": "nx affected -t lint format:check typecheck test build e2e"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "nx": "^24.0.3",
-    "oxfmt": "^0.75.0",
-    "oxlint": "^1.90.0",
+    "nx": "^24.0.5",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": ">=26"
   },
-  "packageManager": "pnpm@12.16.1"
+  "packageManager": "pnpm@12.16.1",
+  "nx": {
+    "includedScripts": [],
+    "targets": {
+      "lint": {
+        "command": "oxlint --ignore-pattern 'apps/**' --ignore-pattern 'packages/**'",
+        "inputs": [
+          "rootFiles",
+          "{workspaceRoot}/.oxlintrc.json"
+        ]
+      },
+      "format:check": {
+        "command": "oxfmt --check '!apps/**' '!packages/**'",
+        "inputs": [
+          "rootFiles",
+          "{workspaceRoot}/.oxfmtrc.json"
+        ]
+      }
+    }
+  }
 }
