@@ -3,15 +3,20 @@ import { type FormEvent, useState } from 'react';
 import { Icon } from '../components/Icon.tsx';
 import { usePopover } from '../components/Popover.tsx';
 import { Segmented } from '../components/Segmented.tsx';
-import { MAX_RANGE_DAYS, addDays, dayKey } from '@heartline/shared';
+import { MAX_RANGE_DAYS, addDays, dayKey, isDayKey } from '@heartline/shared';
 import { type Range, useBootstrap } from '../lib/api.ts';
 import { DAY_MS, shortDate, shortDay } from '../lib/format.ts';
 
 const RANGES = [7, 30, 90] as const;
 
 export function useRange(fallback = 90): Range {
-  const { days, to } = useSearch({ strict: false }) as { days?: number; to?: string };
-  return { days: days ?? fallback, to };
+  // Non-strict search also carries the root route's raw params, so the range is checked here as well.
+  const { days, to } = useSearch({ strict: false }) as { days?: unknown; to?: unknown };
+  const n = Number(days);
+  return {
+    days: Number.isInteger(n) && n >= 1 && n <= MAX_RANGE_DAYS ? n : fallback,
+    to: typeof to === 'string' && isDayKey(to) ? to : undefined,
+  };
 }
 
 /** Label at the right end of a time axis: the range's last day, or "Today". */

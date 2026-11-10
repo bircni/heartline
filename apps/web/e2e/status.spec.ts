@@ -7,9 +7,9 @@ test('public overview shows services, day bars and details', async ({ page }) =>
   await expect(page.getByRole('heading', { level: 1, name: 'All systems operational' })).toBeVisible({
     timeout: 15_000,
   });
-  const row = page.getByRole('link', { name: /Status API: operational/ });
+  const row = page.getByRole('link', { name: /Status API: Operational/ });
   await expect(row).toBeVisible();
-  await page.getByRole('button', { name: '30D' }).click();
+  await page.getByRole('button', { name: '30 days' }).click();
   await expect(page).toHaveURL(/days=30/);
   await row.click();
   await expect(page.getByRole('heading', { name: /Status API/ })).toBeVisible();
@@ -43,7 +43,7 @@ test('admin flow: monitor, incident and token', async ({ page }) => {
   await page.getByRole('link', { name: 'Incidents' }).click();
   await page.getByRole('button', { name: 'Declare incident' }).click();
   await page.getByLabel('Title').fill('Database maintenance overran');
-  await page.getByRole('button', { name: 'Status API' }).click();
+  await page.getByRole('button', { name: 'Status API', exact: true }).click();
   await page.getByLabel('First update (public)').fill('We are looking into slow responses.');
   await page.getByRole('button', { name: 'Declare', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Database maintenance overran' })).toBeVisible();
@@ -102,10 +102,8 @@ test('theme toggle persists', async ({ page }) => {
   await page.goto('/');
   const html = page.locator('html');
   const wasDark = await html.evaluate((el) => el.classList.contains('dark'));
-  await page
-    .getByRole('button', { name: /Switch to (light|dark) mode/ })
-    .first()
-    .click();
+  await page.getByRole('button', { name: 'Theme' }).click();
+  await page.getByRole('button', { name: wasDark ? 'Light' : 'Dark', exact: true }).click();
   await page.reload();
   expect(await html.evaluate((el) => el.classList.contains('dark'))).toBe(!wasDark);
 });

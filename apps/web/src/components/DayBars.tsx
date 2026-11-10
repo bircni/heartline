@@ -365,7 +365,7 @@ export function BucketBars({
 export function DayLegend() {
   const items: [string, DayState][] = [
     ['Operational', 'operational'],
-    ['Degraded', 'degraded'],
+    ['Degraded (counts as up)', 'degraded'],
     ['Outage', 'down'],
     ['Maintenance', 'maintenance'],
   ];
