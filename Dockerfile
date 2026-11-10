@@ -29,10 +29,15 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod --filter "@heartline/server..." --ignore-scripts
 
 FROM ${NODE_IMAGE} AS runtime
-# ping for ICMP checks, CA certificates for HTTPS/TLS checks.
+# ping for ICMP checks, CA certificates for HTTPS/TLS checks. Security updates of the base image's
+# packages are applied here, and the bundled npm is removed: the server only needs node, and npm's
+# own dependencies would otherwise ship (and be scanned) with every image.
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends iputils-ping ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/apps/server/node_modules ./apps/server/node_modules
