@@ -1,20 +1,52 @@
+import type { DayState, ServiceDetail } from '@heartline/shared';
 import { Link, useParams } from '@tanstack/react-router';
-import { BucketBars, DayBars, DayLegend, TraceAxis, bucketTicks } from '../components/DayBars.tsx';
+import {
+  BucketBars,
+  DayBars,
+  DayLegend,
+  TraceAxis,
+  bucketTicks,
+  useTraceView,
+} from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
-import { LatencyChart } from '../components/LatencyChart.tsx';
+import { type ChartBand, LatencyChart } from '../components/LatencyChart.tsx';
+import { Segmented } from '../components/Segmented.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
 import { useMe, useService, useServiceSoftware } from '../lib/api.ts';
-import { dateTime, dayTicks, duration, ms, pct, time } from '../lib/format.ts';
-import { RangeControl, useRange } from './RangeControl.tsx';
+import { dateTime, dayTicks, duration, ms, pct, relative, shortDay, time } from '../lib/format.ts';
+import { RangeControl, rangeSearch, useRange } from './RangeControl.tsx';
 
 const CHECK_TONE = { up: 'var(--ok)', degraded: 'var(--warn)', down: 'var(--bad)' } as const;
+const BAND_FILL: Partial<Record<DayState, string>> = { down: 'var(--bad-bg)', degraded: 'var(--warn-bg)' };
+const DAY = 86_400_000;
+
+/** Stretches of trouble in the range, shaded behind the response-time chart. */
+function troubleBands(data: ServiceDetail): ChartBand[] {
+  const daily = data.seriesBucketMs >= DAY;
+  const periods = daily
+    ? data.bars.map((b) => ({
+        from: Date.parse(`${b.day}T00:00:00`),
+        to: Date.parse(`${b.day}T00:00:00`) + DAY,
+        state: b.state,
+      }))
+    : data.series.map((p) => ({
+        from: p.at - data.seriesBucketMs / 2,
+        to: p.at + data.seriesBucketMs / 2,
+        state: p.state ?? 'nodata',
+      }));
+  return periods.flatMap((p) => {
+    const fill = BAND_FILL[p.state];
+    return fill ? [{ from: p.from, to: p.to, fill }] : [];
+  });
+}
 
 export function ServicePage() {
   const { id } = useParams({ from: '/public/services/$id' });
-  const days = useRange(30);
-  const { data, error, isPending } = useService(id, days);
+  const range = useRange(30);
+  const [view, setView] = useTraceView();
+  const { data, error, isPending } = useService(id, range);
   const me = useMe();
   // Vulnerability details need a signed-in viewer; the summary tells us whether we are one (urgency is non-null).
   const software = useServiceSoftware(id, Boolean(data?.software && data.software.urgency !== null));
@@ -22,11 +54,10 @@ export function ServicePage() {
   if (error) return <ErrorNote error={error} />;
 
   const active = data.incidents.find((i) => i.resolvedAt === null);
-  const daily = data.seriesBucketMs >= 86_400_000;
-  const highLabel = daily ? 'p95' : 'peak';
-  const now = data.generatedAt;
-  const from = now - days * 86_400_000;
-  const ticks = daily ? dayTicks(data.bars.map((b) => b.day)) : bucketTicks(from, now, data.seriesBucketMs);
+  const daily = data.seriesBucketMs >= DAY;
+  const to = data.rangeEnd;
+  const from = to - range.days * DAY;
+  const endLabel = range.to ? shortDay(range.to) : 'Today';
   const every =
     data.intervalMs >= 60_000
       ? `${Math.round(data.intervalMs / 60_000)} min`
@@ -36,7 +67,14 @@ export function ServicePage() {
     <>
       <PageHeader
         title={
-          <span className="flex flex-wrap items-center gap-3">
+          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <Link
+              to="/"
+              search={rangeSearch(range)}
+              className="font-normal text-muted no-underline hover:text-text"
+            >
+              Overview /
+            </Link>
             {data.name}
             <StatusPill status={data.status} />
           </span>
@@ -44,95 +82,138 @@ export function ServicePage() {
         subtitle={
           <>
             {data.kind.toUpperCase()} check every {every} on{' '}
-            <span className="break-all font-mono text-[12px]">{data.target}</span>
+            <span className="font-mono text-[12px] break-all">{data.target}</span>
+            {data.lastCheckedAt && `, last checked ${relative(data.lastCheckedAt)}`}
           </>
         }
         actions={
           <>
             <RangeControl fallback={30} />
             <a
-              className="btn-secondary no-underline"
-              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?days=${days}`}
+              className="btn"
+              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?days=${range.days}`}
               download
             >
-              <Icon name="download" size={16} /> Export
+              <Icon name="download" size={14} /> Export CSV
             </a>
           </>
         }
       />
 
-      {data.description && <p className="mb-0 mt-2 max-w-[75ch] text-sec">{data.description}</p>}
+      {data.description && <p className="m-0 max-w-[75ch] text-sec">{data.description}</p>}
 
       {active && (
         <Link
           to="/incidents/$id"
           params={{ id: active.id }}
-          className="card relative mt-4 flex gap-3 overflow-hidden py-3 pl-5 pr-4 text-text no-underline transition-colors before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-(--tone) hover:bg-hover"
-          style={
-            { '--tone': active.impact === 'major' ? 'var(--bad)' : 'var(--warn)' } as React.CSSProperties
-          }
+          className="card flex items-start gap-3 border-bad-line bg-bad-bg px-3.5 py-3 text-text no-underline"
         >
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline gap-x-3">
-              <span className="text-[15px] font-semibold">{active.title}</span>
-              <span
-                className="text-[12px] font-medium first-letter:uppercase"
-                style={{ color: active.impact === 'major' ? 'var(--bad-text)' : 'var(--warn-text)' }}
-              >
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-baseline gap-x-2.5">
+              <span className="font-semibold">{active.title}</span>
+              <span className="text-[12px] font-medium text-bad-text capitalize">
                 {active.status}, for {duration(active.createdAt, null)}
               </span>
-            </div>
-            <div className="max-w-[80ch] text-sec">{active.updates[0]?.message}</div>
-          </div>
-          <Icon name="chevron" size={16} className="mt-1 shrink-0 text-muted" />
+            </span>
+            <span className="block text-sec">{active.updates[0]?.message}</span>
+          </span>
+          <Icon name="chevron" size={15} className="mt-0.5 shrink-0 text-muted" />
         </Link>
       )}
 
-      <div className="mt-5">
-        <Stats
-          items={[
-            { label: `Uptime, ${days} days`, value: pct(data.kpis.uptime) },
-            { label: 'Average response', value: ms(data.kpis.avgLatencyMs) },
-            { label: '95th percentile', value: ms(data.kpis.p95LatencyMs) },
-            { label: 'Incidents', value: data.kpis.incidents },
-          ]}
-        />
-      </div>
+      <Stats
+        items={[
+          { label: `Uptime, ${range.days} days`, value: pct(data.kpis.uptime) },
+          { label: 'Average response', value: ms(data.kpis.avgLatencyMs) },
+          { label: '95th percentile', value: ms(data.kpis.p95LatencyMs) },
+          { label: 'Incidents', value: data.kpis.incidents },
+        ]}
+      />
 
-      <Section className="mt-3" title="Availability" actions={<DayLegend />}>
-        <div className="px-4 pb-4 pt-1">
-          <TraceAxis ticks={ticks} className="mb-2.5" />
+      <Section
+        title="Availability"
+        actions={
+          <>
+            <DayLegend />
+            <Segmented
+              label="Show availability as"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'graph', label: 'Graph' },
+                { value: 'timeline', label: 'Timeline' },
+              ]}
+            />
+          </>
+        }
+      >
+        <div className="px-3.5 pt-3 pb-3">
           {daily ? (
-            <DayBars bars={data.bars} ticks={ticks} />
+            <DayBars bars={data.bars} view={view} height={view === 'graph' ? 120 : 34} />
           ) : (
-            <BucketBars points={data.series} from={from} to={now} bucketMs={data.seriesBucketMs} />
+            <BucketBars
+              points={data.series}
+              from={from}
+              to={to}
+              bucketMs={data.seriesBucketMs}
+              view={view}
+              height={view === 'graph' ? 120 : 34}
+            />
           )}
+          <TraceAxis
+            ticks={daily ? dayTicks(data.bars.map((b) => b.day)) : bucketTicks(from, to, data.seriesBucketMs)}
+            end={endLabel}
+            className="mt-1.5"
+          />
         </div>
+        {data.incidents.length === 0 ? (
+          <p className="m-0 border-t border-hair px-3.5 py-2.5 text-sec">No incidents in this period.</p>
+        ) : (
+          data.incidents.map((i) => (
+            <Link
+              key={i.id}
+              to="/incidents/$id"
+              params={{ id: i.id }}
+              className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair bg-bad-bg px-3.5 py-2.5 text-text no-underline transition-opacity hover:opacity-85"
+            >
+              <span aria-hidden="true" className="h-2 w-2 shrink-0 self-center rounded-[2px] bg-bad" />
+              <span className="font-semibold">{dateTime(i.createdAt)}</span>
+              <span className="min-w-0 flex-1">{i.title}</span>
+              <span className="text-[12px] text-sec">
+                {i.resolvedAt
+                  ? `lasted ${duration(i.createdAt, i.resolvedAt)}`
+                  : `ongoing for ${duration(i.createdAt, null)}`}
+              </span>
+              <span className="font-medium">View incident</span>
+            </Link>
+          ))
+        )}
       </Section>
 
       <Section
-        className="mt-3"
         title="Response time"
         actions={
-          <div className="flex gap-4 text-[12px] text-muted" aria-hidden="true">
+          <div className="flex gap-4 text-[12px] text-sec" aria-hidden="true">
             <span className="flex items-center gap-2">
-              <span className="block h-0.5 w-4 rounded bg-chart" />
+              <span className="block h-0.5 w-3.5 bg-accent" />
               Average
             </span>
             <span className="flex items-center gap-2">
-              <span className="block w-4 border-t-2 border-dotted border-chart-2" />
+              <span className="block w-3.5 border-t-2 border-dotted border-muted" />
               {daily ? '95th percentile' : 'Slowest check'}
             </span>
           </div>
         }
       >
-        <div className="px-4 pb-3">
+        <div className="px-3.5 pt-3 pb-2">
           <LatencyChart
             points={data.series}
             from={from}
-            to={now}
+            to={to}
             bucketMs={data.seriesBucketMs}
-            highLabel={highLabel}
+            highLabel={daily ? 'p95' : 'peak'}
+            endLabel={endLabel}
+            bands={troubleBands(data)}
           />
         </div>
       </Section>
@@ -146,61 +227,29 @@ export function ServicePage() {
         />
       )}
 
-      <div className="mt-3 flex flex-wrap items-start gap-3">
-        <Section className="min-w-0 flex-[1_1_320px]" title="Recent checks">
-          {data.checks.length === 0 && <Empty>No checks yet</Empty>}
-          {data.checks.slice(0, 12).map((c) => (
-            <div key={c.at} className="flex items-center gap-3 border-t border-hair px-4 py-2 text-[13px]">
-              <span
-                aria-hidden="true"
-                className="block h-2 w-2 shrink-0 rounded-full"
-                style={{ background: CHECK_TONE[c.status] }}
-              />
-              <span className="figure shrink-0 whitespace-nowrap text-sec">{time(c.at)}</span>
-              <span className="min-w-0 flex-1 truncate" title={c.message ?? undefined}>
-                <span className="sr-only">{c.status}: </span>
-                {c.message ?? c.status}
-              </span>
-              <span
-                className="figure"
-                style={{ color: c.status === 'up' ? 'var(--sec)' : CHECK_TONE[c.status] }}
-              >
-                {ms(c.latencyMs)}
-              </span>
-            </div>
-          ))}
-        </Section>
-        <Section className="min-w-0 flex-[1_1_320px]" title={`Incidents, past ${days} days`}>
-          {data.incidents.length === 0 && <Empty>No incidents in this period</Empty>}
-          {data.incidents.map((i) => (
-            <Link
-              key={i.id}
-              to="/incidents/$id"
-              params={{ id: i.id }}
-              className="block border-t border-hair px-4 py-3 text-text no-underline hover:bg-hover"
-            >
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span
-                  aria-hidden="true"
-                  className="block h-2 w-2 shrink-0 self-center rounded-full"
-                  style={{ background: i.resolvedAt ? 'var(--fill-2)' : 'var(--warn)' }}
-                />
-                <span className="min-w-0 flex-1 font-medium">{i.title}</span>
-                <span className="text-[12px] text-muted">
-                  {dateTime(i.createdAt)}, {i.resolvedAt ? 'lasted' : 'ongoing for'}{' '}
-                  {duration(i.createdAt, i.resolvedAt)}
-                </span>
-              </div>
-              {i.updates[0] && (
-                <div className="ml-4 mt-1 line-clamp-2 text-[13px] text-sec">
-                  <span className="font-medium capitalize text-text">{i.updates[0].status}</span>{' '}
-                  {i.updates[0].message}
-                </div>
-              )}
-            </Link>
-          ))}
-        </Section>
-      </div>
+      <Section title="Recent checks">
+        {data.checks.length === 0 && <Empty>No checks yet</Empty>}
+        {data.checks.slice(0, 12).map((c) => (
+          <div
+            key={c.at}
+            className="flex items-center gap-3 border-t border-hair px-3.5 py-2 first:border-t-0"
+          >
+            <span
+              aria-hidden="true"
+              className="block h-2 w-2 shrink-0 rounded-full"
+              style={{ background: CHECK_TONE[c.status] }}
+            />
+            <span className="shrink-0 whitespace-nowrap text-sec">{time(c.at)}</span>
+            <span className="min-w-0 flex-1 truncate" title={c.message ?? undefined}>
+              <span className="sr-only">{c.status}: </span>
+              {c.message ?? c.status}
+            </span>
+            <span style={{ color: c.status === 'up' ? 'var(--sec)' : CHECK_TONE[c.status] }}>
+              {ms(c.latencyMs)}
+            </span>
+          </div>
+        ))}
+      </Section>
     </>
   );
 }

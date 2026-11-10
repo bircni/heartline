@@ -1,8 +1,17 @@
+import type { Incident } from '@heartline/shared';
 import { Link, useParams } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
-import { ErrorNote, Spinner } from '../components/ui.tsx';
-import { useIncident } from '../lib/api.ts';
+import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
+import { useIncident, useIncidents } from '../lib/api.ts';
 import { dateTime, duration } from '../lib/format.ts';
+
+const IMPACT_LABEL = { major: 'Major outage', partial: 'Partial outage', degraded: 'Degraded performance' };
+
+/** Text colour of an incident: red or amber while open, grey once resolved. */
+function tone(i: Incident): string {
+  if (i.resolvedAt !== null) return 'var(--sec)';
+  return i.impact === 'degraded' ? 'var(--warn-text)' : 'var(--bad-text)';
+}
 
 export function IncidentPage() {
   const { id } = useParams({ from: '/public/incidents/$id' });
@@ -10,26 +19,24 @@ export function IncidentPage() {
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
   const open = data.resolvedAt === null;
-  const tone = open ? (data.impact === 'major' ? 'var(--bad-text)' : 'var(--warn-text)') : 'var(--sec)';
 
   return (
-    <article className="max-w-[46rem]">
+    <article className="flex max-w-[48rem] flex-col gap-4">
       <Link
-        to="/"
-        className="-ml-1 inline-flex items-center gap-1 py-1 text-[13px] text-sec no-underline hover:text-text"
+        to="/incidents"
+        className="-ml-0.5 inline-flex items-center gap-1 self-start text-sec no-underline hover:text-text"
       >
-        <Icon name="arrowLeft" size={16} /> All services
+        <Icon name="arrowLeft" size={15} /> Incident history
       </Link>
-      <div className="mt-4 text-[13px] font-medium" style={{ color: tone }}>
-        {data.impact === 'major'
-          ? 'Major outage'
-          : data.impact === 'partial'
-            ? 'Partial outage'
-            : 'Degraded performance'}
-        , {open ? `ongoing for ${duration(data.createdAt, null)}` : 'resolved'}
-      </div>
-      <h1 className="title m-0 mt-1">{data.title}</h1>
-      <dl className="m-0 mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1 text-[13px]">
+      <PageHeader
+        title={data.title}
+        subtitle={
+          <span className="font-medium" style={{ color: tone(data) }}>
+            {IMPACT_LABEL[data.impact]}, {open ? `ongoing for ${duration(data.createdAt, null)}` : 'resolved'}
+          </span>
+        }
+      />
+      <dl className="card m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1.5 px-3.5 py-3">
         {data.services.length > 0 && (
           <>
             <dt className="text-muted">Affected</dt>
@@ -55,35 +62,90 @@ export function IncidentPage() {
         )}
       </dl>
 
-      <h2 className="m-0 mt-8 text-[16px] font-semibold">Updates</h2>
-      {/* Newest first; the rail ties the updates into one timeline. */}
-      <ol className="m-0 mt-3 list-none p-0">
-        {data.updates.map((u, i) => (
-          <li key={u.id} className="relative flex gap-4 pb-6 last:pb-0">
-            {i < data.updates.length - 1 && (
-              <span aria-hidden="true" className="absolute bottom-0 left-[4.5px] top-3 w-px bg-fill-2" />
-            )}
-            <span
-              aria-hidden="true"
-              className="relative mt-[5px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
-              style={{
-                background: i === 0 ? tone : 'var(--bg)',
-                borderColor: i === 0 ? tone : 'var(--fill-2)',
-              }}
-            />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="text-[14px] font-semibold capitalize">{u.status}</span>
-                <span className="text-[12px] text-muted">
-                  {dateTime(u.createdAt)}
-                  {u.author && `, ${u.author}`}
-                </span>
+      <Section title="Updates">
+        {/* Newest first; the rail ties the updates into one timeline. */}
+        <ol className="m-0 list-none px-3.5 py-3">
+          {data.updates.map((u, i) => (
+            <li key={u.id} className="relative flex gap-3.5 pb-5 last:pb-0">
+              {i < data.updates.length - 1 && (
+                <span aria-hidden="true" className="absolute top-3 bottom-0 left-[4.5px] w-px bg-fill-2" />
+              )}
+              <span
+                aria-hidden="true"
+                className="relative mt-[4px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
+                style={{
+                  background: i === 0 ? tone(data) : 'var(--surface)',
+                  borderColor: i === 0 ? tone(data) : 'var(--fill-2)',
+                }}
+              />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2.5">
+                  <span className="font-semibold capitalize">{u.status}</span>
+                  <span className="text-[12px] text-muted">
+                    {dateTime(u.createdAt)}
+                    {u.author && `, ${u.author}`}
+                  </span>
+                </div>
+                <p className="m-0 mt-0.5 whitespace-pre-line text-sec">{u.message}</p>
               </div>
-              <p className="m-0 mt-1 whitespace-pre-line text-[14px] text-sec">{u.message}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      </Section>
     </article>
+  );
+}
+
+/** One incident in the history list; open incidents are tinted red. */
+function HistoryRow({ incident: i }: { incident: Incident }) {
+  return (
+    <Link
+      to="/incidents/$id"
+      params={{ id: i.id }}
+      className={`flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 text-text no-underline transition-colors first:border-t-0 hover:bg-hover ${i.resolvedAt === null ? 'bg-bad-bg' : ''}`}
+    >
+      <span className="min-w-0 flex-[1_1_16rem] font-medium">{i.title}</span>
+      <span className="text-[12px] font-medium" style={{ color: tone(i) }}>
+        {IMPACT_LABEL[i.impact]}
+      </span>
+      <span className="min-w-0 flex-[1_1_10rem] truncate text-[12px] text-muted">
+        {i.services.map((s) => s.name).join(', ') || 'All services'}
+      </span>
+      <span className="text-[12px] text-sec">
+        {dateTime(i.createdAt)},{' '}
+        {i.resolvedAt
+          ? `lasted ${duration(i.createdAt, i.resolvedAt)}`
+          : `ongoing for ${duration(i.createdAt, null)}`}
+      </span>
+    </Link>
+  );
+}
+
+/** Every incident, newest first, open ones on top. */
+export function IncidentHistoryPage() {
+  const { data, error, isPending } = useIncidents();
+  if (isPending) return <Spinner />;
+  if (error) return <ErrorNote error={error} />;
+  const open = data.filter((i) => i.resolvedAt === null);
+  const past = data.filter((i) => i.resolvedAt !== null);
+
+  return (
+    <>
+      <PageHeader title="Incidents" subtitle="Outages and disruptions with every update that was posted." />
+      {open.length > 0 && (
+        <Section title="Open">
+          {open.map((i) => (
+            <HistoryRow key={i.id} incident={i} />
+          ))}
+        </Section>
+      )}
+      <Section title="Past incidents">
+        {past.length === 0 ? (
+          <Empty>No incidents so far.</Empty>
+        ) : (
+          past.map((i) => <HistoryRow key={i.id} incident={i} />)
+        )}
+      </Section>
+    </>
   );
 }

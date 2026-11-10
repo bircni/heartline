@@ -21,7 +21,7 @@ export function Segmented<T extends string | number>({
             type="button"
             aria-pressed={on}
             onClick={() => onChange(o.value)}
-            className={`flex-1 rounded-[4px] font-medium transition-colors ${size === 'sm' ? 'h-6 px-2 text-[12px]' : 'h-7 px-3 text-[13px]'} ${on ? 'bg-seg text-text shadow-seg' : 'text-sec hover:text-text'}`}
+            className={`flex-1 rounded-[4px] font-medium whitespace-nowrap transition-colors ${size === 'sm' ? 'h-6 px-2 text-[12px]' : 'h-[26px] px-2.5 text-[12.5px]'} ${on ? 'bg-surface text-text shadow-[0_0_0_1px_var(--hair)]' : 'text-sec hover:text-text'}`}
           >
             {o.label}
           </button>

@@ -45,6 +45,18 @@ export function shortDay(day: string): string {
   );
 }
 
+/** The local calendar day of `d` as `YYYY-MM-DD`. */
+export function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** `day` (`YYYY-MM-DD`) moved by `n` calendar days. */
+export function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 export function duration(from: number, to: number | null): string {
   const minutes = Math.max(1, Math.round(((to ?? Date.now()) - from) / 60_000));
   if (minutes < 60) return `${minutes} min`;
@@ -63,19 +75,18 @@ export const STATUS_LABEL: Record<ServiceStatus, string> = {
   unknown: 'Pending',
 };
 
-/** CSS variables per status: dot colour, text colour and halo ring. */
-export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; ring: string }> = {
-  // All clear stays quiet: only the dot is green, so colored text always means trouble.
-  operational: { dot: 'var(--ok)', text: 'var(--sec)', ring: 'var(--ring-ok)' },
-  degraded: { dot: 'var(--warn)', text: 'var(--warn-text)', ring: 'var(--ring-warn)' },
-  down: { dot: 'var(--bad)', text: 'var(--bad-text)', ring: 'var(--ring-bad)' },
-  maintenance: { dot: 'var(--maint)', text: 'var(--sec)', ring: 'transparent' },
-  paused: { dot: 'var(--fill-2)', text: 'var(--sec)', ring: 'transparent' },
-  unknown: { dot: 'var(--fill-2)', text: 'var(--sec)', ring: 'transparent' },
+/** CSS variables per status: dot, text and background colour. */
+export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; bg: string }> = {
+  operational: { dot: 'var(--ok)', text: 'var(--ok-text)', bg: 'var(--ok-bg)' },
+  degraded: { dot: 'var(--warn)', text: 'var(--warn-text)', bg: 'var(--warn-bg)' },
+  down: { dot: 'var(--bad)', text: 'var(--bad-text)', bg: 'var(--bad-bg)' },
+  maintenance: { dot: 'var(--maint)', text: 'var(--maint)', bg: 'var(--maint-bg)' },
+  paused: { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)' },
+  unknown: { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)' },
 };
 
 export const DAY_COLOR: Record<DayState, string> = {
-  operational: 'var(--ok-quiet)',
+  operational: 'var(--ok)',
   degraded: 'var(--warn)',
   down: 'var(--bad)',
   maintenance: 'var(--maint)',

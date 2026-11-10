@@ -198,7 +198,9 @@ describe('history ranges', () => {
     expect(overview.rangeEnd).toBe(Date.parse('2026-02-01T00:00:00Z') - 1);
     expect(overview.site.theme).toBe('green');
 
-    const detail = (await (await h.request('/api/v1/services/web?days=3&to=2026-01-31')).json()) as ServiceDetail;
+    const detail = (await (
+      await h.request('/api/v1/services/web?days=3&to=2026-01-31')
+    ).json()) as ServiceDetail;
     expect(detail.bars.map((b) => b.day)).toEqual(['2026-01-29', '2026-01-30', '2026-01-31']);
     expect(detail.rangeEnd).toBe(overview.rangeEnd);
   });

@@ -72,18 +72,25 @@ export const useMe = () =>
     queryFn: async () => (await api<Me | undefined>('/api/v1/me')) ?? null,
     refetchInterval: false,
   });
-export const useOverview = (days: number) =>
+/** History range of the overview and service pages: `days` ending with the day `to` (today when unset). */
+export interface RangeQuery {
+  days: number;
+  to?: string;
+}
+const rangeQuery = ({ days, to }: RangeQuery) => `days=${days}${to ? `&to=${to}` : ''}`;
+
+export const useOverview = (range: RangeQuery) =>
   useQuery({
-    queryKey: ['overview', days],
-    queryFn: () => api<Overview>(`/api/v1/overview?days=${days}`),
+    queryKey: ['overview', range.days, range.to],
+    queryFn: () => api<Overview>(`/api/v1/overview?${rangeQuery(range)}`),
     // Poll faster while services wait for their first checks (fresh start, new monitor).
     refetchInterval: (q) =>
       q.state.data?.groups.some((g) => g.services.some((s) => s.status === 'unknown')) ? 5_000 : 30_000,
   });
-export const useService = (id: string, days: number) =>
+export const useService = (id: string, range: RangeQuery) =>
   useQuery({
-    queryKey: ['service', id, days],
-    queryFn: () => api<ServiceDetail>(`/api/v1/services/${encodeURIComponent(id)}?days=${days}`),
+    queryKey: ['service', id, range.days, range.to],
+    queryFn: () => api<ServiceDetail>(`/api/v1/services/${encodeURIComponent(id)}?${rangeQuery(range)}`),
   });
 export const useIncident = (id: string) =>
   useQuery({

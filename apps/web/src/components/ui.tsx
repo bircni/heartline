@@ -3,19 +3,17 @@ import type { ReactNode } from 'react';
 /** Headline figures of a record, side by side on one surface. */
 export function Stats({ items }: { items: { label: string; value: ReactNode; hint?: string }[] }) {
   return (
-    <div className="card overflow-hidden">
-      <dl className="m-0 grid grid-cols-2 gap-px bg-hair md:auto-cols-fr md:grid-flow-col md:grid-cols-none">
-        {items.map((i) => (
-          <div key={i.label} className="flex flex-col-reverse bg-surface px-4 py-3">
-            <dt className="mt-1 text-[12px] text-sec">
-              {i.label}
-              {i.hint && <span className="text-muted"> ({i.hint})</span>}
-            </dt>
-            <dd className="figure m-0 text-[28px] font-medium leading-8">{i.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+    <dl className="card m-0 grid grid-cols-2 overflow-hidden md:auto-cols-fr md:grid-flow-col md:grid-cols-none">
+      {items.map((i) => (
+        <div key={i.label} className="-mr-px -mb-px border-r border-b border-hair px-3.5 py-3">
+          <dt className="text-[12px] text-sec">
+            {i.label}
+            {i.hint && <span className="text-muted"> ({i.hint})</span>}
+          </dt>
+          <dd className="m-0 mt-0.5 text-[22px] leading-7 font-semibold tracking-[-0.01em]">{i.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -29,10 +27,10 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="title m-0">{title}</h1>
-        {subtitle && <div className="mt-1 text-[13px] text-sec">{subtitle}</div>}
+        <h1 className="m-0 text-[18px] leading-snug font-semibold tracking-[-0.01em]">{title}</h1>
+        {subtitle && <div className="mt-1 text-sec">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -53,8 +51,8 @@ export function Section({
   return (
     <section className={`card overflow-hidden ${className}`}>
       {(title || actions) && (
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pb-2 pt-4">
-          {title && <h2 className="m-0 text-[14px] font-medium">{title}</h2>}
+        <div className="panel-head">
+          {title && <h2 className="m-0 flex-1 text-[13px] font-semibold">{title}</h2>}
           {actions}
         </div>
       )}
@@ -64,7 +62,7 @@ export function Section({
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="m-0 border-t border-hair px-4 py-4 text-sec">{children}</p>;
+  return <p className="m-0 px-3.5 py-4 text-sec">{children}</p>;
 }
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
@@ -78,7 +76,7 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
 
 export function ErrorNote({ error }: { error: unknown }) {
   return (
-    <div role="alert" className="card mt-4 px-4 py-3 text-bad-text">
+    <div role="alert" className="card border-bad-line bg-bad-bg px-3.5 py-3 text-bad-text">
       {error instanceof Error ? error.message : 'Something went wrong.'}
     </div>
   );
@@ -106,6 +104,13 @@ export function Field({
   );
 }
 
+const NOTICE: Record<'neutral' | 'warn' | 'bad' | 'ok', string> = {
+  neutral: 'bg-fill text-sec',
+  warn: 'bg-warn-bg text-warn-text',
+  bad: 'bg-bad-bg text-bad-text',
+  ok: 'bg-ok-bg text-ok-text',
+};
+
 export function Notice({
   tone = 'neutral',
   children,
@@ -113,17 +118,5 @@ export function Notice({
   tone?: 'neutral' | 'warn' | 'bad' | 'ok';
   children: ReactNode;
 }) {
-  const color =
-    tone === 'warn'
-      ? 'var(--warn-text)'
-      : tone === 'bad'
-        ? 'var(--bad-text)'
-        : tone === 'ok'
-          ? 'var(--ok-text)'
-          : 'var(--sec)';
-  return (
-    <div className="rounded-[6px] bg-fill px-3 py-2 text-[13px]" style={{ color }}>
-      {children}
-    </div>
-  );
+  return <div className={`rounded-[6px] px-3 py-2 text-[13px] ${NOTICE[tone]}`}>{children}</div>;
 }

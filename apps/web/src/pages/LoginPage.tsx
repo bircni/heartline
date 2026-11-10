@@ -1,11 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useState } from 'react';
-import { Icon, Logo } from '../components/Icon.tsx';
+import { Icon } from '../components/Icon.tsx';
+import { SiteLogo } from '../components/Shell.tsx';
+import { ThemeMenu } from '../components/ThemeMenu.tsx';
 import { Notice } from '../components/ui.tsx';
 import { useBootstrap, useMe } from '../lib/api.ts';
 import { authClient, authorizeUrlFrom, isOAuthContinuation } from '../lib/auth.ts';
-import { ThemeButton } from './PublicLayout.tsx';
 
 export function LoginPage() {
   const boot = useBootstrap();
@@ -70,12 +71,12 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen justify-center px-4 pb-20 pt-[12vh]">
       <div className="absolute right-4 top-4">
-        <ThemeButton />
+        <ThemeMenu />
       </div>
       <div className="w-full max-w-[360px]">
         <div className="flex flex-col items-center text-center">
-          <Logo size={48} />
-          <h1 className="title m-0 mt-5 text-[24px]">
+          <SiteLogo size={40} />
+          <h1 className="m-0 mt-4 text-[20px] font-semibold tracking-[-0.01em]">
             {oauth ? 'Sign in to connect' : `Sign in to ${site?.title ?? 'Status'}`}
           </h1>
           <p className="m-0 mt-1 text-sec">
@@ -84,7 +85,7 @@ export function LoginPage() {
               : (site?.description ?? window.location.host)}
           </p>
         </div>
-        <div className="card mt-8 p-5">
+        <div className="card mt-6 p-5">
           {error && (
             <div className="mb-4" role="alert">
               <Notice tone="bad">{error}</Notice>
@@ -96,7 +97,7 @@ export function LoginPage() {
               type="button"
               disabled={busy}
               onClick={() => void social(p.id)}
-              className={`flex h-10 w-full items-center justify-center gap-2 rounded-[6px] text-[14px] font-medium disabled:opacity-50 ${i === 0 ? 'bg-text text-bg' : 'mt-2 bg-fill text-text'}`}
+              className={`h-9 w-full ${i === 0 ? 'btn-primary' : 'btn mt-2'}`}
             >
               <Icon name="gitea" size={16} />
               Continue with {p.name}
@@ -138,7 +139,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className={`mt-4 h-10 w-full rounded-[6px] text-[14px] font-medium disabled:opacity-50 ${providers.length ? 'bg-fill text-text' : 'bg-text text-bg'}`}
+                className={`mt-4 h-9 w-full ${providers.length ? 'btn' : 'btn-primary'}`}
               >
                 {busy ? 'Signing in…' : 'Sign in'}
               </button>

@@ -10,12 +10,22 @@ import { ms, timeTicks } from '../lib/format.ts';
 
 const MARGIN = { top: 8, right: 4, bottom: 24, left: 52 };
 
+/** A stretch of the chart shaded in a status colour, e.g. an outage. */
+export interface ChartBand {
+  from: number;
+  to: number;
+  fill: string;
+}
+
 interface Props {
   points: LatencyPoint[];
   from: number;
   to: number;
   bucketMs: number;
   highLabel: string;
+  /** Label at the right end of the time axis. */
+  endLabel: string;
+  bands?: ChartBand[];
 }
 
 function label(at: number, bucketMs: number): string {
@@ -32,6 +42,8 @@ function Chart({
   to,
   bucketMs,
   highLabel,
+  endLabel,
+  bands = [],
   width,
   height,
 }: Props & { width: number; height: number }) {
@@ -104,8 +116,18 @@ function Chart({
             </g>
           ))}
           <text x={innerW} y={innerH + 18} textAnchor="end" fontSize={12} fill="var(--muted)">
-            Today
+            {endLabel}
           </text>
+          {bands.map((b) => (
+            <rect
+              key={b.from}
+              x={x(b.from)}
+              y={0}
+              width={Math.max(1, x(b.to) - x(b.from))}
+              height={innerH}
+              fill={b.fill}
+            />
+          ))}
           {runs.map((run) => {
             const start = run[0] as LatencyPoint;
             if (run.length === 1)
@@ -115,7 +137,7 @@ function Chart({
                   cx={x(start.at)}
                   cy={y(start.avgLatencyMs ?? 0)}
                   r={2}
-                  fill="var(--chart)"
+                  fill="var(--accent)"
                 />
               );
             return (
@@ -126,7 +148,7 @@ function Chart({
                   y={(p) => y(p.highLatencyMs ?? 0)}
                   defined={(p) => p.highLatencyMs !== null}
                   curve={curveMonotoneX}
-                  stroke="var(--chart-2)"
+                  stroke="var(--muted)"
                   strokeWidth={1.5}
                   strokeDasharray="1 4"
                   strokeLinecap="round"
@@ -137,14 +159,14 @@ function Chart({
                   y={(p) => y(p.avgLatencyMs ?? 0)}
                   yScale={y}
                   curve={curveMonotoneX}
-                  fill="var(--area)"
+                  fill="var(--tint)"
                 />
                 <LinePath<LatencyPoint>
                   data={run}
                   x={(p) => x(p.at)}
                   y={(p) => y(p.avgLatencyMs ?? 0)}
                   curve={curveMonotoneX}
-                  stroke="var(--chart)"
+                  stroke="var(--accent)"
                   strokeWidth={1.75}
                 />
               </g>
@@ -161,7 +183,7 @@ function Chart({
                 cx={x(active.at)}
                 cy={y(active.avgLatencyMs ?? 0)}
                 r={3.5}
-                fill="var(--chart)"
+                fill="var(--accent)"
                 stroke="var(--surface)"
                 strokeWidth={2}
               />

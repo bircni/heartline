@@ -1,91 +1,97 @@
 @import 'tailwindcss';
 
 /*
- * Chart paper and instrument glass: every neutral leans towards the green of a healthy trace, so an
- * all-clear page is one quiet tone and trouble (amber, red) is the only thing that stands out.
+ * Neutral surfaces with one accent. The accent hue (`--h`) comes from the colour theme on <html data-accent>;
+ * status colours (ok, warn, bad, maint) are the same in every theme, so green always means healthy.
  * Dark is the default, `html:not(.dark)` is light.
  */
 :root {
-  --bg: #f1f4f0;
-  --side: #e8ece7;
-  --surface: #fbfcfa;
-  --fill: #e3e8e2;
-  --fill-2: #c5cec6;
-  --seg: #fbfcfa;
-  --sel: rgb(22 32 28 / 0.09);
-  --hover: rgb(22 32 28 / 0.045);
-  --text: #16201c;
-  --sec: #47544e;
-  --muted: #5d6a63;
-  --hair: rgb(22 32 28 / 0.1);
-  --grid: rgb(22 32 28 / 0.06);
-  --shadow: 0 0 0 1px var(--hair), 0 1px 2px rgb(22 32 28 / 0.04);
-  --seg-shadow: 0 0 0 1px var(--hair), 0 1px 2px rgb(22 32 28 / 0.08);
-  --pop-shadow: 0 0 0 1px var(--hair), 0 10px 28px rgb(22 32 28 / 0.14);
-  --ok: #17935a;
-  --ok-quiet: #9fcab2;
-  --warn: #cf7c00;
-  --bad: #d4372c;
-  --maint: #3b7fc4;
-  --ok-text: #0f7445;
-  --warn-text: #945700;
-  --bad-text: #b3261e;
-  --ring-warn: rgb(207 124 0 / 0.18);
-  --ring-bad: rgb(212 55 44 / 0.18);
-  --ring-ok: rgb(23 147 90 / 0.18);
-  --tint-warn: rgb(207 124 0 / 0.07);
-  --tint-bad: rgb(212 55 44 / 0.06);
-  --chart: var(--ok);
-  --chart-2: #86928b;
-  --area: rgb(23 147 90 / 0.09);
+  --h: 155;
+  --bg: #ffffff;
+  --side: oklch(98.2% 0.003 var(--h));
+  --surface: #ffffff;
+  --fill: oklch(96% 0.004 var(--h));
+  --fill-2: oklch(91.5% 0.006 var(--h));
+  --hover: oklch(96% 0.004 var(--h));
+  --sel: oklch(94% 0.006 var(--h));
+  --hair: oklch(90.5% 0.005 var(--h));
+  --grid: oklch(94% 0.004 var(--h));
+  --text: oklch(20% 0.01 var(--h));
+  --sec: oklch(40% 0.012 var(--h));
+  --muted: oklch(49% 0.012 var(--h));
+  --accent: oklch(50% 0.15 var(--h));
+  --on-accent: #ffffff;
+  --tint: oklch(50% 0.15 var(--h) / 0.1);
+  --ok: #1fa35c;
+  --warn: #e0900a;
+  --bad: #d93a2b;
+  --maint: #2f6fdb;
+  --ok-text: #12733f;
+  --warn-text: #8f5600;
+  --bad-text: #b32a1d;
+  --ok-bg: rgb(31 163 92 / 0.1);
+  --warn-bg: rgb(224 144 10 / 0.14);
+  --bad-bg: rgb(217 58 43 / 0.08);
+  --maint-bg: rgb(47 111 219 / 0.1);
+  --bad-line: rgb(217 58 43 / 0.45);
+  --pop-shadow: 0 0 0 1px var(--hair), 0 12px 32px rgb(0 0 0 / 0.12);
   --knob: #ffffff;
-  --focus: var(--text);
+  --focus: var(--accent);
 }
 
 .dark {
-  --bg: #0d1412;
-  --side: #0a100e;
-  --surface: #131c19;
-  --fill: #1c2723;
-  --fill-2: #33423c;
-  --seg: #33423c;
-  --sel: rgb(227 235 230 / 0.09);
-  --hover: rgb(227 235 230 / 0.045);
-  --text: #e3ebe6;
-  --sec: #a3b1a9;
-  --muted: #7f8e86;
-  --hair: rgb(227 235 230 / 0.09);
-  --grid: rgb(227 235 230 / 0.055);
-  --shadow: 0 0 0 1px var(--hair);
-  --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
-  --pop-shadow: 0 0 0 1px var(--hair), 0 10px 28px rgb(0 0 0 / 0.5);
-  --ok: #56cf9a;
-  --ok-quiet: #2f6b54;
-  --warn: #f0a63c;
-  --bad: #f0564f;
-  --maint: #6aa3dc;
-  --ok-text: #56cf9a;
-  --warn-text: #f0a63c;
-  --bad-text: #f58079;
-  --ring-warn: rgb(240 166 60 / 0.2);
-  --ring-bad: rgb(240 86 79 / 0.22);
-  --ring-ok: rgb(86 207 154 / 0.18);
-  --tint-warn: rgb(240 166 60 / 0.07);
-  --tint-bad: rgb(240 86 79 / 0.08);
-  --chart-2: #6f7e76;
-  --area: rgb(86 207 154 / 0.09);
-  --knob: #e3ebe6;
+  --bg: oklch(15% 0.004 var(--h));
+  --side: oklch(13.5% 0.004 var(--h));
+  --surface: oklch(17.5% 0.005 var(--h));
+  --fill: oklch(21.5% 0.006 var(--h));
+  --fill-2: oklch(29% 0.008 var(--h));
+  --hover: oklch(20.5% 0.006 var(--h));
+  --sel: oklch(23.5% 0.008 var(--h));
+  --hair: oklch(27% 0.006 var(--h));
+  --grid: oklch(22% 0.005 var(--h));
+  --text: oklch(94% 0.003 var(--h));
+  --sec: oklch(76% 0.008 var(--h));
+  --muted: oklch(65% 0.008 var(--h));
+  --accent: oklch(74% 0.14 var(--h));
+  --on-accent: oklch(18% 0.02 var(--h));
+  --tint: oklch(74% 0.14 var(--h) / 0.16);
+  --ok: #30c074;
+  --warn: #f5a524;
+  --bad: #f0503f;
+  --maint: #4c8df6;
+  --ok-text: #4fd58d;
+  --warn-text: #f5b041;
+  --bad-text: #ff8a7c;
+  --ok-bg: rgb(48 192 116 / 0.13);
+  --warn-bg: rgb(245 165 36 / 0.18);
+  --bad-bg: rgb(240 80 63 / 0.14);
+  --maint-bg: rgb(76 141 246 / 0.16);
+  --bad-line: rgb(240 80 63 / 0.5);
+  --pop-shadow: 0 0 0 1px var(--hair), 0 12px 32px rgb(0 0 0 / 0.5);
+  --knob: oklch(94% 0.003 var(--h));
+}
+
+[data-accent='blue'] {
+  --h: 255;
+}
+[data-accent='violet'] {
+  --h: 295;
+}
+[data-accent='amber'] {
+  --h: 75;
+}
+[data-accent='rose'] {
+  --h: 15;
 }
 
 @theme inline {
-  /* Fixed, because the 14px root would otherwise make every spacing step 3.5px. */
+  /* Fixed, because the 13px root would otherwise make every spacing step 3.25px. */
   --spacing: 4px;
   --color-bg: var(--bg);
   --color-side: var(--side);
   --color-surface: var(--surface);
   --color-fill: var(--fill);
   --color-fill-2: var(--fill-2);
-  --color-seg: var(--seg);
   --color-sel: var(--sel);
   --color-hover: var(--hover);
   --color-text: var(--text);
@@ -93,24 +99,26 @@
   --color-muted: var(--muted);
   --color-hair: var(--hair);
   --color-grid: var(--grid);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-tint: var(--tint);
   --color-ok: var(--ok);
-  --color-ok-quiet: var(--ok-quiet);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
   --color-maint: var(--maint);
   --color-ok-text: var(--ok-text);
   --color-warn-text: var(--warn-text);
   --color-bad-text: var(--bad-text);
-  --color-chart: var(--chart);
-  --color-chart-2: var(--chart-2);
+  --color-ok-bg: var(--ok-bg);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad-bg: var(--bad-bg);
+  --color-maint-bg: var(--maint-bg);
+  --color-bad-line: var(--bad-line);
   --color-knob: var(--knob);
-  --shadow-card: var(--shadow);
-  --shadow-seg: var(--seg-shadow);
   --shadow-pop: var(--pop-shadow);
-  --default-transition-duration: 160ms;
+  --default-transition-duration: 120ms;
   --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-sans:
-    'Instrument Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, 'Cascadia Mono', monospace;
 }
 
@@ -119,15 +127,10 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
-  }
-  h1,
-  h2,
-  h3 {
-    text-wrap: balance;
   }
   :focus-visible {
     outline: 2px solid var(--focus);
@@ -143,62 +146,37 @@
   button:disabled {
     cursor: default;
   }
+  /* Native date fields follow the theme. */
+  input[type='date'] {
+    color-scheme: light;
+  }
+  .dark input[type='date'] {
+    color-scheme: dark;
+  }
 }
 
-/* The page statement: the narrow cut of the face, set large. */
-@utility display {
-  @apply text-[32px] leading-[1.08] font-semibold tracking-[-0.015em] md:text-[44px];
-  font-stretch: 82%;
-}
-
-/* Page and record titles. */
-@utility title {
-  @apply text-[26px] leading-[1.15] font-semibold tracking-[-0.01em];
-  font-stretch: 85%;
-}
-
-/* Figures that are read as measurements: narrow, so columns of them stay compact. */
-@utility figure {
-  font-stretch: 85%;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Admin shell: a sidebar against the left edge, content filling the rest. */
-@utility app-shell {
-  @apply flex min-h-screen flex-col md:flex-row;
-}
-
-@utility app-rail {
-  @apply box-border w-full border-hair bg-side px-2 py-4 md:sticky md:top-0 md:h-screen md:shrink-0 md:overflow-y-auto md:border-r;
-}
-
+/* Content column of the signed-in shell. */
 @utility app-main {
-  @apply min-w-0 flex-1 p-4 md:px-8 md:py-6;
+  @apply flex min-w-0 flex-1 flex-col gap-4 px-4 pt-5 pb-10 md:px-7;
 }
 
-/* Public pages: the full width of the window, with one gutter shared by every band. */
-@utility gutter {
-  @apply px-4 md:px-8;
-}
-
+/* A bordered surface: every panel, list and form uses it. */
 @utility card {
-  @apply rounded-[10px] bg-surface shadow-card;
+  @apply rounded-[8px] border border-hair bg-surface;
 }
 
-/*
- * One service per row, every row on the same time axis: name, trace, uptime.
- * On phones the trace drops below the name and takes the full width.
- */
-@utility lead-grid {
-  @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem] md:gap-x-6 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_4.5rem];
+/* Header row of a panel: title on the left, controls on the right. */
+@utility panel-head {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-hair px-3.5 py-2.5;
 }
 
-@utility lead-trace {
-  @apply min-w-0 max-md:order-last max-md:col-span-2;
+/* Group label inside a list. */
+@utility group-head {
+  @apply border-b border-hair bg-fill px-3.5 py-1.5 text-[12px] font-medium text-sec;
 }
 
 @utility field {
-  @apply block h-9 w-full rounded-[6px] border-0 bg-fill px-3 text-[14px] text-text shadow-[inset_0_0_0_1px_var(--hair)] disabled:text-sec;
+  @apply block h-8 w-full rounded-[6px] border border-hair bg-bg px-2.5 text-[13px] text-text disabled:bg-fill disabled:text-sec;
 }
 
 @utility label {
@@ -206,51 +184,40 @@
 }
 
 @utility btn {
-  @apply inline-flex h-8 items-center justify-center gap-2 rounded-[6px] px-3 text-[13px] font-medium transition-[color,background-color,opacity,transform] active:scale-[0.98] disabled:opacity-40;
+  @apply inline-flex h-[30px] items-center justify-center gap-[7px] rounded-[6px] border border-hair bg-surface px-[11px] text-[13px] font-medium whitespace-nowrap text-text no-underline transition-colors hover:bg-hover disabled:opacity-40;
 }
 
 @utility btn-primary {
-  @apply btn bg-text text-bg hover:opacity-90;
+  @apply btn border-transparent bg-accent text-on-accent hover:bg-accent hover:opacity-90;
 }
 
 @utility btn-secondary {
-  @apply btn bg-fill text-text hover:bg-fill-2;
+  @apply btn;
 }
 
 @utility btn-danger {
-  @apply btn text-bad-text hover:bg-fill;
+  @apply btn text-bad-text;
+}
+
+/* Square icon-only button. */
+@utility icon-btn {
+  @apply inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[6px] text-sec transition-colors hover:bg-hover hover:text-text;
 }
 
 @utility row-btn {
-  @apply flex w-full items-center gap-4 border-t border-hair px-4 py-2 text-left transition-colors hover:bg-hover;
+  @apply flex w-full items-center gap-4 border-t border-hair px-3.5 py-2 text-left transition-colors hover:bg-hover;
 }
 
-/* The one piece of motion on the page: the heart trace under the status draws itself once. */
-@keyframes trace-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+/* A floating menu or popover. */
+@utility popover {
+  @apply absolute z-40 rounded-[8px] bg-surface p-1 shadow-pop;
 }
 
-@keyframes trace-run {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
+@utility menu-item {
+  @apply flex w-full items-center gap-2.5 rounded-[5px] px-2 py-[7px] text-left text-text no-underline transition-colors hover:bg-fill;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .trace-beat {
-    stroke-dasharray: 1;
-    animation: trace-draw 700ms cubic-bezier(0.4, 0, 0.2, 1) 120ms both;
-  }
-  .trace-run {
-    transform-origin: left;
-    animation: trace-run 900ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
-  }
+/* Sidebar navigation row. */
+@utility nav-item {
+  @apply flex h-8 items-center gap-[9px] rounded-[6px] px-2 text-sec no-underline transition-colors hover:bg-fill hover:text-text aria-[current=page]:bg-fill aria-[current=page]:font-medium aria-[current=page]:text-text;
 }

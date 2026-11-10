@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Logo } from '../components/Icon.tsx';
+import { SiteLogo } from '../components/Shell.tsx';
 import { Notice } from '../components/ui.tsx';
 import { api, useMe } from '../lib/api.ts';
 import { authClient } from '../lib/auth.ts';
@@ -52,15 +52,17 @@ export function ConsentPage() {
     <div className="flex min-h-screen justify-center px-4 pb-20 pt-[12vh]">
       <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center text-center">
-          <Logo size={48} />
-          <h1 className="title m-0 mt-5 text-[24px]">{name ? `Allow ${name}?` : 'Loading…'}</h1>
+          <SiteLogo size={40} />
+          <h1 className="m-0 mt-4 text-[20px] font-semibold tracking-[-0.01em]">
+            {name ? `Allow ${name}?` : 'Loading…'}
+          </h1>
           <p className="m-0 mt-1 text-sec">
             {me.data
               ? `Signed in as ${me.data.name}. Access is limited by your role (${me.data.role}).`
               : 'Checking your session…'}
           </p>
         </div>
-        <div className="card mt-8 overflow-hidden">
+        <div className="card mt-6 overflow-hidden">
           <div className="px-4 pb-2 pt-4 text-[12px] font-medium text-sec">
             {name ?? 'The application'} will be able to
           </div>
@@ -76,17 +78,12 @@ export function ConsentPage() {
           </div>
         )}
         <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            className="btn-secondary h-10 flex-1"
-            disabled={busy}
-            onClick={() => void decide(false)}
-          >
+          <button type="button" className="btn h-9 flex-1" disabled={busy} onClick={() => void decide(false)}>
             Deny
           </button>
           <button
             type="button"
-            className="btn-primary h-10 flex-1"
+            className="btn-primary h-9 flex-1"
             disabled={busy}
             onClick={() => void decide(true)}
           >

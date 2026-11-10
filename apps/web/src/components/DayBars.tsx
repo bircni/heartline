@@ -1,28 +1,106 @@
 import type { DayBar, DayState, LatencyPoint } from '@heartline/shared';
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { DAY_COLOR, DAY_LABEL, type Tick, dateTime, ms, pct, shortDay, timeTicks } from '../lib/format.ts';
 
-/** How high each day rises, in px: quiet while healthy, tallest on an outage. */
-const DAY_HEIGHT: Record<DayState, number> = {
-  nodata: 2,
-  operational: 5,
-  maintenance: 10,
-  degraded: 18,
-  down: 28,
+/** Availability drawn as a stepped uptime line (graph) or as one coloured bar per period (timeline). */
+export type TraceView = 'graph' | 'timeline';
+
+const VIEW_KEY = 'availability-view';
+const viewListeners = new Set<() => void>();
+function readView(): TraceView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'timeline' ? 'timeline' : 'graph';
+  } catch {
+    return 'graph';
+  }
+}
+
+/** The viewer's preferred availability view, shared by every trace on the page; the graph is the default. */
+export function useTraceView(): [TraceView, (view: TraceView) => void] {
+  const view = useSyncExternalStore(
+    (cb) => {
+      viewListeners.add(cb);
+      return () => {
+        viewListeners.delete(cb);
+      };
+    },
+    readView,
+    () => 'graph' as TraceView,
+  );
+  const set = (next: TraceView) => {
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      /* private mode */
+    }
+    for (const l of viewListeners) l();
+  };
+  return [view, set];
+}
+
+/** Background of a troubled period in the graph, so an incident stands out behind the line. */
+const BAND: Partial<Record<DayState, string>> = {
+  down: 'var(--bad-bg)',
+  degraded: 'var(--warn-bg)',
+  maintenance: 'var(--maint-bg)',
+};
+/** Line colour of a period; healthy periods use the plain green line. */
+const STROKE: Partial<Record<DayState, string>> = {
+  down: 'var(--bad)',
+  degraded: 'var(--warn)',
+  maintenance: 'var(--maint)',
 };
 
 interface Mark {
   key: string;
   state: DayState;
+  /** Percentage of successful checks, null without data. */
+  uptime: number | null;
   tip: () => ReactNode;
 }
 
-/** Availability as a heart trace: one mark per period, rising only when something was wrong. */
-function StateBars({ marks, summary, ticks = [] }: { marks: Mark[]; summary: string; ticks?: Tick[] }) {
+/**
+ * Lowest uptime the graph shows, so small dips stay visible: 99% when every period is above it, then 95%,
+ * then the next 10% step below the worst value. Pass the same floor to traces that are compared row by row.
+ */
+export function traceFloor(values: (number | null)[]): number {
+  const min = Math.min(100, ...values.filter((v): v is number => v !== null));
+  if (min >= 99) return 99;
+  if (min >= 95) return 95;
+  return Math.max(0, Math.floor(min / 10) * 10);
+}
+
+/** SVG path of a stepped line over `marks`, one unit per mark; it breaks where a period has no data. */
+function steps(marks: Mark[], y: (u: number) => number, only?: (m: Mark) => boolean): string {
+  let d = '';
+  let drawing = false;
+  marks.forEach((m, i) => {
+    if (m.uptime === null || (only && !only(m))) {
+      drawing = false;
+      return;
+    }
+    const v = y(m.uptime).toFixed(2);
+    d += `${drawing ? 'L' : 'M'}${i} ${v}H${i + 1}`;
+    drawing = true;
+  });
+  return d;
+}
+
+function Trace({
+  marks,
+  summary,
+  view,
+  height,
+  floor = traceFloor(marks.map((m) => m.uptime)),
+}: {
+  marks: Mark[];
+  summary: string;
+  view: TraceView;
+  height: number;
+  floor?: number;
+}) {
   const [hover, setHover] = useState<number | null>(null);
-  const gap = marks.length > 120 ? 1 : marks.length > 45 ? 2 : marks.length > 14 ? 3 : 4;
-  // On phones 90 separated marks turn into stripes, so they join into one continuous line.
-  const dense = marks.length > 45;
+  const gap = view === 'graph' ? 0 : marks.length > 120 ? 1 : marks.length > 45 ? 2 : 3;
   const active = hover === null ? null : marks[hover];
   const wrap = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -39,42 +117,63 @@ function StateBars({ marks, summary, ticks = [] }: { marks: Mark[]; summary: str
   }, [hover, marks.length]);
   useEffect(() => {
     if (hover === null) return;
-    const hide = () => setHover(null); // a fixed tooltip would drift away from its bar
+    const hide = () => setHover(null); // a fixed tooltip would drift away from its mark
     window.addEventListener('scroll', hide, { capture: true, passive: true });
     return () => window.removeEventListener('scroll', hide, { capture: true });
   }, [hover]);
+
+  // Keeps the line off the very top and bottom so a 100% day is not hidden by the edge.
+  const pad = 8;
+  const y = (u: number) =>
+    pad + ((100 - Math.max(floor, Math.min(100, u))) / (100 - floor)) * (100 - 2 * pad);
+  const n = marks.length;
+
   return (
-    <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
-      {/* Chart-paper rules at the axis ticks; they run past the marks so stacked rows read as one sheet. */}
-      <div className="pointer-events-none absolute inset-x-0 -inset-y-1.5 md:-inset-y-2.5">
-        {ticks.map(
-          (t) =>
-            t.pos > 0 && (
-              <div
-                key={t.pos}
-                className="absolute inset-y-0 w-px bg-grid"
-                style={{ left: `${t.pos * 100}%` }}
-              />
-            ),
-        )}
-      </div>
-      <div
-        className={`relative flex h-7 gap-(--day-gap) ${dense ? 'max-sm:gap-0' : ''}`}
-        style={{ '--day-gap': `${gap}px` } as CSSProperties}
-        aria-hidden="true"
-      >
-        {marks.map((b, i) => (
-          <span
-            key={b.key}
-            onMouseEnter={() => setHover(i)}
-            className="flex min-w-0 flex-1 items-end transition-opacity"
-            style={{ opacity: hover !== null && hover !== i ? 0.55 : 1 }}
-          >
-            <span
-              className={`block w-full rounded-[1.5px] ${dense ? 'max-sm:rounded-none' : ''}`}
-              style={{ height: DAY_HEIGHT[b.state], background: DAY_COLOR[b.state] }}
+    <div ref={wrap} className="relative" style={{ height }} onMouseLeave={() => setHover(null)}>
+      {view === 'graph' && (
+        <svg
+          aria-hidden="true"
+          viewBox={`0 0 ${n} 100`}
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full"
+        >
+          {marks.map((m, i) => {
+            const band = BAND[m.state];
+            return band ? <rect key={m.key} x={i} y={0} width={1} height={100} fill={band} /> : null;
+          })}
+          <path
+            d={`${steps(marks, y)}`}
+            fill="none"
+            stroke="var(--ok)"
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+          {(['degraded', 'maintenance', 'down'] as const).map((s) => (
+            <path
+              key={s}
+              d={steps(marks, y, (m) => m.state === s)}
+              fill="none"
+              stroke={STROKE[s]}
+              strokeWidth={2}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
             />
-          </span>
+          ))}
+        </svg>
+      )}
+      <div className="absolute inset-0 flex" style={{ gap }} aria-hidden="true">
+        {marks.map((m, i) => (
+          <span
+            key={m.key}
+            onMouseEnter={() => setHover(i)}
+            className="min-w-0 flex-1 rounded-[2px] transition-opacity"
+            style={
+              view === 'graph'
+                ? { background: hover === i ? 'var(--fill-2)' : 'transparent', opacity: 0.5 }
+                : { background: DAY_COLOR[m.state], opacity: hover !== null && hover !== i ? 0.55 : 1 }
+            }
+          />
         ))}
       </div>
       {active && (
@@ -95,17 +194,28 @@ function StateBars({ marks, summary, ticks = [] }: { marks: Mark[]; summary: str
 function StateLine({ state, children }: { state: DayState; children?: ReactNode }) {
   return (
     <div className="mt-0.5 flex items-center gap-2 text-sec">
-      <span className="block h-2 w-0.5 rounded-[1px]" style={{ background: DAY_COLOR[state] }} />
+      <span className="block h-2 w-2 rounded-[2px]" style={{ background: DAY_COLOR[state] }} />
       {DAY_LABEL[state]}
       {children}
     </div>
   );
 }
 
-export function DayBars({ bars, ticks }: { bars: DayBar[]; ticks?: Tick[] }) {
+export function DayBars({
+  bars,
+  view = 'graph',
+  height = 28,
+  floor,
+}: {
+  bars: DayBar[];
+  view?: TraceView;
+  height?: number;
+  floor?: number;
+}) {
   const marks = bars.map((b): Mark => ({
     key: b.day,
     state: b.state,
+    uptime: b.uptime,
     tip: () => (
       <>
         <div className="font-medium">{shortDay(b.day)}</div>
@@ -121,9 +231,11 @@ export function DayBars({ bars, ticks }: { bars: DayBar[]; ticks?: Tick[] }) {
   }));
   const count = (s: DayState) => bars.filter((b) => b.state === s).length;
   return (
-    <StateBars
+    <Trace
       marks={marks}
-      ticks={ticks}
+      view={view}
+      height={height}
+      floor={floor}
       summary={`${count('down')} outage days, ${count('degraded')} degraded days in the last ${bars.length} days`}
     />
   );
@@ -140,22 +252,30 @@ export function bucketTicks(from: number, to: number, bucketMs: number): Tick[] 
   return timeTicks(first * bucketMs, (last + 1) * bucketMs, last - first + 1);
 }
 
-/** Dates above a trace. The labels sit on the same ticks the trace rules its paper with. */
-export function TraceAxis({ ticks, className = '' }: { ticks: Tick[]; className?: string }) {
+/** Dates under a trace; the right edge names the end of the range. */
+export function TraceAxis({
+  ticks,
+  end,
+  className = '',
+}: {
+  ticks: Tick[];
+  end: string;
+  className?: string;
+}) {
   return (
     <div className={`relative h-4 text-[12px] leading-4 text-muted ${className}`} aria-hidden="true">
       {ticks
-        .filter((t) => t.pos < 0.9)
+        .filter((t) => t.pos < 0.88)
         .map((t) => (
           <span
             key={t.pos}
-            className={`absolute top-0 whitespace-nowrap ${t.pos > 0 ? 'border-l border-grid pl-1.5' : ''} ${t.pos > 0.78 ? 'max-sm:hidden' : ''}`}
+            className={`absolute top-0 whitespace-nowrap ${t.pos > 0.7 ? 'max-sm:hidden' : ''}`}
             style={{ left: `${t.pos * 100}%` }}
           >
             {t.label}
           </span>
         ))}
-      <span className="absolute right-0 top-0">Today</span>
+      <span className="absolute top-0 right-0">{end}</span>
     </div>
   );
 }
@@ -169,11 +289,15 @@ export function BucketBars({
   from,
   to,
   bucketMs,
+  view = 'graph',
+  height = 28,
 }: {
   points: LatencyPoint[];
   from: number;
   to: number;
   bucketMs: number;
+  view?: TraceView;
+  height?: number;
 }) {
   const byBucket = new Map(points.map((p) => [Math.floor(p.at / bucketMs), p]));
   const marks: Mark[] = [];
@@ -185,6 +309,7 @@ export function BucketBars({
     marks.push({
       key: String(k),
       state,
+      uptime: p?.checks ? ((p.checks - (p.down ?? 0)) / p.checks) * 100 : null,
       tip: () => (
         <>
           <div className="font-medium">
@@ -208,9 +333,10 @@ export function BucketBars({
   const down = marks.filter((m) => m.state === 'down').length;
   const minutes = Math.round(bucketMs / 60_000);
   return (
-    <StateBars
+    <Trace
       marks={marks}
-      ticks={bucketTicks(from, to, bucketMs)}
+      view={view}
+      height={height}
       summary={`${down} of ${marks.length} ${minutes}-minute periods with an outage`}
     />
   );
@@ -219,18 +345,15 @@ export function BucketBars({
 export function DayLegend() {
   const items: [string, DayState][] = [
     ['Operational', 'operational'],
-    ['Maintenance', 'maintenance'],
     ['Degraded', 'degraded'],
     ['Outage', 'down'],
+    ['Maintenance', 'maintenance'],
   ];
   return (
-    <div className="flex flex-wrap items-end gap-x-4 gap-y-1 text-[12px] text-muted" aria-hidden="true">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted" aria-hidden="true">
       {items.map(([label, state]) => (
-        <span key={label} className="flex items-end gap-1.5">
-          <span
-            className="mb-0.5 block w-1 rounded-[1px]"
-            style={{ height: Math.max(4, DAY_HEIGHT[state] / 2), background: DAY_COLOR[state] }}
-          />
+        <span key={label} className="flex items-center gap-1.5">
+          <span className="block h-2 w-2 rounded-[2px]" style={{ background: DAY_COLOR[state] }} />
           {label}
         </span>
       ))}
