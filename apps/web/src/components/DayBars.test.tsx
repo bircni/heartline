@@ -58,7 +58,7 @@ describe('availability graph', () => {
     const { container } = render(<DayBars bars={bars} />);
     const svg = container.querySelector('svg') as SVGSVGElement;
     expect(svg).toBeTruthy();
-    expect(svg.querySelector('rect[fill="var(--bad-bg)"]')?.getAttribute('x')).toBe('1');
+    expect(svg.querySelector('rect[fill="var(--bad-band)"]')?.getAttribute('x')).toBe('1');
     const red = svg.querySelector('path[stroke="var(--bad)"]')?.getAttribute('d') ?? '';
     // Only the second day (x 1 to 2) is drawn in red.
     expect(red).toMatch(/^M1 [\d.]+H2$/);

@@ -97,6 +97,8 @@ const software = createRoute({
 const incidents = createRoute({
   getParentRoute: () => admin,
   path: 'incidents',
+  validateSearch: (search: Record<string, unknown>): { incident?: string } =>
+    typeof search.incident === 'string' && search.incident ? { incident: search.incident } : {},
   component: lazyRouteComponent(() => import('./pages/admin/IncidentsPage.tsx'), 'IncidentsPage'),
 });
 const maintenance = createRoute({

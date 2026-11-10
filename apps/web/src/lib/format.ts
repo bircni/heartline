@@ -125,9 +125,9 @@ export const STATUS_TONE: Record<ServiceStatus, Tone> = {
 
 /** Background of a troubled period, behind the availability graph and the response-time chart. */
 export const DAY_BG: Partial<Record<DayState, string>> = {
-  down: 'var(--bad-bg)',
-  degraded: 'var(--warn-bg)',
-  maintenance: 'var(--maint-bg)',
+  down: 'var(--bad-band)',
+  degraded: 'var(--warn-band)',
+  maintenance: 'var(--maint-band)',
 };
 
 export const IMPACT_LABEL: Record<Impact, string> = {
@@ -241,7 +241,7 @@ export function timeTicks(from: number, to: number, snap?: number): Tick[] {
     ticks.push({ pos: snap ? Math.round(pos * snap) / snap : pos, label: format.format(d) });
   }
   // Longer ranges rarely start on a tick, so the left edge says where the axis begins.
-  if (mode !== 'day' && (ticks[0]?.pos ?? 1) > 0.12)
+  if (mode !== 'day' && (ticks[0]?.pos ?? 1) > 0.18)
     ticks.unshift({
       pos: 0,
       label: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(from),
@@ -251,7 +251,7 @@ export function timeTicks(from: number, to: number, snap?: number): Tick[] {
 
 /** Leaves room at the right end of an axis for the end label ("Today" or the last day). */
 export function clearOfEndLabel(t: Tick): boolean {
-  return t.pos < 0.88;
+  return t.pos < 0.84;
 }
 
 /** Ticks for a run of consecutive `YYYY-MM-DD` days, one mark per day. */

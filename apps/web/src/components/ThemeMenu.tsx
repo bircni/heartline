@@ -43,8 +43,12 @@ export function ThemeMenu({ placement = 'below' }: { placement?: 'below' | 'abov
               onClick={() => setAccent(t)}
               className={`menu-item ${accent === t ? 'bg-fill font-medium' : ''}`}
             >
-              {/* The theme's own accent, scoped by data-accent, so the swatch always matches. */}
-              <span aria-hidden="true" data-accent={t} className="h-3.5 w-3.5 rounded-sm bg-accent" />
+              {/* data-accent sets the theme's hue (--h) on this span, so the colour is computed here. */}
+              <span
+                aria-hidden="true"
+                data-accent={t}
+                className="h-3.5 w-3.5 rounded-sm bg-[oklch(62%_0.15_var(--h))]"
+              />
               <span className="flex-1">{NAMES[t]}</span>
               {accent === t && <Icon name="check" size={14} />}
             </button>

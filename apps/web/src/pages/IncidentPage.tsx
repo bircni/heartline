@@ -2,7 +2,8 @@ import { Link, useParams } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
-import { useIncident, useIncidents } from '../lib/api.ts';
+import { useIncident, useIncidents, useMe } from '../lib/api.ts';
+import { can } from '../lib/roles.ts';
 import { IMPACT_LABEL, dateTime, duration, incidentAge, incidentTone } from '../lib/format.ts';
 
 /** Incidents the history page loads; the API serves at most 200 per request. */
@@ -11,6 +12,7 @@ const HISTORY_LIMIT = 200;
 export function IncidentPage() {
   const { id } = useParams({ from: '/public/incidents/$id' });
   const { data, error, isPending } = useIncident(id);
+  const me = useMe();
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
   const open = data.resolvedAt === null;
@@ -25,6 +27,13 @@ export function IncidentPage() {
       </Link>
       <PageHeader
         title={data.title}
+        actions={
+          can(me.data?.role, 'editor') && (
+            <Link to="/admin/incidents" search={{ incident: data.id }} className="btn">
+              <Icon name="edit" size={14} /> Manage incident
+            </Link>
+          )
+        }
         subtitle={
           <span className="font-medium" style={{ color: incidentTone(data).text }}>
             {IMPACT_LABEL[data.impact]}, {open ? incidentAge(data) : 'resolved'}

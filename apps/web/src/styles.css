@@ -34,6 +34,10 @@
   --bad-bg: rgb(217 58 43 / 0.08);
   --maint-bg: rgb(47 111 219 / 0.1);
   --bad-line: rgb(217 58 43 / 0.45);
+  /* Stronger tints for the bands behind charts, where a period is only a few pixels wide. */
+  --bad-band: rgb(217 58 43 / 0.22);
+  --warn-band: rgb(224 144 10 / 0.24);
+  --maint-band: rgb(47 111 219 / 0.18);
   --pop-shadow: 0 0 0 1px var(--hair), 0 12px 32px rgb(0 0 0 / 0.12);
   --knob: #ffffff;
   --focus: var(--accent);
@@ -67,6 +71,9 @@
   --bad-bg: rgb(240 80 63 / 0.14);
   --maint-bg: rgb(76 141 246 / 0.16);
   --bad-line: rgb(240 80 63 / 0.5);
+  --bad-band: rgb(240 80 63 / 0.32);
+  --warn-band: rgb(245 165 36 / 0.3);
+  --maint-band: rgb(76 141 246 / 0.28);
   --pop-shadow: 0 0 0 1px var(--hair), 0 12px 32px rgb(0 0 0 / 0.5);
   --knob: oklch(94% 0.003 var(--h));
 }

@@ -61,8 +61,18 @@ export function traceFloor(values: (number | null)[]): number {
   return Math.max(0, Math.floor(min / 10) * 10);
 }
 
+/**
+ * Smallest dip of a troubled period, as a share of the graph height. A 99.9% day would otherwise sit on the
+ * 100% line and the incident would only show as a colour change.
+ */
+const MIN_DIP: Partial<Record<DayState, number>> = { down: 0.65, degraded: 0.35, maintenance: 0.25 };
+
 /** SVG path of a stepped line over `marks`, one unit per mark; it breaks where a period has no data. */
-function steps(marks: Mark[], y: (u: number) => number, only?: (m: Mark) => boolean): string {
+function steps(
+  marks: Mark[],
+  y: (m: Mark & { uptime: number }) => number,
+  only?: (m: Mark) => boolean,
+): string {
   let d = '';
   let drawing = false;
   marks.forEach((m, i) => {
@@ -70,7 +80,7 @@ function steps(marks: Mark[], y: (u: number) => number, only?: (m: Mark) => bool
       drawing = false;
       return;
     }
-    const v = y(m.uptime).toFixed(2);
+    const v = y(m as Mark & { uptime: number }).toFixed(2);
     d += `${drawing ? 'L' : 'M'}${i} ${v}H${i + 1}`;
     drawing = true;
   });
@@ -81,8 +91,10 @@ function steps(marks: Mark[], y: (u: number) => number, only?: (m: Mark) => bool
 function TraceGraph({ marks, floor }: { marks: Mark[]; floor: number }) {
   // Keeps the line off the very top and bottom so a 100% day is not hidden by the edge.
   const pad = 8;
-  const y = (u: number) =>
-    pad + ((100 - Math.max(floor, Math.min(100, u))) / (100 - floor)) * (100 - 2 * pad);
+  const y = (m: Mark & { uptime: number }) => {
+    const depth = (100 - Math.max(floor, Math.min(100, m.uptime))) / (100 - floor);
+    return pad + Math.max(depth, MIN_DIP[m.state] ?? 0) * (100 - 2 * pad);
+  };
   return (
     <svg
       aria-hidden="true"

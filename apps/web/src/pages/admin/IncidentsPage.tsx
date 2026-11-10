@@ -1,5 +1,6 @@
 import type { Impact, Incident, IncidentStatus } from '@heartline/shared';
 import { IMPACTS, INCIDENT_STATUSES } from '@heartline/shared';
+import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
@@ -305,7 +306,9 @@ function Detail({
 export function IncidentsPage() {
   const incidents = useIncidents(false);
   const me = useMe();
-  const [picked, setSelected] = useState<string | null>(null);
+  // A link from the public incident page opens that incident directly.
+  const { incident: linked } = useSearch({ strict: false }) as { incident?: string };
+  const [picked, setSelected] = useState<string | null>(linked ?? null);
   const canWrite = can(me.data?.role, 'editor');
   if (incidents.isPending) return <Spinner />;
   if (incidents.error) return <ErrorNote error={incidents.error} />;
