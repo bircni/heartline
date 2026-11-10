@@ -9,7 +9,7 @@ import { Switch } from '../../components/Switch.tsx';
 import { ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useAdminMonitors, useCatalog, useMe, useNotifiers, usePlugins } from '../../lib/api.ts';
 import { ms, relative } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 type Draft = { group: string; spec: Record<string, unknown> };
 

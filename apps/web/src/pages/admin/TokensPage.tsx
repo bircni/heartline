@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useMe, useTokens } from '../../lib/api.ts';
 import { dateTime, relative } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 const SCOPES: { value: Scope; min: 'viewer' | 'editor' | 'admin' }[] = [
   { value: 'read', min: 'viewer' },

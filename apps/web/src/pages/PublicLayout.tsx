@@ -1,60 +1,14 @@
 import type { Me } from '@heartline/shared';
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
-import { NavGroup, NavItem, Shell, SiteBrand } from '../components/Shell.tsx';
-import { StatusDot } from '../components/Status.tsx';
+import { Shell, SiteBrand } from '../components/Shell.tsx';
 import { ThemeMenu } from '../components/ThemeMenu.tsx';
-import { rangeQuery, useMe, useNavOverview, useOverview } from '../lib/api.ts';
+import { rangeQuery, useMe } from '../lib/api.ts';
 import { useRange } from './RangeControl.tsx';
-
-/** Sidebar navigation of the status page: overview, incident history and every service. */
-function StatusNav() {
-  const range = useRange();
-  const path = useRouterState({ select: (s) => s.location.pathname });
-  // On the overview the page's own query serves the sidebar too.
-  const page = useOverview(range, path === '/');
-  const nav = useNavOverview(path !== '/');
-  const overview = path === '/' ? page : nav;
-  const open = overview.data?.activeIncidents.length ?? 0;
-  return (
-    <>
-      <NavGroup>
-        <NavItem to="/" search={range} icon="grid" label="Overview" current={path === '/'} />
-        <NavItem
-          to="/incidents"
-          icon="alert"
-          label="Incidents"
-          current={path.startsWith('/incidents')}
-          count={open ? `${open} open` : undefined}
-          urgent
-        />
-      </NavGroup>
-      {overview.data?.groups.map((g) => (
-        <NavGroup key={g.name} label={g.name}>
-          {g.services.map((s) => (
-            <NavItem
-              key={s.id}
-              to="/services/$id"
-              params={{ id: s.id }}
-              search={range}
-              leading={
-                <span className="flex w-[15px] justify-center">
-                  <StatusDot status={s.status} />
-                </span>
-              }
-              label={s.name}
-              current={path === `/services/${s.id}`}
-            />
-          ))}
-        </NavGroup>
-      ))}
-    </>
-  );
-}
 
 function SignedIn({ me }: { me: Me }) {
   return (
-    <Shell view="status" me={me} nav={<StatusNav />}>
+    <Shell me={me}>
       <Outlet />
     </Shell>
   );

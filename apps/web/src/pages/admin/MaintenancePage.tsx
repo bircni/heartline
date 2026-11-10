@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useMaintenance, useMe } from '../../lib/api.ts';
 import { dateTime } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 import { ServicePicker } from './IncidentsPage.tsx';
 
 const PRESETS: { label: string; value: string }[] = [

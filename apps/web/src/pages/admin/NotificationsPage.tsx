@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useMe, useNotifiers } from '../../lib/api.ts';
 import { relative } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 const TYPE_LABEL = { teams: 'Microsoft Teams', email: 'E-mail', webhook: 'Webhook' } as const;
 

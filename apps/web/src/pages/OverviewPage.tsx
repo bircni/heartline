@@ -158,6 +158,12 @@ export function OverviewPage() {
                               {STATUS_LABEL[s.status]}
                             </span>
                           )}
+                          {/* Running version: shown to visitors when site.showVersions is on, always when signed in. */}
+                          {s.software?.version && (
+                            <span className="shrink-0 font-mono text-[12px] text-muted max-sm:hidden">
+                              v{s.software.version}
+                            </span>
+                          )}
                           {s.software?.urgency &&
                             s.software.urgency !== 'none' &&
                             s.software.urgency !== 'unknown' && (

@@ -9,7 +9,7 @@ import { UrgencyBadge, VulnCounts, VulnTable } from '../../components/Urgency.ts
 import { Empty, ErrorNote, Notice, PageHeader, Section, Spinner, Stats } from '../../components/ui.tsx';
 import { api, useMe, useServiceSoftware, useSoftwareInventory } from '../../lib/api.ts';
 import { URGENCY_LABEL, relative, shortDate } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 type Row = SoftwareInventory['services'][number];
 type Filter = 'all' | 'attention' | UrgencyLevel;

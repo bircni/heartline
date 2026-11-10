@@ -8,7 +8,7 @@ import { Switch } from '../../components/Switch.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useAdminMonitors, useIncidents, useMe } from '../../lib/api.ts';
 import { IMPACT_LABEL, dateTime, duration } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 

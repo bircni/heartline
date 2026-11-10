@@ -8,7 +8,7 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   return (
     <div className="min-w-0">
       <div className="text-[12px] text-muted">{label}</div>
-      <div className="truncate font-mono text-[16px] font-medium">{value}</div>
+      <div className="truncate text-[16px] font-semibold">{value}</div>
       {hint && <div className="text-[12px] text-muted">{hint}</div>}
     </div>
   );
@@ -33,22 +33,21 @@ export function SoftwarePanel({
   const behind = s.version && s.latest && s.version !== s.latest;
   return (
     <Section
-      className="mt-3"
       title={
-        <span className="flex items-center gap-2">
+        <span className="flex items-baseline gap-2">
           Software
-          <span className="font-normal text-muted">· {s.productName}</span>
+          <span className="font-normal text-muted">{s.productName}</span>
         </span>
       }
       actions={
         s.urgency ? (
           <UrgencyBadge level={s.urgency} score={s.score} />
         ) : (
-          <span className="text-[12px] text-muted">update status is only shown to signed-in users</span>
+          <span className="text-[12px] text-muted">Sign in to see whether an update is due</span>
         )
       }
     >
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4 px-4 pb-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4 px-3.5 py-3">
         <Stat
           label="Running"
           value={s.version ?? <span className="text-sec">unknown</span>}
@@ -99,20 +98,20 @@ export function SoftwarePanel({
         {s.vulns && <Stat label="Known vulnerabilities" value={<VulnCounts vulns={s.vulns} />} />}
       </div>
       {detail && detail.reasons.length > 0 && (
-        <ul className="m-0 list-disc border-t border-hair px-4 py-3 pl-9 text-[13px]">
+        <ul className="m-0 list-disc border-t border-hair px-3.5 py-3 pl-8 text-[13px]">
           {detail.reasons.map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>
       )}
       {detail?.intelError && (
-        <p className="m-0 border-t border-hair px-4 py-2 text-[12px] text-warn-text">
+        <p className="m-0 border-t border-hair px-3.5 py-2 text-[12px] text-warn-text">
           Some data sources were unavailable: {detail.intelError}
         </p>
       )}
       {detail && <VulnTable vulns={detail.vulnerabilities} />}
       {detail && (
-        <div className="flex flex-wrap items-center gap-4 border-t border-hair px-4 py-2 text-[12px] text-muted">
+        <div className="flex flex-wrap items-center gap-4 border-t border-hair px-3.5 py-2 text-[12px] text-muted">
           <span>
             {detail.intelRefreshedAt
               ? `data refreshed ${relative(detail.intelRefreshedAt)}`
