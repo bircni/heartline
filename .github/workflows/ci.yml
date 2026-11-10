@@ -131,7 +131,7 @@ jobs:
           docker logs hl | tail -20
           docker rm -f hl
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: heartline:ci
           format: sarif
