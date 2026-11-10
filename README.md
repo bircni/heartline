@@ -313,6 +313,30 @@ TanStack Router/Query, Tailwind 4, visx), `packages/shared` (types and zod schem
 `deploy/` (Kustomize, the container's default config).
 The server runs its TypeScript directly on Node 26 (type stripping) without a build step.
 
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/); the changelog is
+generated from them. `git config core.hooksPath .githooks` turns on a hook that checks each message.
+
+## Releasing
+
+Releases are cut locally from `main` and published by CI. You need [git-cliff](https://git-cliff.org/)
+and the GitHub CLI.
+
+```sh
+pnpm release                  # patch: 0.1.0 → 0.1.1
+pnpm release minor            # 0.1.0 → 0.2.0
+pnpm release 1.0.0-beta.1     # an exact version; a "-" makes it a prerelease
+pnpm release minor --dry-run  # shows every step and what would stop it, changes nothing
+```
+
+It stops unless you are on a clean `main` in sync with `origin`, the tag is free and CI passed on that
+commit. Then it sets the version in every `package.json`, writes `CHANGELOG.md`, commits
+`chore(release): vX.Y.Z`, tags `vX.Y.Z` and pushes `main` and the tag together.
+
+The tag runs CI: a job checks that it matches the version in `package.json`, the multi-arch image is
+pushed to `ghcr.io/bircni/heartline` as `X.Y.Z`, `X.Y` and `latest`, and a GitHub release is created
+with that version's changelog section. Prereleases never become `latest`. A failed run can simply be
+re-run; the release job updates the release it already created.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
