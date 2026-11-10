@@ -161,6 +161,10 @@ export interface LatencyPoint {
   avgLatencyMs: number | null;
   /** p95 for daily points, the slowest check for finer buckets. */
   highLatencyMs: number | null;
+  /** Availability of the bucket; null for daily points, which the day bars already cover. */
+  state: DayState | null;
+  checks: number | null;
+  down: number | null;
 }
 
 export interface ServiceDetail extends ServiceSummary {

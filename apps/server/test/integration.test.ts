@@ -10,7 +10,12 @@ afterEach(async () => {
   await h.close();
 });
 
-const record = (id: string, status: 'up' | 'degraded' | 'down', at = Date.now(), latency = 100) =>
+const record = (
+  id: string,
+  status: 'up' | 'degraded' | 'down',
+  at = Date.now(),
+  latency: number | null = 100,
+) =>
   h.runtime.engine.record(
     h.runtime.monitors.require(id),
     { status, latencyMs: latency, message: status === 'up' ? 'ok' : 'HTTP 502' },
@@ -83,13 +88,16 @@ describe('status engine', () => {
 
   it('serves fine-grained latency for short ranges and daily points beyond raw retention', async () => {
     const t = Date.now();
+    await record('web', 'down', t - 3 * 3_600_000, null);
     await record('web', 'up', t - 3_600_000, 100);
     await record('web', 'up', t - 3_600_000 + 1000, 300);
     await record('web', 'up', t, 50);
     const week = (await (await h.request('/api/v1/services/web?days=7')).json()) as ServiceDetail;
     expect(week.seriesBucketMs).toBe(42 * 60_000);
-    expect(week.series.map((p) => p.avgLatencyMs)).toEqual([200, 50]);
-    expect(week.series[0]?.highLatencyMs).toBe(300);
+    expect(week.series.map((p) => p.avgLatencyMs)).toEqual([null, 200, 50]);
+    expect(week.series.map((p) => p.state)).toEqual(['down', 'operational', 'operational']);
+    expect(week.series[0]).toMatchObject({ checks: 1, down: 1 });
+    expect(week.series[1]?.highLatencyMs).toBe(300);
     const quarter = (await (await h.request('/api/v1/services/web?days=90')).json()) as ServiceDetail;
     expect(quarter.seriesBucketMs).toBe(86_400_000);
     expect(quarter.series).toHaveLength(90);

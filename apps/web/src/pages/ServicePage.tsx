@@ -1,5 +1,5 @@
 import { Link, useParams } from '@tanstack/react-router';
-import { DayBars, DayLegend } from '../components/DayBars.tsx';
+import { BucketBars, DayBars, DayLegend } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { LatencyChart } from '../components/LatencyChart.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
@@ -118,7 +118,16 @@ export function ServicePage() {
 
       <Section className="mt-3" title="Availability" actions={<DayLegend />}>
         <div className="px-4 pb-4">
-          <DayBars bars={data.bars} />
+          {daily ? (
+            <DayBars bars={data.bars} />
+          ) : (
+            <BucketBars
+              points={data.series}
+              from={now - days * 86_400_000}
+              to={now}
+              bucketMs={data.seriesBucketMs}
+            />
+          )}
           <div className="mt-2 flex justify-between text-[12px] text-muted" aria-hidden="true">
             <span>{data.bars[0] && shortDay(data.bars[0].day)}</span>
             <span className="font-mono">{pct(data.uptime)} uptime</span>

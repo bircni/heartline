@@ -148,7 +148,14 @@ const schemas: Record<string, Schema> = {
     latencyMs: nullable(num()),
     message: nullable(str()),
   }),
-  LatencyPoint: obj({ at: ts(), avgLatencyMs: nullable(num()), highLatencyMs: nullable(num()) }),
+  LatencyPoint: obj({
+    at: ts(),
+    avgLatencyMs: nullable(num()),
+    highLatencyMs: nullable(num()),
+    state: nullable(en(DAY_STATE)),
+    checks: nullable(int()),
+    down: nullable(int()),
+  }),
   ServiceDetail: {
     allOf: [
       ref('ServiceSummary'),
