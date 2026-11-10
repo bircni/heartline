@@ -22,7 +22,9 @@ import type { LoadedMonitor, MonitorService } from './monitors.ts';
 
 type Rollup = Omit<DailyRollupTable, 'monitor_id'>;
 
-export function dayState(r: Rollup | undefined): DayState {
+export function dayState(
+  r: Pick<Rollup, 'checks' | 'maintenance' | 'down' | 'degraded'> | undefined,
+): DayState {
   if (!r || r.checks === 0) return 'nodata';
   const counted = r.checks - r.maintenance;
   if (counted <= 0) return 'maintenance';
@@ -267,31 +269,61 @@ export class QueryService {
           at: Date.parse(`${b.day}T12:00:00Z`),
           avgLatencyMs: b.avgLatencyMs,
           highLatencyMs: b.p95LatencyMs,
+          state: null,
+          checks: null,
+          down: null,
         })),
         bucketMs: 86_400_000,
       };
     }
     const span = daysCount * 86_400_000;
     const bucketMs = Math.max(60_000, Math.ceil(span / 240 / 60_000) * 60_000);
-    const rows = await this.#d.db.kysely
-      .selectFrom('check_results')
-      .select([
-        sql<number>`checked_at / ${sql.lit(bucketMs)}`.as('bucket'),
-        sql<number>`avg(latency_ms)`.as('avg'),
-        sql<number>`max(latency_ms)`.as('high'),
-      ])
-      .where('monitor_id', '=', id)
-      .where('checked_at', '>=', now - span)
-      .where('latency_ms', 'is not', null)
-      .groupBy(sql`checked_at / ${sql.lit(bucketMs)}`)
-      .orderBy('bucket')
-      .execute();
+    const db = this.#d.db.kysely;
+    const [rows, failed] = await Promise.all([
+      db
+        .selectFrom('check_results')
+        .select([
+          sql<number>`checked_at / ${sql.lit(bucketMs)}`.as('bucket'),
+          sql<number | null>`avg(latency_ms)`.as('avg'),
+          sql<number | null>`max(latency_ms)`.as('high'),
+          sql<number>`count(*)`.as('checks'),
+        ])
+        .where('monitor_id', '=', id)
+        .where('checked_at', '>=', now - span)
+        .groupBy(sql`checked_at / ${sql.lit(bucketMs)}`)
+        .orderBy('bucket')
+        .execute(),
+      // Few rows: maintenance is not stored per check, so failures are replayed against the windows.
+      db
+        .selectFrom('check_results')
+        .select(['checked_at', 'status'])
+        .where('monitor_id', '=', id)
+        .where('checked_at', '>=', now - span)
+        .where('status', '!=', 'up')
+        .execute(),
+    ]);
+    const counts = new Map<number, { down: number; degraded: number; maintenance: number }>();
+    for (const f of failed) {
+      const key = Math.floor(f.checked_at / bucketMs);
+      const c = counts.get(key) ?? { down: 0, degraded: 0, maintenance: 0 };
+      if (this.#d.maintenance.isActive(id, f.checked_at)) c.maintenance++;
+      else if (f.status === 'down') c.down++;
+      else c.degraded++;
+      counts.set(key, c);
+    }
     return {
-      points: rows.map((r) => ({
-        at: Number(r.bucket) * bucketMs + bucketMs / 2,
-        avgLatencyMs: Math.round(Number(r.avg)),
-        highLatencyMs: Number(r.high),
-      })),
+      points: rows.map((r) => {
+        const c = counts.get(Number(r.bucket)) ?? { down: 0, degraded: 0, maintenance: 0 };
+        const checks = Number(r.checks);
+        return {
+          at: Number(r.bucket) * bucketMs + bucketMs / 2,
+          avgLatencyMs: r.avg === null ? null : Math.round(Number(r.avg)),
+          highLatencyMs: r.high === null ? null : Number(r.high),
+          state: dayState({ checks, ...c }),
+          checks,
+          down: c.down,
+        };
+      }),
       bucketMs,
     };
   }
