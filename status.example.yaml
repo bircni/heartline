@@ -8,6 +8,7 @@ site:
   # baseUrl: https://status.example.com   # defaults to BASE_URL
   public: true
   showVersions: false # show running versions to anonymous visitors (vulnerabilities never are)
+  theme: green # default colour of the UI: green, blue, violet, amber or rose; visitors can pick their own
 
 retention:
   rawDays: 30 # raw check results; daily rollups are kept forever

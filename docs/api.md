@@ -1,0 +1,32 @@
+# HTTP API
+
+The full description is served by the instance: `GET /api/v1/openapi.json` (OpenAPI 3.1) and
+`/api/docs`. Timestamps are Unix milliseconds. Admin routes take the browser session or
+`Authorization: Bearer hl_…` with an API token whose scopes are `read` ⊂ `write` ⊂ `admin`.
+
+Public (or for any signed-in user when `site.public: false`):
+
+- `GET /api/v1/site`, `GET /api/v1/me`, `GET /api/v1/version`
+- `GET /api/v1/overview?days=90`, `GET /api/v1/services/:id?days=30`; add `&to=YYYY-MM-DD` to end the
+  range on an earlier day (site time zone)
+- `GET /api/v1/incidents?active=true&limit=50`, `GET /api/v1/incidents/:id`, `GET /api/v1/maintenance`, `GET /api/v1/maintenance/:id`
+- `GET /api/v1/report.csv?days=90`, `GET /api/v1/services/:id/report.csv` (both also take `to`)
+- `GET /api/v1/badge/:id.svg` (`?kind=version` for a version badge), `GET /api/v1/incidents.rss`
+
+Software inventory (`read` scope; anonymous visitors only with `site.showVersions`, and never the
+vulnerabilities): `GET /api/v1/software`, `GET /api/v1/services/:id/software`,
+`GET /api/v1/software/report.csv`.
+
+Admin (`/api/v1/admin/…`):
+
+| Route                                                                                                                              | Scope |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `GET monitors`, `GET monitors/:id`, `GET plugins`, `GET notifiers`, `GET software/catalog`, `GET tokens`                           | read  |
+| `POST monitors/:id/run`, `POST monitors/:id/pause`, `POST monitors/:id/software/refresh`, `POST software/refresh`                  | write |
+| `POST incidents`, `PATCH incidents/:id`, `POST incidents/:id/updates`                                                              | write |
+| `POST maintenance`, `PUT maintenance/:id`, `DELETE maintenance/:id`                                                                | write |
+| `POST tokens`, `DELETE tokens/:id` (own; `GET tokens?all=true` needs admin)                                                        | read  |
+| `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |
+| `GET users`, `POST users`, `PATCH users/:id`, `DELETE users/:id`                                                                   | admin |
+
+Health: `/healthz`, `/readyz`.
