@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useMe, useTokens } from '../../lib/api.ts';
 import { dateTime, relative } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 const SCOPES: { value: Scope; min: 'viewer' | 'editor' | 'admin' }[] = [
   { value: 'read', min: 'viewer' },
@@ -18,7 +18,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className="btn-secondary h-7 shrink-0 px-3 text-[12px]"
+      className="btn-sm shrink-0"
       onClick={() => {
         void navigator.clipboard.writeText(text).then(() => {
           setDone(true);
@@ -75,7 +75,7 @@ export function TokensPage() {
           )
         }
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-[999_1_420px]">
           <Section>
             {tokens.isPending && <Spinner />}
@@ -100,7 +100,7 @@ export function TokensPage() {
                 </span>
                 <button
                   type="button"
-                  className="btn-danger h-7 px-3 text-[12px]"
+                  className="btn-sm text-bad-text"
                   onClick={() => {
                     if (
                       window.confirm(`Revoke token “${t.name}”? Clients using it stop working immediately.`)
@@ -118,7 +118,7 @@ export function TokensPage() {
             <p className="m-0 mt-1 text-sec">
               Clients sign in through this page with OAuth (Gitea or a local account). No token needed.
             </p>
-            <div className="mt-3 flex items-center gap-2 rounded-[8px] bg-fill px-3 py-2">
+            <div className="mt-3 flex items-center gap-2 rounded-md bg-fill px-3 py-2">
               <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px]">
                 {command}
               </code>
@@ -161,7 +161,7 @@ export function TokensPage() {
                       onClick={() =>
                         setScopes(on ? scopes.filter((x) => x !== s.value) : [...scopes, s.value])
                       }
-                      className={`h-8 flex-1 rounded-[8px] text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+                      className={`h-8 flex-1 rounded-md text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
                     >
                       {s.value}
                     </button>
@@ -196,7 +196,7 @@ export function TokensPage() {
             </button>
           </form>
           {created && (
-            <div className="mt-3 rounded-[8px] bg-fill p-3" role="status">
+            <div className="mt-3 rounded-md bg-fill p-3" role="status">
               <div className="text-[12px] font-medium text-warn-text">
                 Copy it now. It won’t be shown again.
               </div>

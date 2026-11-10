@@ -1,3 +1,4 @@
+import { MAX_RANGE_DAYS } from '@heartline/shared';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { ZodError, z } from 'zod';
@@ -32,5 +33,5 @@ export async function body<T extends z.ZodType>(c: Context, schema: T): Promise<
 export function daysParam(value: string | undefined, fallback: number): number {
   const n = value ? Number.parseInt(value, 10) : fallback;
   if (!Number.isFinite(n) || n < 1) return fallback;
-  return Math.min(n, 365);
+  return Math.min(n, MAX_RANGE_DAYS);
 }

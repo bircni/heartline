@@ -23,7 +23,7 @@ sign-in, API tokens and a built-in MCP server.
   account. API tokens work for headless clients.
 - **Storage**: SQLite (Node's built-in `node:sqlite`) or Postgres. With Postgres, run several replicas;
   one elected leader runs the checks.
-- **Runs on** Node 26, ships as a container, a Helm chart and Kustomize manifests.
+- **Runs on** Node 26, ships as a container and Kustomize manifests.
 
 ## Quick start (container)
 
@@ -43,30 +43,10 @@ itself. Open http://localhost:3000, then sign in at `/login` with the user from 
 
 ## Kubernetes
 
-**Helm** (chart published to GHCR on releases):
-
-```sh
-helm install status oci://ghcr.io/bircni/charts/heartline \
-  --set baseUrl=https://status.example.com \
-  --set secret.values.ADMIN_PASSWORD=choose-a-long-password \
-  --set-file config=status.yaml \
-  --set ingress.enabled=true --set ingress.hosts[0].host=status.example.com --set ingress.hosts[0].paths[0].path=/ --set ingress.hosts[0].paths[0].pathType=Prefix
-```
-
-Key values (see [`values.yaml`](deploy/helm/heartline/values.yaml)):
-
-| Value                                         | Meaning                                                                  |
-| --------------------------------------------- | ------------------------------------------------------------------------ |
-| `config` / `existingConfigMap`                | `status.yaml`; changes reload without a restart                          |
-| `secret.values` / `existingSecret`            | `AUTH_SECRET` (generated if empty) and every `${VAR}` used in the config |
-| `database.url` / `database.urlSecret`         | Postgres; empty means SQLite on a PVC                                    |
-| `replicaCount`                                | >1 requires Postgres (the chart refuses otherwise)                       |
-| `plugins.files` / `plugins.existingConfigMap` | your check plugins                                                       |
-| `icmp.enabled`                                | allows ping checks as non-root (`net.ipv4.ping_group_range`)             |
-
-**Kustomize**: `kubectl apply -k deploy/kustomize/overlays/sqlite` (one replica, PVC) or
-`overlays/postgres` (two replicas, `DATABASE_URL` from the secret). Create the `heartline` Secret
-first, see [`secret.example.yaml`](deploy/kustomize/base/secret.example.yaml).
+`kubectl apply -k deploy/kustomize/overlays/sqlite` (one replica, PVC) or `overlays/postgres` (two
+replicas, `DATABASE_URL` from the secret). Create the `heartline` Secret first, see
+[`secret.example.yaml`](deploy/kustomize/base/secret.example.yaml). Run more than one replica only with
+Postgres. Ping checks as non-root need the pod sysctl `net.ipv4.ping_group_range: "0 2147483647"`.
 
 The container runs as UID 1000 with a read-only root filesystem.
 
@@ -330,7 +310,7 @@ The dev admin is `admin@status.local` / `change-me-please`.
 Layout: `apps/server` (Hono, better-auth, Kysely, MCP; `src/software` holds the version probes, the
 product catalog, the OSV/NVD/endoflife/KEV clients and the urgency scoring), `apps/web` (React 19,
 TanStack Router/Query, Tailwind 4, visx), `packages/shared` (types and zod schemas), `plugins/`,
-`deploy/` (Helm, Kustomize, the container's default config).
+`deploy/` (Kustomize, the container's default config).
 The server runs its TypeScript directly on Node 26 (type stripping) without a build step.
 
 ## License

@@ -10,7 +10,8 @@ import { render, teamsPayload } from '../src/notify/index.ts';
 import { occurrence } from '../src/services/maintenance.ts';
 import { dayState, uptimeOf } from '../src/services/queries.ts';
 import { nextState, p95 } from '../src/status/engine.ts';
-import { dayKey, dayRange, lastDays } from '../src/util/time.ts';
+import { dayKey } from '@heartline/shared';
+import { dayRange, lastDays } from '../src/util/time.ts';
 
 const rollup = (
   o: Partial<{ checks: number; up: number; degraded: number; down: number; maintenance: number }>,

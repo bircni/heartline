@@ -1,5 +1,6 @@
 import type { Impact, Incident, IncidentStatus } from '@heartline/shared';
 import { IMPACTS, INCIDENT_STATUSES } from '@heartline/shared';
+import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
@@ -7,15 +8,10 @@ import { Segmented } from '../../components/Segmented.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useAdminMonitors, useIncidents, useMe } from '../../lib/api.ts';
-import { dateTime, duration } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { IMPACT_LABEL, dateTime, duration } from '../../lib/format.ts';
+import { can } from '../../lib/roles.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const IMPACT_LABEL: Record<Impact, string> = {
-  degraded: 'Degraded',
-  partial: 'Partial outage',
-  major: 'Major outage',
-};
 
 function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const monitors = useAdminMonitors();
@@ -29,7 +25,7 @@ function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: str
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== m.id) : [...value, m.id])}
-            className={`h-7 rounded-[8px] px-3 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+            className={`h-7 rounded-md px-3 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
           >
             {m.name}
           </button>
@@ -187,7 +183,7 @@ function Detail({
         {canWrite && !editing && (
           <button
             type="button"
-            className="btn-secondary h-7 shrink-0 px-3 text-[12px]"
+            className="btn h-7 shrink-0 px-3 text-[12px]"
             onClick={() => setEditing(true)}
           >
             <Icon name="edit" size={16} /> Edit
@@ -196,7 +192,7 @@ function Detail({
       </div>
       {editing && (
         <form
-          className="mt-3 rounded-[12px] bg-fill p-4"
+          className="mt-3 rounded-xl bg-fill p-4"
           onSubmit={(e) => {
             e.preventDefault();
             edit.mutate();
@@ -213,7 +209,7 @@ function Detail({
           </Field>
           <div className="mt-3">
             <div className="label">Impact</div>
-            <div className="rounded-[8px] bg-bg p-0.5">
+            <div className="rounded-md bg-bg p-0.5">
               <Segmented
                 size="sm"
                 label="Impact"
@@ -229,7 +225,7 @@ function Detail({
           </div>
           {edit.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{edit.error.message}</p>}
           <div className="mt-3 flex justify-end gap-2">
-            <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
+            <button type="button" className="btn" onClick={() => setEditing(false)}>
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={edit.isPending}>
@@ -240,13 +236,13 @@ function Detail({
       )}
       {canWrite && (
         <form
-          className="mt-4 rounded-[12px] bg-fill p-4"
+          className="mt-4 rounded-xl bg-fill p-4"
           onSubmit={(e) => {
             e.preventDefault();
             post.mutate();
           }}
         >
-          <div className="rounded-[8px] bg-bg p-0.5">
+          <div className="rounded-md bg-bg p-0.5">
             <Segmented
               size="sm"
               label="New status"
@@ -262,7 +258,7 @@ function Detail({
             id="u-msg"
             rows={3}
             required
-            className="mt-3 block w-full resize-y rounded-[8px] border-0 bg-surface px-3 py-2 text-[14px] text-text"
+            className="mt-3 block w-full resize-y rounded-md border-0 bg-surface px-3 py-2 text-[14px] text-text"
             placeholder="What changed? This is shown publicly."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -310,7 +306,9 @@ function Detail({
 export function IncidentsPage() {
   const incidents = useIncidents(false);
   const me = useMe();
-  const [picked, setSelected] = useState<string | null>(null);
+  // A link from the public incident page opens that incident directly.
+  const { incident: linked } = useSearch({ strict: false }) as { incident?: string };
+  const [picked, setSelected] = useState<string | null>(linked ?? null);
   const canWrite = can(me.data?.role, 'editor');
   if (incidents.isPending) return <Spinner />;
   if (incidents.error) return <ErrorNote error={incidents.error} />;
@@ -331,7 +329,7 @@ export function IncidentsPage() {
           )
         }
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[1_1_280px]">
           {incidents.data.length === 0 && <Empty>No incidents yet</Empty>}
           {incidents.data.map((i, idx) => (

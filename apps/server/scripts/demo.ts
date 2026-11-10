@@ -13,7 +13,8 @@ import type { Db } from '../src/db/index.ts';
 import { p95 } from '../src/status/engine.ts';
 import { newId } from '../src/util/ids.ts';
 import { log } from '../src/util/log.ts';
-import { dayKey, dayRange, lastDays } from '../src/util/time.ts';
+import { dayKey } from '@heartline/shared';
+import { dayRange, lastDays } from '../src/util/time.ts';
 
 const DAY = 86_400_000;
 

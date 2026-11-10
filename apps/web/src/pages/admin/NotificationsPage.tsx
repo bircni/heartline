@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useMe, useNotifiers } from '../../lib/api.ts';
 import { relative } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 const TYPE_LABEL = { teams: 'Microsoft Teams', email: 'E-mail', webhook: 'Webhook' } as const;
 
@@ -38,7 +38,7 @@ export function NotificationsPage() {
           </Empty>
         </Section>
       )}
-      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
         {notifiers.data.map((n) => {
           const r = results[n.id];
           const failing = r ? !r.ok : Boolean(n.lastError);
@@ -82,7 +82,7 @@ export function NotificationsPage() {
                 {can(me.data?.role, 'admin') && (
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="btn"
                     disabled={test.isPending && test.variables === n.id}
                     onClick={() => test.mutate(n.id)}
                   >

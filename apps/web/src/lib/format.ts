@@ -1,4 +1,12 @@
-import type { DayState, ServiceStatus, UrgencyLevel, VulnSeverity } from '@heartline/shared';
+import type {
+  DayState,
+  Impact,
+  Incident,
+  ServiceRef,
+  ServiceStatus,
+  UrgencyLevel,
+  VulnSeverity,
+} from '@heartline/shared';
 
 export function pct(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : `${v.toFixed(v === 100 ? 0 : 2)}%`;
@@ -45,6 +53,27 @@ export function shortDay(day: string): string {
   );
 }
 
+const clockFormat = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const weekdayFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+
+/** "14:05". */
+export function clock(at: number): string {
+  return clockFormat.format(at);
+}
+
+/** "Sun, Nov 15". */
+export function weekdayDate(at: number): string {
+  return weekdayFormat.format(at);
+}
+
 export function duration(from: number, to: number | null): string {
   const minutes = Math.max(1, Math.round(((to ?? Date.now()) - from) / 60_000));
   if (minutes < 60) return `${minutes} min`;
@@ -63,19 +92,70 @@ export const STATUS_LABEL: Record<ServiceStatus, string> = {
   unknown: 'Pending',
 };
 
-/** CSS variables per status: dot colour, text colour and halo ring. */
-export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; ring: string }> = {
-  // All clear stays quiet: only the dot is green, so colored text always means trouble.
-  operational: { dot: 'var(--ok)', text: 'var(--sec)', ring: 'var(--ring-ok)' },
-  degraded: { dot: 'var(--warn)', text: 'var(--warn-text)', ring: 'var(--ring-warn)' },
-  down: { dot: 'var(--bad)', text: 'var(--bad-text)', ring: 'var(--ring-bad)' },
-  maintenance: { dot: 'var(--maint)', text: 'var(--sec)', ring: 'transparent' },
-  paused: { dot: 'var(--fill-2)', text: 'var(--sec)', ring: 'transparent' },
-  unknown: { dot: 'var(--fill-2)', text: 'var(--sec)', ring: 'transparent' },
+/** Colours of a state: dot, text, tinted background and the border of a tinted surface. */
+export interface Tone {
+  dot: string;
+  text: string;
+  bg: string;
+  line: string;
+}
+
+const NEUTRAL: Tone = { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)', line: 'var(--hair)' };
+const WARN: Tone = {
+  dot: 'var(--warn)',
+  text: 'var(--warn-text)',
+  bg: 'var(--warn-bg)',
+  line: 'var(--warn)',
+};
+const BAD: Tone = {
+  dot: 'var(--bad)',
+  text: 'var(--bad-text)',
+  bg: 'var(--bad-bg)',
+  line: 'var(--bad-line)',
 };
 
+export const STATUS_TONE: Record<ServiceStatus, Tone> = {
+  operational: { dot: 'var(--ok)', text: 'var(--ok-text)', bg: 'var(--ok-bg)', line: 'var(--hair)' },
+  degraded: WARN,
+  down: BAD,
+  maintenance: { dot: 'var(--maint)', text: 'var(--maint)', bg: 'var(--maint-bg)', line: 'var(--hair)' },
+  paused: NEUTRAL,
+  unknown: NEUTRAL,
+};
+
+/** Background of a troubled period, behind the availability graph and the response-time chart. */
+export const DAY_BG: Partial<Record<DayState, string>> = {
+  down: 'var(--bad-band)',
+  degraded: 'var(--warn-band)',
+  maintenance: 'var(--maint-band)',
+};
+
+export const IMPACT_LABEL: Record<Impact, string> = {
+  degraded: 'Degraded performance',
+  partial: 'Partial outage',
+  major: 'Major outage',
+};
+
+/** Colours of an incident: red or amber while open, neutral once resolved. */
+export function incidentTone(i: Pick<Incident, 'impact' | 'resolvedAt'>): Tone {
+  if (i.resolvedAt !== null) return NEUTRAL;
+  return i.impact === 'degraded' ? WARN : BAD;
+}
+
+/** "lasted 1 h 5 min" or "ongoing for 20 min". */
+export function incidentAge(i: Pick<Incident, 'createdAt' | 'resolvedAt'>): string {
+  return i.resolvedAt === null
+    ? `ongoing for ${duration(i.createdAt, null)}`
+    : `lasted ${duration(i.createdAt, i.resolvedAt)}`;
+}
+
+/** Names of the affected services, or "All services" when an incident or window names none. */
+export function serviceNames(services: ServiceRef[]): string {
+  return services.map((s) => s.name).join(', ') || 'All services';
+}
+
 export const DAY_COLOR: Record<DayState, string> = {
-  operational: 'var(--ok-quiet)',
+  operational: 'var(--ok)',
   degraded: 'var(--warn)',
   down: 'var(--bad)',
   maintenance: 'var(--maint)',
@@ -125,3 +205,59 @@ export const DAY_LABEL: Record<DayState, string> = {
   maintenance: 'Maintenance',
   nodata: 'No data',
 };
+
+/** A labelled position on a time axis, as a fraction of its width. */
+export interface Tick {
+  pos: number;
+  label: string;
+}
+
+export const DAY_MS = 86_400_000;
+
+/**
+ * Calendar ticks between two instants: every day for a week, Mondays for a month, the first of each
+ * month beyond that. `snap` rounds positions to a grid of that many equal marks so ticks fall between them.
+ */
+export function timeTicks(from: number, to: number, snap?: number): Tick[] {
+  const span = to - from;
+  if (span <= 0) return [];
+  const days = span / DAY_MS;
+  const mode = days <= 10 ? 'day' : days <= 45 ? 'week' : 'month';
+  const format = new Intl.DateTimeFormat(
+    undefined,
+    mode === 'day'
+      ? { weekday: 'short' }
+      : mode === 'week'
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short' },
+  );
+  const ticks: Tick[] = [];
+  const d = new Date(from);
+  d.setHours(24, 0, 0, 0);
+  for (; d.getTime() < to; d.setDate(d.getDate() + 1)) {
+    if (mode === 'week' && d.getDay() !== 1) continue;
+    if (mode === 'month' && d.getDate() !== 1) continue;
+    const pos = (d.getTime() - from) / span;
+    ticks.push({ pos: snap ? Math.round(pos * snap) / snap : pos, label: format.format(d) });
+  }
+  // Longer ranges rarely start on a tick, so the left edge says where the axis begins.
+  if (mode !== 'day' && (ticks[0]?.pos ?? 1) > 0.18)
+    ticks.unshift({
+      pos: 0,
+      label: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(from),
+    });
+  return ticks;
+}
+
+/** Leaves room at the right end of an axis for the end label ("Today" or the last day). */
+export function clearOfEndLabel(t: Tick): boolean {
+  return t.pos < 0.84;
+}
+
+/** Ticks for a run of consecutive `YYYY-MM-DD` days, one mark per day. */
+export function dayTicks(days: string[]): Tick[] {
+  const first = days[0];
+  if (!first) return [];
+  const from = new Date(`${first}T00:00:00`).getTime();
+  return timeTicks(from, from + days.length * DAY_MS, days.length);
+}

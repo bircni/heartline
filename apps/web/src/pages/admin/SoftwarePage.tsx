@@ -6,10 +6,10 @@ import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { UrgencyBadge, VulnCounts, VulnTable } from '../../components/Urgency.tsx';
-import { Empty, ErrorNote, Kpi, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { Empty, ErrorNote, Notice, PageHeader, Section, Spinner, Stats } from '../../components/ui.tsx';
 import { api, useMe, useServiceSoftware, useSoftwareInventory } from '../../lib/api.ts';
 import { URGENCY_LABEL, relative, shortDate } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 type Row = SoftwareInventory['services'][number];
 type Filter = 'all' | 'attention' | UrgencyLevel;
@@ -71,27 +71,18 @@ function Expanded({
             {row.intelRefreshedAt ? `data refreshed ${relative(row.intelRefreshedAt)}` : 'not refreshed yet'}
           </span>
           <span className="flex gap-2">
-            <Link
-              to="/services/$id"
-              params={{ id: row.serviceId }}
-              className="btn-secondary h-7 px-3 text-[12px] no-underline"
-            >
+            <Link to="/services/$id" params={{ id: row.serviceId }} className="btn-sm no-underline">
               <Icon name="external" size={16} /> Status page
             </Link>
             {row.releasesUrl && (
-              <a
-                href={row.releasesUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-secondary h-7 px-3 text-[12px] no-underline"
-              >
+              <a href={row.releasesUrl} target="_blank" rel="noreferrer" className="btn-sm no-underline">
                 Release notes
               </a>
             )}
             {canWrite && (
               <button
                 type="button"
-                className="btn-secondary h-7 px-3 text-[12px]"
+                className="btn-sm"
                 disabled={refresh.isPending}
                 onClick={() => refresh.mutate()}
               >
@@ -163,7 +154,7 @@ export function SoftwarePage() {
           canWrite && (
             <button
               type="button"
-              className="btn-secondary"
+              className="btn"
               disabled={refreshAll.isPending}
               onClick={() => refreshAll.mutate()}
             >
@@ -173,18 +164,22 @@ export function SoftwarePage() {
         }
       />
       {refreshAll.isSuccess && (
-        <div className="mt-3" role="status">
+        <div role="status">
           <Notice tone="ok">Refresh started; results appear as the sources answer.</Notice>
         </div>
       )}
-      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
-        <Kpi label="Update now" value={inv.totals.critical} hint="critical" />
-        <Kpi label="Update soon" value={inv.totals.high} hint="high" />
-        <Kpi label="Advised" value={inv.totals.medium} hint="medium" />
-        <Kpi label="Up to date" value={inv.totals.none + inv.totals.low} hint="none or minor" />
-        <Kpi label="Unknown" value={inv.totals.unknown} hint="no version or no data" />
+      <div>
+        <Stats
+          items={[
+            { label: 'Update now', value: inv.totals.critical, hint: 'critical' },
+            { label: 'Update soon', value: inv.totals.high, hint: 'high' },
+            { label: 'Advised', value: inv.totals.medium, hint: 'medium' },
+            { label: 'Up to date', value: inv.totals.none + inv.totals.low, hint: 'none or minor' },
+            { label: 'Unknown', value: inv.totals.unknown, hint: 'no version or no data' },
+          ]}
+        />
       </div>
-      <div className="mt-4">
+      <div>
         <Segmented
           size="sm"
           label="Filter"
@@ -196,7 +191,7 @@ export function SoftwarePage() {
           }))}
         />
       </div>
-      <Section className="mt-3">
+      <Section>
         <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-muted">
           <span className="flex-1 pl-[21px]">Service</span>
           <span className="w-28">Running</span>
@@ -287,7 +282,7 @@ export function SoftwarePage() {
           );
         })}
       </Section>
-      <p className="m-0 mt-3 text-[12px] text-muted">
+      <p className="m-0 text-[12px] text-muted">
         Urgency: {URGENCY_LEVELS.map((l) => `${l} = ${URGENCY_LABEL[l].toLowerCase()}`).join(', ')}. Scores
         combine CVSS, exploitation (CISA KEV), end-of-life and how far behind the latest release a service is.{' '}
         <a href="/api/v1/software/report.csv" className="text-sec hover:text-text">

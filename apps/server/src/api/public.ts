@@ -4,6 +4,7 @@ import { type Vars, requireScope } from '../auth/principal.ts';
 import type { AppContext } from '../context.ts';
 import { APP_NAME, APP_VERSION } from '../util/pkg.ts';
 import { daysParam } from './errors.ts';
+import { rangeParams } from './range.ts';
 import { redactDetail, redactOverview, redactService, softwareVisibility } from './visibility.ts';
 
 const BADGE_COLORS: Record<string, string> = {
@@ -37,15 +38,17 @@ export function publicRoutes(app: AppContext) {
 
   const vis = (c: Context<Vars>) => softwareVisibility(c, app.config());
 
-  r.get('/overview', async (c) =>
-    c.json(redactOverview(await app.queries.overview(daysParam(c.req.query('days'), 90)), vis(c))),
-  );
+  const range = (c: Context<Vars>, fallback: number) => rangeParams(c, app.site().timezone, fallback);
 
-  r.get('/services/:id', async (c) =>
-    c.json(
-      redactService(await app.queries.detail(c.req.param('id'), daysParam(c.req.query('days'), 30)), vis(c)),
-    ),
-  );
+  r.get('/overview', async (c) => {
+    const { days, end } = range(c, 90);
+    return c.json(redactOverview(await app.queries.overview(days, end), vis(c)));
+  });
+
+  r.get('/services/:id', async (c) => {
+    const { days, end } = range(c, 30);
+    return c.json(redactService(await app.queries.detail(c.req.param('id'), days, end), vis(c)));
+  });
 
   // Software inventory: anonymous visitors never see vulnerability details, and nothing unless showVersions.
   const softwareGate: MiddlewareHandler<Vars> = async (c, next) =>
@@ -75,18 +78,22 @@ export function publicRoutes(app: AppContext) {
     return c.json(redactDetail(d, vis(c)));
   });
 
+  /** Report file name; a range in the past carries its end day so two exports do not collide. */
+  const csvName = (prefix: string, days: number, to: string | undefined) =>
+    `attachment; filename="${prefix}-${days}d${to ? `-to-${to}` : ''}.csv"`;
+
   r.get('/services/:id/report.csv', async (c) => {
-    const days = daysParam(c.req.query('days'), 90);
-    c.header('content-disposition', `attachment; filename="${c.req.param('id')}-${days}d.csv"`);
-    return c.body(await app.queries.csv(c.req.param('id'), days), 200, {
+    const { days, end, to } = range(c, 90);
+    c.header('content-disposition', csvName(c.req.param('id'), days, to));
+    return c.body(await app.queries.csv(c.req.param('id'), days, end), 200, {
       'content-type': 'text/csv; charset=utf-8',
     });
   });
 
   r.get('/report.csv', async (c) => {
-    const days = daysParam(c.req.query('days'), 90);
-    c.header('content-disposition', `attachment; filename="status-${days}d.csv"`);
-    return c.body(await app.queries.csv(null, days), 200, { 'content-type': 'text/csv; charset=utf-8' });
+    const { days, end, to } = range(c, 90);
+    c.header('content-disposition', csvName('status', days, to));
+    return c.body(await app.queries.csv(null, days, end), 200, { 'content-type': 'text/csv; charset=utf-8' });
   });
 
   r.get('/incidents', async (c) => {

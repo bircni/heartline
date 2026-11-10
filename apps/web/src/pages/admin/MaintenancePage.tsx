@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useMaintenance, useMe } from '../../lib/api.ts';
 import { dateTime } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 import { ServicePicker } from './IncidentsPage.tsx';
 
 const PRESETS: { label: string; value: string }[] = [
@@ -73,7 +73,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           {existing ? `Edit “${existing.title}”` : 'Schedule maintenance'}
         </h2>
         {existing && (
-          <button type="button" className="btn-secondary h-7 px-3 text-[12px]" onClick={onDone}>
+          <button type="button" className="btn-sm" onClick={onDone}>
             Cancel
           </button>
         )}
@@ -183,7 +183,7 @@ export function MaintenancePage() {
         title="Maintenance"
         subtitle="Checks keep running, but services show as in maintenance and no alerts are sent."
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
           {list.data.length === 0 && <Empty>No maintenance scheduled</Empty>}
           {list.data.map((m, i) => {
@@ -193,7 +193,7 @@ export function MaintenancePage() {
                 key={m.id}
                 className={`flex items-center gap-4 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
-                <span className="w-12 shrink-0 rounded-[8px] bg-fill py-2 text-center">
+                <span className="w-12 shrink-0 rounded-md bg-fill py-2 text-center">
                   <span className="block text-[12px] text-muted">
                     {start.toLocaleString(undefined, { month: 'short' })}
                   </span>
@@ -203,7 +203,7 @@ export function MaintenancePage() {
                   <span className="block font-medium">
                     {m.title}
                     {m.active && (
-                      <span className="ml-2 rounded-[4px] bg-fill px-2 py-0.5 text-[12px] text-sec">
+                      <span className="ml-2 rounded-sm bg-fill px-2 py-0.5 text-[12px] text-sec">
                         in progress
                       </span>
                     )}
@@ -220,7 +220,7 @@ export function MaintenancePage() {
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"
-                      className="btn-secondary h-8 px-3"
+                      className="btn h-8 px-3"
                       aria-label={`Edit ${m.title}`}
                       onClick={() => setEditing(m.id)}
                     >

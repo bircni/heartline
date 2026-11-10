@@ -1,4 +1,4 @@
-import { duration, monitorSpecSchema, roleSchema } from '@heartline/shared';
+import { THEMES, duration, monitorSpecSchema, roleSchema } from '@heartline/shared';
 import { z } from 'zod';
 
 const notifierBase = { id: z.string().min(1), name: z.string().optional() };
@@ -61,8 +61,10 @@ export const configSchema = z
         public: z.boolean().default(true),
         /** Show running versions and update urgency to anonymous visitors (vulnerability details never are). */
         showVersions: z.boolean().default(false),
+        /** Default colour theme of the web UI; visitors can pick another one for themselves. */
+        theme: z.enum(THEMES).default('green'),
       })
-      .default({ title: 'Status', timezone: 'UTC', public: true, showVersions: false }),
+      .default({ title: 'Status', timezone: 'UTC', public: true, showVersions: false, theme: 'green' }),
     retention: z.object({ rawDays: z.number().int().min(1).default(30) }).default({ rawDays: 30 }),
     software: z
       .object({

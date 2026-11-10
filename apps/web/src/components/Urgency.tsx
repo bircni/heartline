@@ -5,7 +5,7 @@ export function UrgencyBadge({ level, score }: { level: UrgencyLevel; score?: nu
   const tone = URGENCY_TONE[level];
   return (
     <span
-      className="inline-flex h-6 items-center gap-2 whitespace-nowrap rounded-[6px] bg-fill px-2 text-[12px] font-medium"
+      className="inline-flex h-6 items-center gap-2 whitespace-nowrap rounded-md bg-fill px-2 text-[12px] font-medium"
       style={{ color: tone.text }}
       title={score === null || score === undefined ? undefined : `Urgency score ${score}/100`}
     >
@@ -70,7 +70,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
                 {v.id}
               </a>
               {v.kev && (
-                <span className="mt-1 inline-block rounded-[4px] bg-fill px-1 text-[12px] font-medium text-bad-text">
+                <span className="mt-1 inline-block rounded-sm bg-fill px-1 text-[12px] font-medium text-bad-text">
                   exploited
                 </span>
               )}

@@ -1,78 +1,135 @@
 import { Link, useParams } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
-import { ErrorNote, Spinner } from '../components/ui.tsx';
-import { useIncident } from '../lib/api.ts';
-import { dateTime, duration } from '../lib/format.ts';
+import { IncidentRow } from '../components/IncidentRow.tsx';
+import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
+import { useIncident, useIncidents, useMe } from '../lib/api.ts';
+import { can } from '../lib/roles.ts';
+import { IMPACT_LABEL, dateTime, duration, incidentAge, incidentTone } from '../lib/format.ts';
+
+/** Incidents the history page loads; the API serves at most 200 per request. */
+const HISTORY_LIMIT = 200;
 
 export function IncidentPage() {
   const { id } = useParams({ from: '/public/incidents/$id' });
   const { data, error, isPending } = useIncident(id);
+  const me = useMe();
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
   const open = data.resolvedAt === null;
-  const tone = open ? (data.impact === 'major' ? 'var(--bad-text)' : 'var(--warn-text)') : 'var(--sec)';
 
   return (
-    <article>
+    <article className="flex max-w-[48rem] flex-col gap-4">
       <Link
-        to="/"
-        className="inline-flex items-center gap-1 py-1 text-[13px] text-sec no-underline hover:text-text"
+        to="/incidents"
+        className="-ml-0.5 inline-flex items-center gap-1 self-start text-sec no-underline hover:text-text"
       >
-        <Icon name="arrowLeft" size={16} /> Overview
+        <Icon name="arrowLeft" size={15} /> Incident history
       </Link>
-      <div className="mt-3 text-[13px] font-medium first-letter:uppercase" style={{ color: tone }}>
-        {data.status} ·{' '}
-        {data.impact === 'major'
-          ? 'Major outage'
-          : data.impact === 'partial'
-            ? 'Partial outage'
-            : 'Degraded performance'}
-      </div>
-      <h1 className="m-0 mt-1 text-[28px] font-medium">{data.title}</h1>
-      <div className="mt-1 flex flex-wrap gap-x-2 text-[13px] text-sec">
-        {data.services.map((s, i) => (
-          <span key={s.id}>
-            <Link to="/services/$id" params={{ id: s.id }} className="text-text">
-              {s.name}
+      <PageHeader
+        title={data.title}
+        actions={
+          can(me.data?.role, 'editor') && (
+            <Link to="/admin/incidents" search={{ incident: data.id }} className="btn">
+              <Icon name="edit" size={14} /> Manage incident
             </Link>
-            {i < data.services.length - 1 && ','}
+          )
+        }
+        subtitle={
+          <span className="font-medium" style={{ color: incidentTone(data).text }}>
+            {IMPACT_LABEL[data.impact]}, {open ? incidentAge(data) : 'resolved'}
           </span>
-        ))}
-        {data.services.length > 0 && <span>·</span>}
-        <span>
-          started {dateTime(data.createdAt)} ·{' '}
-          {open
-            ? `ongoing for ${duration(data.createdAt, null)}`
-            : `lasted ${duration(data.createdAt, data.resolvedAt)}`}
-        </span>
-        {data.automatic && <span>· opened automatically</span>}
-      </div>
+        }
+      />
+      <dl className="card m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1.5 px-3.5 py-3">
+        {data.services.length > 0 && (
+          <>
+            <dt className="text-muted">Affected</dt>
+            <dd className="m-0 flex flex-wrap gap-x-3">
+              {data.services.map((s) => (
+                <Link key={s.id} to="/services/$id" params={{ id: s.id }} className="text-text">
+                  {s.name}
+                </Link>
+              ))}
+            </dd>
+          </>
+        )}
+        <dt className="text-muted">Started</dt>
+        <dd className="m-0">
+          {dateTime(data.createdAt)}
+          {data.automatic && <span className="text-muted"> (opened automatically)</span>}
+        </dd>
+        {data.resolvedAt !== null && (
+          <>
+            <dt className="text-muted">Lasted</dt>
+            <dd className="m-0">{duration(data.createdAt, data.resolvedAt)}</dd>
+          </>
+        )}
+      </dl>
 
-      <ol className="card mt-5 list-none px-5 py-2">
-        {data.updates.map((u, i) => (
-          <li key={u.id} className="flex gap-4 border-t border-hair py-3 first:border-t-0">
-            <div aria-hidden="true" className="flex w-3 shrink-0 flex-col items-center pt-2">
+      <Section title="Updates">
+        {/* Newest first; the rail ties the updates into one timeline. */}
+        <ol className="m-0 list-none px-3.5 py-3">
+          {data.updates.map((u, i) => (
+            <li key={u.id} className="relative flex gap-3.5 pb-5 last:pb-0">
+              {i < data.updates.length - 1 && (
+                <span aria-hidden="true" className="absolute top-3 bottom-0 left-[4.5px] w-px bg-fill-2" />
+              )}
               <span
-                className="block h-2 w-2 rounded-full border"
+                aria-hidden="true"
+                className="relative mt-[4px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
                 style={{
-                  background: i === 0 ? tone : 'transparent',
-                  borderColor: i === 0 ? tone : 'var(--fill-2)',
+                  background: i === 0 ? incidentTone(data).text : 'var(--surface)',
+                  borderColor: i === 0 ? incidentTone(data).text : 'var(--fill-2)',
                 }}
               />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="text-[14px] font-medium capitalize">{u.status}</span>
-                <span className="font-mono text-[12px] text-muted">
-                  {dateTime(u.createdAt)}
-                  {u.author && ` · ${u.author}`}
-                </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2.5">
+                  <span className="font-semibold capitalize">{u.status}</span>
+                  <span className="text-[12px] text-muted">
+                    {dateTime(u.createdAt)}
+                    {u.author && `, ${u.author}`}
+                  </span>
+                </div>
+                <p className="m-0 mt-0.5 whitespace-pre-line text-sec">{u.message}</p>
               </div>
-              <p className="m-0 mt-1 whitespace-pre-line text-[14px]">{u.message}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      </Section>
     </article>
+  );
+}
+
+/** Every incident, newest first, open ones on top. */
+export function IncidentHistoryPage() {
+  const { data, error, isPending } = useIncidents(false, HISTORY_LIMIT);
+  if (isPending) return <Spinner />;
+  if (error) return <ErrorNote error={error} />;
+  const open = data.filter((i) => i.resolvedAt === null);
+  const past = data.filter((i) => i.resolvedAt !== null);
+
+  return (
+    <>
+      <PageHeader title="Incidents" subtitle="Outages and disruptions with every update that was posted." />
+      {open.length > 0 && (
+        <Section title="Open">
+          {open.map((i) => (
+            <IncidentRow key={i.id} incident={i} variant="history" />
+          ))}
+        </Section>
+      )}
+      <Section title="Past incidents">
+        {past.length === 0 ? (
+          <Empty>No incidents so far.</Empty>
+        ) : (
+          past.map((i) => <IncidentRow key={i.id} incident={i} variant="history" />)
+        )}
+        {data.length >= HISTORY_LIMIT && (
+          <p className="m-0 border-t border-hair px-3.5 py-2.5 text-[12px] text-muted">
+            Showing the {HISTORY_LIMIT} most recent incidents; older ones are not listed.
+          </p>
+        )}
+      </Section>
+    </>
   );
 }

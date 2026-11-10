@@ -15,7 +15,7 @@ import { sql } from 'kysely';
 import { describeTarget } from '../checks/index.ts';
 import type { Db } from '../db/index.ts';
 import type { DailyRollupTable } from '../db/schema.ts';
-import { lastDays } from '../util/time.ts';
+import { dayRange, lastDays } from '../util/time.ts';
 import type { IncidentService } from './incidents.ts';
 import type { MaintenanceService } from './maintenance.ts';
 import type { LoadedMonitor, MonitorService } from './monitors.ts';
@@ -118,10 +118,11 @@ export class QueryService {
     return (stored as ServiceStatus | undefined) ?? 'unknown';
   }
 
-  async summaries(daysCount: number, now = Date.now()): Promise<ServiceSummary[]> {
+  /** Services with their bars for the `daysCount` days ending with the day of `end`. */
+  async summaries(daysCount: number, end = Date.now(), now = Date.now()): Promise<ServiceSummary[]> {
     const monitors = this.#d.monitors.list();
     const ids = monitors.map((m) => m.id);
-    const days = lastDays(daysCount, now, this.#d.site().timezone);
+    const days = lastDays(daysCount, end, this.#d.site().timezone);
     const [rollups, states, software] = await Promise.all([
       this.#rollups(ids, days),
       this.#states(ids),
@@ -142,8 +143,9 @@ export class QueryService {
     });
   }
 
-  async overview(daysCount: number, now = Date.now()): Promise<Overview> {
-    const services = await this.summaries(daysCount, now);
+  /** The current state of every service, with history for the `daysCount` days ending with the day of `end`. */
+  async overview(daysCount: number, end = Date.now(), now = Date.now()): Promise<Overview> {
+    const services = await this.summaries(daysCount, end, now);
     const activeIncidents = await this.#d.incidents.list({ activeOnly: true });
     const relevant = services.filter((s) => s.status !== 'paused');
     const worst = relevant.reduce<ServiceStatus>(
@@ -194,9 +196,10 @@ export class QueryService {
     };
   }
 
-  async detail(id: string, daysCount: number, now = Date.now()): Promise<ServiceDetail> {
+  /** The current state of a service, with history for the `daysCount` days ending with the day of `end`. */
+  async detail(id: string, daysCount: number, end = Date.now(), now = Date.now()): Promise<ServiceDetail> {
     const m = this.#d.monitors.require(id);
-    const days = lastDays(daysCount, now, this.#d.site().timezone);
+    const days = lastDays(daysCount, end, this.#d.site().timezone);
     const [rollups, states, software, checks] = await Promise.all([
       this.#rollups([id], days),
       this.#states([id]),
@@ -213,11 +216,14 @@ export class QueryService {
     const rows = [...byDay.values()];
     const latencyCount = rows.reduce((a, r) => a + r.latency_count, 0);
     const p95s = rows.map((r) => r.latency_p95).filter((v): v is number => v !== null);
-    const since = now - daysCount * 86_400_000;
-    const incidents = await this.#d.incidents.list({ monitorId: id, since, limit: 50 });
+    // Incidents cover the same whole days as the bars.
+    const rangeStart = dayRange(days[0] as string, this.#d.site().timezone)[0];
     const state = states.get(id);
     const bars = days.map((d) => bar(d, byDay.get(d)));
-    const series = await this.#series(id, daysCount, bars, now);
+    const [incidents, series] = await Promise.all([
+      this.#d.incidents.list({ monitorId: id, since: rangeStart, until: end, limit: 50 }),
+      this.#series(id, daysCount, bars, end, now),
+    ]);
     return {
       id: m.id,
       name: m.name,
@@ -249,6 +255,8 @@ export class QueryService {
       incidents,
       series: series.points,
       seriesBucketMs: series.bucketMs,
+      rangeStart,
+      rangeEnd: end,
       generatedAt: now,
     };
   }
@@ -261,9 +269,12 @@ export class QueryService {
     id: string,
     daysCount: number,
     bars: DayBar[],
+    end: number,
     now: number,
   ): Promise<{ points: LatencyPoint[]; bucketMs: number }> {
-    if (daysCount > this.#d.rawRetentionDays()) {
+    const span = daysCount * 86_400_000;
+    // Raw results only reach back `rawRetentionDays` from now, so older ranges use the daily rollups.
+    if (now - (end - span) > this.#d.rawRetentionDays() * 86_400_000) {
       return {
         points: bars.map((b) => ({
           at: Date.parse(`${b.day}T12:00:00Z`),
@@ -276,7 +287,6 @@ export class QueryService {
         bucketMs: 86_400_000,
       };
     }
-    const span = daysCount * 86_400_000;
     const bucketMs = Math.max(60_000, Math.ceil(span / 240 / 60_000) * 60_000);
     const db = this.#d.db.kysely;
     const [rows, failed] = await Promise.all([
@@ -289,7 +299,8 @@ export class QueryService {
           sql<number>`count(*)`.as('checks'),
         ])
         .where('monitor_id', '=', id)
-        .where('checked_at', '>=', now - span)
+        .where('checked_at', '>=', end - span)
+        .where('checked_at', '<=', end)
         .groupBy(sql`checked_at / ${sql.lit(bucketMs)}`)
         .orderBy('bucket')
         .execute(),
@@ -298,7 +309,8 @@ export class QueryService {
         .selectFrom('check_results')
         .select(['checked_at', 'status'])
         .where('monitor_id', '=', id)
-        .where('checked_at', '>=', now - span)
+        .where('checked_at', '>=', end - span)
+        .where('checked_at', '<=', end)
         .where('status', '!=', 'up')
         .execute(),
     ]);
@@ -328,9 +340,10 @@ export class QueryService {
     };
   }
 
-  async csv(id: string | null, daysCount: number, now = Date.now()): Promise<string> {
+  /** Daily report for the `daysCount` days ending with the day of `end`. */
+  async csv(id: string | null, daysCount: number, end = Date.now()): Promise<string> {
     const monitors = id ? [this.#d.monitors.require(id)] : this.#d.monitors.list();
-    const days = lastDays(daysCount, now, this.#d.site().timezone);
+    const days = lastDays(daysCount, end, this.#d.site().timezone);
     const rollups = await this.#rollups(
       monitors.map((m) => m.id),
       days,

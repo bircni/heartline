@@ -65,6 +65,9 @@ export const useBootstrap = () =>
     staleTime: Infinity,
     refetchInterval: false,
   });
+/** The site title from status.yaml, "Status" until it has loaded. */
+export const useSiteTitle = () => useBootstrap().data?.site.title ?? 'Status';
+
 export const useMe = () =>
   useQuery({
     queryKey: ['me'],
@@ -72,28 +75,52 @@ export const useMe = () =>
     queryFn: async () => (await api<Me | undefined>('/api/v1/me')) ?? null,
     refetchInterval: false,
   });
-export const useOverview = (days: number) =>
+/** History range of the overview and service pages: `days` ending with the day `to` (today when unset). */
+export type Range = {
+  days: number;
+  /** Last day (`YYYY-MM-DD`, site time zone); undefined means today. */
+  to?: string;
+};
+/** Query string of a range, shared by the JSON endpoints and the CSV reports. */
+export const rangeQuery = ({ days, to }: Range) => `days=${days}${to ? `&to=${to}` : ''}`;
+
+export const useOverview = (range: Range, enabled = true) =>
   useQuery({
-    queryKey: ['overview', days],
-    queryFn: () => api<Overview>(`/api/v1/overview?days=${days}`),
+    enabled,
+    queryKey: ['overview', range.days, range.to],
+    queryFn: () => api<Overview>(`/api/v1/overview?${rangeQuery(range)}`),
     // Poll faster while services wait for their first checks (fresh start, new monitor).
     refetchInterval: (q) =>
       q.state.data?.groups.some((g) => g.services.some((s) => s.status === 'unknown')) ? 5_000 : 30_000,
   });
-export const useService = (id: string, days: number) =>
+/**
+ * Services for the sidebar: names and current status. One day of history keeps the request small, it polls
+ * less often than the pages, and it starts from any overview already loaded so the list never flashes empty.
+ */
+export const useNavOverview = (enabled = true) =>
   useQuery({
-    queryKey: ['service', id, days],
-    queryFn: () => api<ServiceDetail>(`/api/v1/services/${encodeURIComponent(id)}?days=${days}`),
+    enabled,
+    queryKey: ['overview', 1, undefined],
+    queryFn: () => api<Overview>('/api/v1/overview?days=1'),
+    refetchInterval: 60_000,
+    placeholderData: () =>
+      queryClient.getQueriesData<Overview>({ queryKey: ['overview'] }).find(([, d]) => d)?.[1],
+  });
+
+export const useService = (id: string, range: Range) =>
+  useQuery({
+    queryKey: ['service', id, range.days, range.to],
+    queryFn: () => api<ServiceDetail>(`/api/v1/services/${encodeURIComponent(id)}?${rangeQuery(range)}`),
   });
 export const useIncident = (id: string) =>
   useQuery({
     queryKey: ['incident', id],
     queryFn: () => api<Incident>(`/api/v1/incidents/${encodeURIComponent(id)}`),
   });
-export const useIncidents = (active = false) =>
+export const useIncidents = (active = false, limit = 100) =>
   useQuery({
-    queryKey: ['incidents', active],
-    queryFn: () => api<Incident[]>(`/api/v1/incidents?limit=100${active ? '&active=true' : ''}`),
+    queryKey: ['incidents', active, limit],
+    queryFn: () => api<Incident[]>(`/api/v1/incidents?limit=${limit}${active ? '&active=true' : ''}`),
   });
 export const useMaintenance = () =>
   useQuery({ queryKey: ['maintenance'], queryFn: () => api<Maintenance[]>('/api/v1/maintenance') });
@@ -119,11 +146,10 @@ export const useTokens = (all: boolean) =>
 export const useUsers = () =>
   useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/api/v1/admin/users') });
 
-export const useSoftwareInventory = (enabled = true) =>
+export const useSoftwareInventory = () =>
   useQuery({
     queryKey: ['software'],
     queryFn: () => api<SoftwareInventory>('/api/v1/software'),
-    enabled,
     retry: false,
   });
 /** Full detail incl. vulnerabilities; only for viewers that may see them (the hook stays disabled otherwise). */

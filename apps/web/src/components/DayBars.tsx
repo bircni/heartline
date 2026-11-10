@@ -1,28 +1,150 @@
 import type { DayBar, DayState, LatencyPoint } from '@heartline/shared';
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { DAY_COLOR, DAY_LABEL, dateTime, ms, pct, shortDay } from '../lib/format.ts';
+import { type ReactNode, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  DAY_BG,
+  DAY_COLOR,
+  DAY_LABEL,
+  type Tick,
+  clearOfEndLabel,
+  clock,
+  dateTime,
+  ms,
+  pct,
+  shortDay,
+  timeTicks,
+} from '../lib/format.ts';
+import { useStoredChoice } from '../lib/store.ts';
+import { Segmented } from './Segmented.tsx';
 
-/** How high each day rises, in px: quiet while healthy, tallest on an outage. */
-const DAY_HEIGHT: Record<DayState, number> = {
-  nodata: 4,
-  operational: 8,
-  maintenance: 12,
-  degraded: 20,
-  down: 28,
-};
+/** Availability drawn as a stepped uptime line (graph) or as one coloured bar per period (timeline). */
+export type TraceView = 'graph' | 'timeline';
+const VIEWS = ['graph', 'timeline'] as const;
+
+/** The viewer's preferred availability view, shared by every trace on the page; the graph is the default. */
+export function useTraceView(): [TraceView, (view: TraceView) => void] {
+  return useStoredChoice('availability-view', VIEWS, 'graph');
+}
+
+/** Switch between the graph and the timeline; every trace on the page follows it. */
+export function TraceViewToggle() {
+  const [view, setView] = useTraceView();
+  return (
+    <Segmented
+      label="Show availability as"
+      value={view}
+      onChange={setView}
+      options={[
+        { value: 'graph', label: 'Graph' },
+        { value: 'timeline', label: 'Timeline' },
+      ]}
+    />
+  );
+}
 
 interface Mark {
   key: string;
   state: DayState;
+  /** Percentage of successful checks, null without data. */
+  uptime: number | null;
   tip: () => ReactNode;
 }
 
-/** Availability as a heart trace: one mark per period, rising only when something was wrong. */
-function StateBars({ marks, summary }: { marks: Mark[]; summary: string }) {
+/**
+ * Lowest uptime the graph shows, so small dips stay visible: 99% when every period is above it, then 95%,
+ * then the next 10% step below the worst value. Pass the same floor to traces that are compared row by row.
+ */
+export function traceFloor(values: (number | null)[]): number {
+  let min = 100;
+  for (const v of values) if (v !== null && v < min) min = v;
+  if (min >= 99) return 99;
+  if (min >= 95) return 95;
+  return Math.max(0, Math.floor(min / 10) * 10);
+}
+
+/**
+ * Smallest dip of a troubled period, as a share of the graph height. A 99.9% day would otherwise sit on the
+ * 100% line and the incident would only show as a colour change.
+ */
+const MIN_DIP: Partial<Record<DayState, number>> = { down: 0.65, degraded: 0.35, maintenance: 0.25 };
+
+/** SVG path of a stepped line over `marks`, one unit per mark; it breaks where a period has no data. */
+function steps(
+  marks: Mark[],
+  y: (m: Mark & { uptime: number }) => number,
+  only?: (m: Mark) => boolean,
+): string {
+  let d = '';
+  let drawing = false;
+  marks.forEach((m, i) => {
+    if (m.uptime === null || (only && !only(m))) {
+      drawing = false;
+      return;
+    }
+    const v = y(m as Mark & { uptime: number }).toFixed(2);
+    d += `${drawing ? 'L' : 'M'}${i} ${v}H${i + 1}`;
+    drawing = true;
+  });
+  return d;
+}
+
+/** The uptime line with its status bands. It only changes with the data, not while the pointer moves. */
+function TraceGraph({ marks, floor }: { marks: Mark[]; floor: number }) {
+  // Keeps the line off the very top and bottom so a 100% day is not hidden by the edge.
+  const pad = 8;
+  const y = (m: Mark & { uptime: number }) => {
+    const depth = (100 - Math.max(floor, Math.min(100, m.uptime))) / (100 - floor);
+    return pad + Math.max(depth, MIN_DIP[m.state] ?? 0) * (100 - 2 * pad);
+  };
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox={`0 0 ${marks.length} 100`}
+      preserveAspectRatio="none"
+      className="absolute inset-0 h-full w-full"
+    >
+      {marks.map((m, i) => {
+        const band = DAY_BG[m.state];
+        return band ? <rect key={m.key} x={i} y={0} width={1} height={100} fill={band} /> : null;
+      })}
+      <path
+        d={steps(marks, y)}
+        fill="none"
+        stroke="var(--ok)"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      {/* Troubled periods are redrawn in their status colour on top of the green line. */}
+      {(Object.keys(DAY_BG) as DayState[]).map((state) => (
+        <path
+          key={state}
+          d={steps(marks, y, (m) => m.state === state)}
+          fill="none"
+          stroke={DAY_COLOR[state]}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </svg>
+  );
+}
+
+function Trace({
+  marks,
+  summary,
+  view,
+  height,
+  floor: sharedFloor,
+}: {
+  marks: Mark[];
+  summary: string;
+  view: TraceView;
+  height: number;
+  floor?: number;
+}) {
   const [hover, setHover] = useState<number | null>(null);
-  const gap = marks.length > 120 ? 1 : marks.length > 45 ? 2 : marks.length > 14 ? 3 : 4;
-  // On phones 90 separated marks turn into stripes, so they join into one continuous line.
-  const dense = marks.length > 45;
+  const gap = view === 'graph' ? 0 : marks.length > 120 ? 1 : marks.length > 45 ? 2 : 3;
   const active = hover === null ? null : marks[hover];
   const wrap = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -39,36 +161,41 @@ function StateBars({ marks, summary }: { marks: Mark[]; summary: string }) {
   }, [hover, marks.length]);
   useEffect(() => {
     if (hover === null) return;
-    const hide = () => setHover(null); // a fixed tooltip would drift away from its bar
+    const hide = () => setHover(null); // a fixed tooltip would drift away from its mark
     window.addEventListener('scroll', hide, { capture: true, passive: true });
     return () => window.removeEventListener('scroll', hide, { capture: true });
   }, [hover]);
+  // Built once per data change; hovering only re-renders the hit areas and the tooltip.
+  const graph = useMemo(
+    () =>
+      view === 'graph' ? (
+        <TraceGraph marks={marks} floor={sharedFloor ?? traceFloor(marks.map((m) => m.uptime))} />
+      ) : null,
+    [marks, sharedFloor, view],
+  );
+
   return (
-    <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
-      <div
-        className={`flex h-7 gap-(--day-gap) ${dense ? 'max-sm:gap-0' : ''}`}
-        style={{ '--day-gap': `${gap}px` } as CSSProperties}
-        aria-hidden="true"
-      >
-        {marks.map((b, i) => (
+    <div ref={wrap} className="relative" style={{ height }} onMouseLeave={() => setHover(null)}>
+      {graph}
+      <div className="absolute inset-0 flex" style={{ gap }} aria-hidden="true">
+        {marks.map((m, i) => (
           <span
-            key={b.key}
+            key={m.key}
             onMouseEnter={() => setHover(i)}
-            className="flex min-w-0 flex-1 items-end transition-opacity"
-            style={{ opacity: hover !== null && hover !== i ? 0.55 : 1 }}
-          >
-            <span
-              className={`block w-full rounded-[2px] ${dense ? 'max-sm:rounded-none' : ''}`}
-              style={{ height: DAY_HEIGHT[b.state], background: DAY_COLOR[b.state] }}
-            />
-          </span>
+            className="min-w-0 flex-1 rounded-xs transition-opacity"
+            style={
+              view === 'graph'
+                ? { background: hover === i ? 'var(--fill-2)' : 'transparent', opacity: 0.5 }
+                : { background: DAY_COLOR[m.state], opacity: hover !== null && hover !== i ? 0.55 : 1 }
+            }
+          />
         ))}
       </div>
       {active && (
         <div
           ref={tip}
           role="tooltip"
-          className="pointer-events-none fixed z-50 w-max max-w-[240px] rounded-[8px] bg-surface px-3 py-2 text-[12px] shadow-pop ring-1 ring-hair"
+          className="pointer-events-none fixed z-50 w-max max-w-[240px] rounded-md bg-surface px-3 py-2 text-[12px] font-normal text-text shadow-pop"
           style={pos}
         >
           {active.tip()}
@@ -82,43 +209,96 @@ function StateBars({ marks, summary }: { marks: Mark[]; summary: string }) {
 function StateLine({ state, children }: { state: DayState; children?: ReactNode }) {
   return (
     <div className="mt-0.5 flex items-center gap-2 text-sec">
-      <span className="block h-2 w-2 rounded-[2px]" style={{ background: DAY_COLOR[state] }} />
+      <span className="block h-2 w-2 rounded-xs" style={{ background: DAY_COLOR[state] }} />
       {DAY_LABEL[state]}
       {children}
     </div>
   );
 }
 
-export function DayBars({ bars }: { bars: DayBar[] }) {
-  const marks = bars.map((b): Mark => ({
-    key: b.day,
-    state: b.state,
-    tip: () => (
-      <>
-        <div className="font-medium">{shortDay(b.day)}</div>
-        <StateLine state={b.state}>
-          {b.uptime !== null && <span className="font-mono">· {pct(b.uptime)} uptime</span>}
-        </StateLine>
-        {b.avgLatencyMs !== null && (
-          <div className="font-mono text-sec">
-            avg {ms(b.avgLatencyMs)}
-            {b.p95LatencyMs !== null && ` · p95 ${ms(b.p95LatencyMs)}`}
-          </div>
-        )}
-      </>
-    ),
-  }));
+/** Availability per day; memoised so a poll that leaves the bars unchanged does not redraw the row. */
+export const DayBars = memo(function DayBars({
+  bars,
+  view = 'graph',
+  height = 28,
+  floor,
+}: {
+  bars: DayBar[];
+  view?: TraceView;
+  height?: number;
+  floor?: number;
+}) {
+  const marks = useMemo(
+    () =>
+      bars.map((b): Mark => ({
+        key: b.day,
+        state: b.state,
+        uptime: b.uptime,
+        tip: () => (
+          <>
+            <div className="font-medium">{shortDay(b.day)}</div>
+            <StateLine state={b.state}>
+              {b.uptime !== null && <span>, {pct(b.uptime)} uptime</span>}
+            </StateLine>
+            {b.avgLatencyMs !== null && (
+              <div className="text-sec">
+                avg {ms(b.avgLatencyMs)}
+                {b.p95LatencyMs !== null && `, p95 ${ms(b.p95LatencyMs)}`}
+              </div>
+            )}
+          </>
+        ),
+      })),
+    [bars],
+  );
   const count = (s: DayState) => bars.filter((b) => b.state === s).length;
   return (
-    <StateBars
+    <Trace
       marks={marks}
-      summary={`${count('down')} outage days, ${count('degraded')} degraded days in the last ${bars.length} days`}
+      view={view}
+      height={height}
+      floor={floor}
+      summary={`${count('down')} outage days, ${count('degraded')} degraded days in these ${bars.length} days`}
     />
   );
+});
+
+const bucketRange = (from: number, to: number, bucketMs: number): [number, number] => [
+  Math.floor(from / bucketMs),
+  Math.floor(to / bucketMs),
+];
+
+/** Axis ticks for the marks `BucketBars` draws for the same arguments. */
+export function bucketTicks(from: number, to: number, bucketMs: number): Tick[] {
+  const [first, last] = bucketRange(from, to, bucketMs);
+  return timeTicks(first * bucketMs, (last + 1) * bucketMs, last - first + 1);
 }
 
-const hm = (at: number) =>
-  new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
+/** Dates under a trace; the right edge names the end of the range. */
+export function TraceAxis({
+  ticks,
+  end,
+  className = '',
+}: {
+  ticks: Tick[];
+  end: string;
+  className?: string;
+}) {
+  return (
+    <div className={`relative h-4 text-[12px] leading-4 text-muted ${className}`} aria-hidden="true">
+      {ticks.filter(clearOfEndLabel).map((t) => (
+        <span
+          key={t.pos}
+          className={`absolute top-0 whitespace-nowrap ${t.pos > 0.7 ? 'max-sm:hidden' : ''}`}
+          style={{ left: `${t.pos * 100}%` }}
+        >
+          {t.label}
+        </span>
+      ))}
+      <span className="absolute top-0 right-0">{end}</span>
+    </div>
+  );
+}
 
 /** The same trace at the series resolution, so an outage shows when it happened instead of filling its day. */
 export function BucketBars({
@@ -126,48 +306,57 @@ export function BucketBars({
   from,
   to,
   bucketMs,
+  view = 'graph',
+  height = 28,
 }: {
   points: LatencyPoint[];
   from: number;
   to: number;
   bucketMs: number;
+  view?: TraceView;
+  height?: number;
 }) {
-  const byBucket = new Map(points.map((p) => [Math.floor(p.at / bucketMs), p]));
-  const marks: Mark[] = [];
-  for (let k = Math.floor(from / bucketMs); k <= Math.floor(to / bucketMs); k++) {
-    const p = byBucket.get(k);
-    const start = k * bucketMs;
-    const state = p?.state ?? 'nodata';
-    marks.push({
-      key: String(k),
-      state,
-      tip: () => (
-        <>
-          <div className="font-medium">
-            {dateTime(start)} – {hm(start + bucketMs)}
-          </div>
-          <StateLine state={state}>
-            {p?.checks ? (
-              <span className="font-mono">
-                · {p.down ? `${p.down} of ${p.checks} checks down` : `${p.checks} checks`}
-              </span>
-            ) : null}
-          </StateLine>
-          {p && p.avgLatencyMs !== null && (
-            <div className="font-mono text-sec">
-              avg {ms(p.avgLatencyMs)}
-              {p.highLatencyMs !== null && ` · peak ${ms(p.highLatencyMs)}`}
+  const marks = useMemo(() => {
+    const byBucket = new Map(points.map((p) => [Math.floor(p.at / bucketMs), p]));
+    const marks: Mark[] = [];
+    const [first, last] = bucketRange(from, to, bucketMs);
+    for (let k = first; k <= last; k++) {
+      const p = byBucket.get(k);
+      const start = k * bucketMs;
+      const state = p?.state ?? 'nodata';
+      marks.push({
+        key: String(k),
+        state,
+        uptime: p?.checks ? ((p.checks - (p.down ?? 0)) / p.checks) * 100 : null,
+        tip: () => (
+          <>
+            <div className="font-medium">
+              {dateTime(start)} – {clock(start + bucketMs)}
             </div>
-          )}
-        </>
-      ),
-    });
-  }
+            <StateLine state={state}>
+              {p?.checks ? (
+                <span>, {p.down ? `${p.down} of ${p.checks} checks down` : `${p.checks} checks`}</span>
+              ) : null}
+            </StateLine>
+            {p && p.avgLatencyMs !== null && (
+              <div className="text-sec">
+                avg {ms(p.avgLatencyMs)}
+                {p.highLatencyMs !== null && `, peak ${ms(p.highLatencyMs)}`}
+              </div>
+            )}
+          </>
+        ),
+      });
+    }
+    return marks;
+  }, [points, from, to, bucketMs]);
   const down = marks.filter((m) => m.state === 'down').length;
   const minutes = Math.round(bucketMs / 60_000);
   return (
-    <StateBars
+    <Trace
       marks={marks}
+      view={view}
+      height={height}
       summary={`${down} of ${marks.length} ${minutes}-minute periods with an outage`}
     />
   );
@@ -176,18 +365,15 @@ export function BucketBars({
 export function DayLegend() {
   const items: [string, DayState][] = [
     ['Operational', 'operational'],
-    ['Maintenance', 'maintenance'],
-    ['Degraded', 'degraded'],
+    ['Degraded (counts as up)', 'degraded'],
     ['Outage', 'down'],
+    ['Maintenance', 'maintenance'],
   ];
   return (
-    <div className="flex flex-wrap items-end gap-4 text-[12px] text-muted" aria-hidden="true">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted" aria-hidden="true">
       {items.map(([label, state]) => (
-        <span key={label} className="flex items-end gap-2">
-          <span
-            className="mb-0.5 block w-2 rounded-[2px]"
-            style={{ height: DAY_HEIGHT[state] / 2, background: DAY_COLOR[state] }}
-          />
+        <span key={label} className="flex items-center gap-1.5">
+          <span className="block h-2 w-2 rounded-xs" style={{ background: DAY_COLOR[state] }} />
           {label}
         </span>
       ))}

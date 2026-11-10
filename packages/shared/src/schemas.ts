@@ -215,6 +215,9 @@ export const MONITOR_KINDS = ['http', 'tcp', 'dns', 'tls', 'icmp', 'plugin'] as 
 
 export const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'] as const;
 export const incidentStatusSchema = z.enum(INCIDENT_STATUSES);
+/** Colour themes of the web UI; status colours are the same in every theme. */
+export const THEMES = ['green', 'blue', 'violet', 'amber', 'rose'] as const;
+
 export const IMPACTS = ['degraded', 'partial', 'major'] as const;
 export const impactSchema = z.enum(IMPACTS);
 

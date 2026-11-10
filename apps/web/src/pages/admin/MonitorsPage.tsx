@@ -9,7 +9,7 @@ import { Switch } from '../../components/Switch.tsx';
 import { ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useAdminMonitors, useCatalog, useMe, useNotifiers, usePlugins } from '../../lib/api.ts';
 import { ms, relative } from '../../lib/format.ts';
-import { can } from './AdminLayout.tsx';
+import { can } from '../../lib/roles.ts';
 
 type Draft = { group: string; spec: Record<string, unknown> };
 
@@ -205,7 +205,7 @@ function SoftwareFields({
   };
   const needsUrl = kind !== 'http' && kind !== 'plugin';
   return (
-    <div className="mt-4 rounded-[8px] bg-fill">
+    <div className="mt-4 rounded-md bg-fill">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-[13px]">Track version and vulnerabilities</span>
         <Switch
@@ -666,7 +666,7 @@ function Editor({
         />
       )}
       {(notifiers.data?.length ?? 0) > 0 && (
-        <div className="mt-4 rounded-[8px] bg-fill">
+        <div className="mt-4 rounded-md bg-fill">
           {notifiers.data?.map((n, i) => {
             const list = (s.notify as string[] | undefined) ?? [];
             return (
@@ -689,7 +689,7 @@ function Editor({
           </p>
         </div>
       )}
-      <div className="mt-3 flex items-center justify-between rounded-[8px] bg-fill px-3 py-2">
+      <div className="mt-3 flex items-center justify-between rounded-md bg-fill px-3 py-2">
         <span className="text-[13px]">Open an incident automatically when down</span>
         <Switch
           label="Automatic incidents"
@@ -813,13 +813,13 @@ function MonitorPanel({
             <>
               <button
                 type="button"
-                className="btn-secondary flex-1"
+                className="btn flex-1"
                 disabled={run.isPending}
                 onClick={() => run.mutate()}
               >
                 <Icon name="play" size={16} /> {run.isPending ? 'Checking…' : 'Run check now'}
               </button>
-              <button type="button" className="btn-secondary" onClick={() => pause.mutate(!monitor.paused)}>
+              <button type="button" className="btn" onClick={() => pause.mutate(!monitor.paused)}>
                 <Icon name={monitor.paused ? 'play' : 'pause'} size={16} />{' '}
                 {monitor.paused ? 'Resume' : 'Pause'}
               </button>
@@ -874,7 +874,7 @@ export function MonitorsPage() {
           )
         }
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
           <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-sec">
             <span className="flex-1 pl-6">Name</span>

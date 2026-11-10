@@ -1,23 +1,14 @@
-const formatters = new Map<string, Intl.DateTimeFormat>();
+import { addDays, dayKey } from '@heartline/shared';
 
-function dayFormatter(timeZone: string): Intl.DateTimeFormat {
-  let f = formatters.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
-    formatters.set(timeZone, f);
-  }
-  return f;
-}
-
-/** Calendar day (`YYYY-MM-DD`) of an instant in the given time zone. */
-export function dayKey(at: number, timeZone: string): string {
-  return dayFormatter(timeZone).format(at);
-}
+const offsetFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function offsetMs(at: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })
-    .formatToParts(at)
-    .find((p) => p.type === 'timeZoneName')?.value;
+  let f = offsetFormatters.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' });
+    offsetFormatters.set(timeZone, f);
+  }
+  const parts = f.formatToParts(at).find((p) => p.type === 'timeZoneName')?.value;
   const m = parts?.match(/GMT([+-])(\d{2}):?(\d{2})?/);
   if (!m) return 0;
   const sign = m[1] === '-' ? -1 : 1;
@@ -36,12 +27,6 @@ export function dayRange(day: string, timeZone: string): [number, number] {
 
 /** The last `count` calendar days ending with the day containing `now`, oldest first. */
 export function lastDays(count: number, now: number, timeZone: string): string[] {
-  const days: string[] = [];
   const today = dayKey(now, timeZone);
-  const [y, m, d] = today.split('-').map(Number) as [number, number, number];
-  for (let i = count - 1; i >= 0; i--) {
-    const dt = new Date(Date.UTC(y, m - 1, d - i));
-    days.push(dt.toISOString().slice(0, 10));
-  }
-  return days;
+  return Array.from({ length: count }, (_, i) => addDays(today, i - count + 1));
 }

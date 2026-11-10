@@ -1,20 +1,51 @@
+import type { ServiceDetail } from '@heartline/shared';
 import { Link, useParams } from '@tanstack/react-router';
-import { BucketBars, DayBars, DayLegend } from '../components/DayBars.tsx';
+import {
+  BucketBars,
+  DayBars,
+  DayLegend,
+  TraceAxis,
+  bucketTicks,
+  TraceViewToggle,
+  useTraceView,
+} from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
-import { LatencyChart } from '../components/LatencyChart.tsx';
+import { IncidentRow } from '../components/IncidentRow.tsx';
+import { type ChartBand, LatencyChart } from '../components/LatencyChart.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
 import { StatusPill } from '../components/Status.tsx';
-import { Empty, ErrorNote, Kpi, PageHeader, Section, Spinner } from '../components/ui.tsx';
-import { useMe, useService, useServiceSoftware } from '../lib/api.ts';
-import { dateTime, duration, ms, pct, shortDay, time } from '../lib/format.ts';
-import { RangeControl, useRange } from './RangeControl.tsx';
+import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
+import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
+import { DAY_BG, DAY_MS, dayTicks, incidentTone, ms, pct, relative, time } from '../lib/format.ts';
+import { RangeControl, rangeEndLabel, useRange } from './RangeControl.tsx';
 
 const CHECK_TONE = { up: 'var(--ok)', degraded: 'var(--warn)', down: 'var(--bad)' } as const;
 
+/** Stretches of trouble in the range, shaded behind the response-time chart like in the availability graph. */
+function troubleBands(data: ServiceDetail): ChartBand[] {
+  const periods =
+    data.seriesBucketMs >= DAY_MS
+      ? data.bars.map((b, i) => ({
+          from: data.rangeStart + i * DAY_MS,
+          to: data.rangeStart + (i + 1) * DAY_MS,
+          state: b.state,
+        }))
+      : data.series.map((p) => ({
+          from: p.at - data.seriesBucketMs / 2,
+          to: p.at + data.seriesBucketMs / 2,
+          state: p.state ?? 'nodata',
+        }));
+  return periods.flatMap((p) => {
+    const fill = DAY_BG[p.state];
+    return fill ? [{ from: p.from, to: p.to, fill }] : [];
+  });
+}
+
 export function ServicePage() {
   const { id } = useParams({ from: '/public/services/$id' });
-  const days = useRange(30);
-  const { data, error, isPending } = useService(id, days);
+  const range = useRange(30);
+  const [view] = useTraceView();
+  const { data, error, isPending } = useService(id, range);
   const me = useMe();
   // Vulnerability details need a signed-in viewer; the summary tells us whether we are one (urgency is non-null).
   const software = useServiceSoftware(id, Boolean(data?.software && data.software.urgency !== null));
@@ -22,9 +53,13 @@ export function ServicePage() {
   if (error) return <ErrorNote error={error} />;
 
   const active = data.incidents.find((i) => i.resolvedAt === null);
-  const daily = data.seriesBucketMs >= 86_400_000;
-  const highLabel = daily ? 'p95' : 'peak';
-  const now = data.generatedAt;
+  const daily = data.seriesBucketMs >= DAY_MS;
+  // Daily points sit on calendar days, so the chart spans whole days; finer buckets end at the range end.
+  const [from, to] = daily
+    ? [data.rangeStart, data.rangeStart + data.bars.length * DAY_MS]
+    : [data.rangeEnd - range.days * DAY_MS, data.rangeEnd];
+  const traceHeight = view === 'graph' ? 120 : 34;
+  const endLabel = rangeEndLabel(range);
   const every =
     data.intervalMs >= 60_000
       ? `${Math.round(data.intervalMs / 60_000)} min`
@@ -34,105 +69,115 @@ export function ServicePage() {
     <>
       <PageHeader
         title={
-          <span className="flex flex-wrap items-center gap-3">
+          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <Link to="/" search={range} className="font-normal text-muted no-underline hover:text-text">
+              Overview /
+            </Link>
             {data.name}
             <StatusPill status={data.status} />
           </span>
         }
         subtitle={
           <>
-            {data.kind.toUpperCase()} check every {every} ·{' '}
-            <span className="font-mono text-[12px]">{data.target}</span>
+            {data.kind.toUpperCase()} check every {every} on{' '}
+            <span className="font-mono text-[12px] break-all">{data.target}</span>
+            {data.lastCheckedAt && `, last checked ${relative(data.lastCheckedAt)}`}
           </>
         }
         actions={
           <>
             <RangeControl fallback={30} />
             <a
-              className="btn-secondary no-underline"
-              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?days=${days}`}
+              className="btn"
+              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?${rangeQuery(range)}`}
               download
             >
-              <Icon name="download" size={16} /> Export
+              <Icon name="download" size={14} /> Export CSV
             </a>
           </>
         }
       />
 
-      {data.description && <p className="mb-0 mt-2 text-sec">{data.description}</p>}
+      {data.description && <p className="m-0 max-w-[75ch] text-sec">{data.description}</p>}
 
       {active && (
-        <Link
-          to="/incidents/$id"
-          params={{ id: active.id }}
-          className="card mt-4 flex gap-3 px-4 py-3 text-text no-underline hover:bg-hover"
+        <div
+          className="card overflow-hidden"
+          style={{ background: incidentTone(active).bg, borderColor: incidentTone(active).line }}
         >
-          <span className="mt-2 block h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--warn)' }} />
-          <div className="min-w-0">
-            <div className="text-[12px] font-medium text-warn-text first-letter:uppercase">
-              {active.status} · since {time(active.createdAt).slice(0, 5)}
-            </div>
-            <div className="text-[14px] font-medium">{active.title}</div>
-            <div className="text-sec">{active.updates[0]?.message}</div>
-          </div>
-        </Link>
+          <IncidentRow incident={active} variant="summary" />
+        </div>
       )}
 
-      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-        <Kpi label={`Uptime · ${days} days`} value={pct(data.kpis.uptime)} />
-        <Kpi label="Average response" value={ms(data.kpis.avgLatencyMs)} />
-        <Kpi label="p95" value={ms(data.kpis.p95LatencyMs)} />
-        <Kpi label="Incidents" value={data.kpis.incidents} />
-      </div>
+      <Stats
+        items={[
+          { label: `Uptime, ${range.days} days`, value: pct(data.kpis.uptime) },
+          { label: 'Average response', value: ms(data.kpis.avgLatencyMs) },
+          { label: '95th percentile', value: ms(data.kpis.p95LatencyMs) },
+          { label: 'Incidents', value: data.kpis.incidents },
+        ]}
+      />
 
       <Section
-        className="mt-3"
+        title="Availability"
+        actions={
+          <>
+            <DayLegend />
+            <TraceViewToggle />
+          </>
+        }
+      >
+        <div className="px-3.5 pt-3 pb-3">
+          {daily ? (
+            <DayBars bars={data.bars} view={view} height={traceHeight} />
+          ) : (
+            <BucketBars
+              points={data.series}
+              from={from}
+              to={to}
+              bucketMs={data.seriesBucketMs}
+              view={view}
+              height={traceHeight}
+            />
+          )}
+          <TraceAxis
+            ticks={daily ? dayTicks(data.bars.map((b) => b.day)) : bucketTicks(from, to, data.seriesBucketMs)}
+            end={endLabel}
+            className="mt-1.5"
+          />
+        </div>
+        {data.incidents.length === 0 ? (
+          <p className="m-0 border-t border-hair px-3.5 py-2.5 text-sec">No incidents in this period.</p>
+        ) : (
+          data.incidents.map((i) => <IncidentRow key={i.id} incident={i} variant="history" />)
+        )}
+      </Section>
+
+      <Section
         title="Response time"
         actions={
-          <div className="flex gap-4 text-[12px] text-muted" aria-hidden="true">
+          <div className="flex gap-4 text-[12px] text-sec" aria-hidden="true">
             <span className="flex items-center gap-2">
-              <span className="block h-0.5 w-4 rounded bg-chart" />
+              <span className="block h-0.5 w-3.5 bg-accent" />
               Average
             </span>
             <span className="flex items-center gap-2">
-              <span className="block w-4 border-t-2 border-dotted border-chart-2" />
-              {daily ? 'p95' : 'Slowest check'}
+              <span className="block w-3.5 border-t-2 border-dotted border-muted" />
+              {daily ? '95th percentile' : 'Slowest check'}
             </span>
           </div>
         }
       >
-        <div className="px-4 pb-3">
+        <div className="px-3.5 pt-3 pb-2">
           <LatencyChart
             points={data.series}
-            from={now - days * 86_400_000}
-            to={now}
+            from={from}
+            to={to}
             bucketMs={data.seriesBucketMs}
-            highLabel={highLabel}
+            highLabel={daily ? 'p95' : 'peak'}
+            endLabel={endLabel}
+            bands={troubleBands(data)}
           />
-          <div className="ml-14 mt-2 flex justify-between text-[12px] text-muted" aria-hidden="true">
-            <span>{data.bars[0] && shortDay(data.bars[0].day)}</span>
-            <span>Today</span>
-          </div>
-        </div>
-      </Section>
-
-      <Section className="mt-3" title="Availability" actions={<DayLegend />}>
-        <div className="px-4 pb-4">
-          {daily ? (
-            <DayBars bars={data.bars} />
-          ) : (
-            <BucketBars
-              points={data.series}
-              from={now - days * 86_400_000}
-              to={now}
-              bucketMs={data.seriesBucketMs}
-            />
-          )}
-          <div className="mt-2 flex justify-between text-[12px] text-muted" aria-hidden="true">
-            <span>{data.bars[0] && shortDay(data.bars[0].day)}</span>
-            <span className="font-mono">{pct(data.uptime)} uptime</span>
-            <span>Today</span>
-          </div>
         </div>
       </Section>
 
@@ -145,60 +190,29 @@ export function ServicePage() {
         />
       )}
 
-      <div className="mt-3 flex flex-wrap items-start gap-3">
-        <Section className="min-w-0 flex-[1_1_320px]" title="Recent checks">
-          {data.checks.length === 0 && <Empty>No checks yet</Empty>}
-          {data.checks.slice(0, 12).map((c) => (
-            <div key={c.at} className="flex items-center gap-3 border-t border-hair px-4 py-2 text-[13px]">
-              <span
-                aria-hidden="true"
-                className="block h-2 w-2 shrink-0 rounded-full"
-                style={{ background: CHECK_TONE[c.status] }}
-              />
-              <span className="shrink-0 whitespace-nowrap font-mono text-[12px] text-sec">{time(c.at)}</span>
-              <span className="min-w-0 flex-1 truncate" title={c.message ?? undefined}>
-                <span className="sr-only">{c.status}: </span>
-                {c.message ?? c.status}
-              </span>
-              <span
-                className="font-mono text-[12px]"
-                style={{ color: c.status === 'up' ? 'var(--sec)' : CHECK_TONE[c.status] }}
-              >
-                {ms(c.latencyMs)}
-              </span>
-            </div>
-          ))}
-        </Section>
-        <Section className="min-w-0 flex-[1_1_320px]" title={`Incidents · last ${days} days`}>
-          {data.incidents.length === 0 && <Empty>No incidents in this period</Empty>}
-          {data.incidents.map((i) => (
-            <Link
-              key={i.id}
-              to="/incidents/$id"
-              params={{ id: i.id }}
-              className="block border-t border-hair px-4 py-3 text-text no-underline hover:bg-hover"
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="block h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: i.resolvedAt ? 'var(--fill-2)' : 'var(--warn)' }}
-                />
-                <span className="flex-1 font-medium">{i.title}</span>
-                <span className="font-mono text-[12px] text-muted">
-                  {dateTime(i.createdAt)} · {duration(i.createdAt, i.resolvedAt)}
-                </span>
-              </div>
-              {i.updates[0] && (
-                <div className="ml-4 mt-1 line-clamp-2 text-[13px] text-sec">
-                  <span className="font-medium capitalize text-text">{i.updates[0].status}</span>{' '}
-                  {i.updates[0].message}
-                </div>
-              )}
-            </Link>
-          ))}
-        </Section>
-      </div>
+      <Section title="Recent checks">
+        {data.checks.length === 0 && <Empty>No checks yet</Empty>}
+        {data.checks.slice(0, 12).map((c) => (
+          <div
+            key={c.at}
+            className="flex items-center gap-3 border-t border-hair px-3.5 py-2 first:border-t-0"
+          >
+            <span
+              aria-hidden="true"
+              className="block h-2 w-2 shrink-0 rounded-full"
+              style={{ background: CHECK_TONE[c.status] }}
+            />
+            <span className="shrink-0 whitespace-nowrap text-sec">{time(c.at)}</span>
+            <span className="min-w-0 flex-1 truncate" title={c.message ?? undefined}>
+              <span className="sr-only">{c.status}: </span>
+              {c.message ?? c.status}
+            </span>
+            <span style={{ color: c.status === 'up' ? 'var(--sec)' : CHECK_TONE[c.status] }}>
+              {ms(c.latencyMs)}
+            </span>
+          </div>
+        ))}
+      </Section>
     </>
   );
 }

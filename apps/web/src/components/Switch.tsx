@@ -21,7 +21,7 @@ export function Switch({
       style={{ background: checked ? 'var(--ok)' : 'var(--fill-2)' }}
     >
       <span
-        className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-knob shadow-seg transition-transform"
+        className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-knob shadow-[0_1px_2px_rgb(0_0_0/0.25)] transition-transform"
         style={{ transform: checked ? 'translateX(16px)' : undefined }}
       />
     </button>

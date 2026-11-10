@@ -1,12 +1,46 @@
 import type { ReactNode } from 'react';
 
-export function Kpi({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
+/** Headline figures of a record, side by side on one surface. */
+export function Stats({ items }: { items: { label: string; value: ReactNode; hint?: string }[] }) {
   return (
-    <div className="card px-4 py-3">
-      <div className="text-[12px] text-sec">{label}</div>
-      <div className="mt-1 text-[28px] font-medium leading-8">{value}</div>
-      {hint && <div className="text-[12px] text-sec">{hint}</div>}
-    </div>
+    <dl className="card m-0 grid grid-cols-2 overflow-hidden md:auto-cols-fr md:grid-flow-col md:grid-cols-none">
+      {items.map((i) => (
+        <div key={i.label} className="-mr-px -mb-px border-r border-b border-hair px-3.5 py-3">
+          <dt className="text-[12px] text-sec">
+            {i.label}
+            {i.hint && <span className="text-muted"> ({i.hint})</span>}
+          </dt>
+          <dd className="m-0 mt-0.5 text-[22px] leading-7 font-semibold tracking-[-0.01em]">{i.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '')).toUpperCase() || '?';
+}
+
+/** A user's picture, or their initials on a grey disc. */
+export function Avatar({ name, image, size = 28 }: { name: string; image?: string | null; size?: number }) {
+  if (image)
+    return (
+      <img
+        src={image}
+        alt=""
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  return (
+    <span
+      aria-hidden="true"
+      className="flex shrink-0 items-center justify-center rounded-full bg-fill-2 font-semibold"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.41) }}
+    >
+      {initials(name)}
+    </span>
   );
 }
 
@@ -22,8 +56,8 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="m-0 text-[28px] font-medium leading-8">{title}</h1>
-        {subtitle && <div className="mt-1 text-[13px] text-sec">{subtitle}</div>}
+        <h1 className="m-0 text-[18px] leading-snug font-semibold tracking-[-0.01em]">{title}</h1>
+        {subtitle && <div className="mt-1 text-sec">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -44,8 +78,8 @@ export function Section({
   return (
     <section className={`card overflow-hidden ${className}`}>
       {(title || actions) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-4">
-          {title && <h2 className="m-0 text-[14px] font-medium">{title}</h2>}
+        <div className="panel-head">
+          {title && <h2 className="m-0 flex-1 text-[13px] font-semibold">{title}</h2>}
           {actions}
         </div>
       )}
@@ -55,7 +89,7 @@ export function Section({
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="m-0 border-t border-hair px-4 py-4 text-sec">{children}</p>;
+  return <p className="m-0 px-3.5 py-4 text-sec">{children}</p>;
 }
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
@@ -69,7 +103,7 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
 
 export function ErrorNote({ error }: { error: unknown }) {
   return (
-    <div role="alert" className="card mt-4 px-4 py-3 text-bad-text">
+    <div role="alert" className="card border-bad-line bg-bad-bg px-3.5 py-3 text-bad-text">
       {error instanceof Error ? error.message : 'Something went wrong.'}
     </div>
   );
@@ -97,24 +131,13 @@ export function Field({
   );
 }
 
-export function Notice({
-  tone = 'neutral',
-  children,
-}: {
-  tone?: 'neutral' | 'warn' | 'bad' | 'ok';
-  children: ReactNode;
-}) {
-  const color =
-    tone === 'warn'
-      ? 'var(--warn-text)'
-      : tone === 'bad'
-        ? 'var(--bad-text)'
-        : tone === 'ok'
-          ? 'var(--ok-text)'
-          : 'var(--sec)';
-  return (
-    <div className="rounded-[8px] bg-fill px-3 py-2 text-[13px]" style={{ color }}>
-      {children}
-    </div>
-  );
+const NOTICE = {
+  neutral: 'bg-fill text-sec',
+  warn: 'bg-warn-bg text-warn-text',
+  bad: 'bg-bad-bg text-bad-text',
+  ok: 'bg-ok-bg text-ok-text',
+} as const;
+
+export function Notice({ tone = 'neutral', children }: { tone?: keyof typeof NOTICE; children: ReactNode }) {
+  return <div className={`rounded-md px-3 py-2 text-[13px] ${NOTICE[tone]}`}>{children}</div>;
 }
