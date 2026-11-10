@@ -15,7 +15,7 @@ export function subscribe(cb: () => void): () => void {
   };
 }
 
-export function notify(): void {
+function notify(): void {
   for (const l of listeners) l();
 }
 

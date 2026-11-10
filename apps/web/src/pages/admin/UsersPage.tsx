@@ -3,7 +3,7 @@ import { ROLES } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
-import { ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { Avatar, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useBootstrap, useMe, useUsers } from '../../lib/api.ts';
 import { dateTime } from '../../lib/format.ts';
 
@@ -49,19 +49,14 @@ export function UsersPage() {
           <Notice tone="bad">{error}</Notice>
         </div>
       )}
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
           {users.data.map((u, i) => (
             <div
               key={u.id}
               className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
             >
-              <span
-                aria-hidden="true"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-fill-2 text-[13px] font-medium"
-              >
-                {u.name.charAt(0).toUpperCase()}
-              </span>
+              <Avatar name={u.name} size={32} />
               <span className="min-w-0 flex-[1_1_180px]">
                 <span className="block font-medium">
                   {u.name}

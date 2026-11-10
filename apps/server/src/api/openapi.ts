@@ -1,6 +1,7 @@
 import {
   IMPACTS,
   INCIDENT_STATUSES,
+  MAX_RANGE_DAYS,
   MONITOR_KINDS,
   ROLES,
   SCOPES,
@@ -332,7 +333,7 @@ const pathId = (name = 'id', description = 'Service id') => ({
 const days = (fallback: number) => ({
   name: 'days',
   in: 'query',
-  schema: int({ minimum: 1, maximum: 365, default: fallback }),
+  schema: int({ minimum: 1, maximum: MAX_RANGE_DAYS, default: fallback }),
 });
 const to = {
   name: 'to',

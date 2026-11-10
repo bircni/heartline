@@ -1,3 +1,4 @@
+import { MAX_RANGE_DAYS, isDayKey } from '@heartline/shared';
 import {
   Link,
   Outlet,
@@ -10,15 +11,14 @@ import {
 import { IncidentHistoryPage, IncidentPage } from './pages/IncidentPage.tsx';
 import { OverviewPage } from './pages/OverviewPage.tsx';
 import { PublicLayout } from './pages/PublicLayout.tsx';
-import { MAX_DAYS } from './pages/RangeControl.tsx';
 import { ServicePage } from './pages/ServicePage.tsx';
 
 type RangeSearch = { days?: number; to?: string };
 const validateRange = (search: Record<string, unknown>): RangeSearch => {
   const days = Number(search.days);
-  const to = typeof search.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.to) ? search.to : undefined;
+  const to = typeof search.to === 'string' && isDayKey(search.to) ? search.to : undefined;
   return {
-    ...(Number.isInteger(days) && days >= 1 && days <= MAX_DAYS ? { days } : {}),
+    ...(Number.isInteger(days) && days >= 1 && days <= MAX_RANGE_DAYS ? { days } : {}),
     ...(to ? { to } : {}),
   };
 };

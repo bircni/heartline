@@ -1,9 +1,9 @@
-import type { Incident } from '@heartline/shared';
 import { Link, useParams } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
+import { IncidentRow } from '../components/IncidentRow.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
 import { useIncident, useIncidents } from '../lib/api.ts';
-import { IMPACT_LABEL, dateTime, duration, incidentAge, incidentTone, serviceNames } from '../lib/format.ts';
+import { IMPACT_LABEL, dateTime, duration, incidentAge, incidentTone } from '../lib/format.ts';
 
 /** Incidents the history page loads; the API serves at most 200 per request. */
 const HISTORY_LIMIT = 200;
@@ -26,7 +26,7 @@ export function IncidentPage() {
       <PageHeader
         title={data.title}
         subtitle={
-          <span className="font-medium" style={{ color: incidentTone(data) }}>
+          <span className="font-medium" style={{ color: incidentTone(data).text }}>
             {IMPACT_LABEL[data.impact]}, {open ? incidentAge(data) : 'resolved'}
           </span>
         }
@@ -69,8 +69,8 @@ export function IncidentPage() {
                 aria-hidden="true"
                 className="relative mt-[4px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
                 style={{
-                  background: i === 0 ? incidentTone(data) : 'var(--surface)',
-                  borderColor: i === 0 ? incidentTone(data) : 'var(--fill-2)',
+                  background: i === 0 ? incidentTone(data).text : 'var(--surface)',
+                  borderColor: i === 0 ? incidentTone(data).text : 'var(--fill-2)',
                 }}
               />
               <div className="min-w-0">
@@ -91,28 +91,6 @@ export function IncidentPage() {
   );
 }
 
-/** One incident in the history list; open incidents are tinted red. */
-function HistoryRow({ incident: i }: { incident: Incident }) {
-  return (
-    <Link
-      to="/incidents/$id"
-      params={{ id: i.id }}
-      className={`flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 text-text no-underline transition-colors first:border-t-0 hover:bg-hover ${i.resolvedAt === null ? 'bg-bad-bg' : ''}`}
-    >
-      <span className="min-w-0 flex-[1_1_16rem] font-medium">{i.title}</span>
-      <span className="text-[12px] font-medium" style={{ color: incidentTone(i) }}>
-        {IMPACT_LABEL[i.impact]}
-      </span>
-      <span className="min-w-0 flex-[1_1_10rem] truncate text-[12px] text-muted">
-        {serviceNames(i.services)}
-      </span>
-      <span className="text-[12px] text-sec">
-        {dateTime(i.createdAt)}, {incidentAge(i)}
-      </span>
-    </Link>
-  );
-}
-
 /** Every incident, newest first, open ones on top. */
 export function IncidentHistoryPage() {
   const { data, error, isPending } = useIncidents(false, HISTORY_LIMIT);
@@ -127,7 +105,7 @@ export function IncidentHistoryPage() {
       {open.length > 0 && (
         <Section title="Open">
           {open.map((i) => (
-            <HistoryRow key={i.id} incident={i} />
+            <IncidentRow key={i.id} incident={i} variant="history" />
           ))}
         </Section>
       )}
@@ -135,7 +113,7 @@ export function IncidentHistoryPage() {
         {past.length === 0 ? (
           <Empty>No incidents so far.</Empty>
         ) : (
-          past.map((i) => <HistoryRow key={i.id} incident={i} />)
+          past.map((i) => <IncidentRow key={i.id} incident={i} variant="history" />)
         )}
         {data.length >= HISTORY_LIMIT && (
           <p className="m-0 border-t border-hair px-3.5 py-2.5 text-[12px] text-muted">

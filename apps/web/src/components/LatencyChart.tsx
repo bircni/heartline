@@ -6,7 +6,7 @@ import { ParentSize } from '@visx/responsive';
 import { scaleLinear } from '@visx/scale';
 import { AreaClosed, Line, LinePath } from '@visx/shape';
 import { useMemo, useState } from 'react';
-import { ms, timeTicks } from '../lib/format.ts';
+import { clearOfEndLabel, ms, timeTicks } from '../lib/format.ts';
 
 const MARGIN = { top: 8, right: 4, bottom: 24, left: 52 };
 
@@ -110,7 +110,7 @@ function Chart({
               {t.pos > 0 && (
                 <line x1={t.pos * innerW} x2={t.pos * innerW} y1={0} y2={innerH + 6} stroke="var(--grid)" />
               )}
-              {t.pos * innerW < innerW - 96 && (
+              {clearOfEndLabel(t) && (
                 <text
                   x={t.pos * innerW + (t.pos > 0 ? 6 : 0)}
                   y={innerH + 18}

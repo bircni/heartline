@@ -17,6 +17,33 @@ export function Stats({ items }: { items: { label: string; value: ReactNode; hin
   );
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '')).toUpperCase() || '?';
+}
+
+/** A user's picture, or their initials on a grey disc. */
+export function Avatar({ name, image, size = 28 }: { name: string; image?: string | null; size?: number }) {
+  if (image)
+    return (
+      <img
+        src={image}
+        alt=""
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  return (
+    <span
+      aria-hidden="true"
+      className="flex shrink-0 items-center justify-center rounded-full bg-fill-2 font-semibold"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.41) }}
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
 export function PageHeader({
   title,
   subtitle,
@@ -104,19 +131,13 @@ export function Field({
   );
 }
 
-const NOTICE: Record<'neutral' | 'warn' | 'bad' | 'ok', string> = {
+const NOTICE = {
   neutral: 'bg-fill text-sec',
   warn: 'bg-warn-bg text-warn-text',
   bad: 'bg-bad-bg text-bad-text',
   ok: 'bg-ok-bg text-ok-text',
-};
+} as const;
 
-export function Notice({
-  tone = 'neutral',
-  children,
-}: {
-  tone?: 'neutral' | 'warn' | 'bad' | 'ok';
-  children: ReactNode;
-}) {
+export function Notice({ tone = 'neutral', children }: { tone?: keyof typeof NOTICE; children: ReactNode }) {
   return <div className={`rounded-md px-3 py-2 text-[13px] ${NOTICE[tone]}`}>{children}</div>;
 }

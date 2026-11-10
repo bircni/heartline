@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon.tsx';
 import { SiteLogo } from '../components/Shell.tsx';
 import { ThemeMenu } from '../components/ThemeMenu.tsx';
 import { Notice } from '../components/ui.tsx';
-import { useBootstrap, useMe } from '../lib/api.ts';
+import { useBootstrap, useMe, useSiteTitle } from '../lib/api.ts';
 import { authClient, authorizeUrlFrom, isOAuthContinuation } from '../lib/auth.ts';
 
 export function LoginPage() {
@@ -65,6 +65,7 @@ export function LoginPage() {
   };
 
   const site = boot.data?.site;
+  const title = useSiteTitle();
   const providers = boot.data?.auth.oidc ?? [];
   const local = boot.data?.auth.local ?? true;
 
@@ -77,7 +78,7 @@ export function LoginPage() {
         <div className="flex flex-col items-center text-center">
           <SiteLogo size={40} />
           <h1 className="m-0 mt-4 text-[20px] font-semibold tracking-[-0.01em]">
-            {oauth ? 'Sign in to connect' : `Sign in to ${site?.title ?? 'Status'}`}
+            {oauth ? 'Sign in to connect' : `Sign in to ${title}`}
           </h1>
           <p className="m-0 mt-1 text-sec">
             {oauth

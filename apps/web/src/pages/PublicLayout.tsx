@@ -1,19 +1,20 @@
 import type { Me } from '@heartline/shared';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
-import { NavGroup, NavItem, Shell, SiteLogo } from '../components/Shell.tsx';
+import { NavGroup, NavItem, Shell, SiteBrand } from '../components/Shell.tsx';
 import { StatusDot } from '../components/Status.tsx';
 import { ThemeMenu } from '../components/ThemeMenu.tsx';
-import { useBootstrap, useMe, useOverview } from '../lib/api.ts';
+import { rangeQuery, useMe, useNavOverview, useOverview } from '../lib/api.ts';
 import { useRange } from './RangeControl.tsx';
 
 /** Sidebar navigation of the status page: overview, incident history and every service. */
 function StatusNav() {
   const range = useRange();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  // On the overview the page's own query serves the sidebar too; elsewhere one day of history is enough
-  // for names and status.
-  const overview = useOverview(path === '/' ? range : { days: 1 });
+  // On the overview the page's own query serves the sidebar too.
+  const page = useOverview(range, path === '/');
+  const nav = useNavOverview(path !== '/');
+  const overview = path === '/' ? page : nav;
   const open = overview.data?.activeIncidents.length ?? 0;
   return (
     <>
@@ -61,13 +62,12 @@ function SignedIn({ me }: { me: Me }) {
 
 /** Visitors get a plain centred page: no sidebar, sign-in in the corner. */
 function Visitor() {
-  const boot = useBootstrap();
+  const range = useRange();
   return (
     <div className="mx-auto flex min-h-screen max-w-[56rem] flex-col gap-4 px-4 pt-5 pb-10 md:px-5">
       <header className="flex flex-wrap items-center gap-2.5 pb-1">
         <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5 text-text no-underline">
-          <SiteLogo />
-          <span className="truncate text-[15px] font-semibold">{boot.data?.site.title ?? 'Status'}</span>
+          <SiteBrand />
         </Link>
         <a className="btn" href="/api/v1/incidents.rss">
           <Icon name="rss" size={14} /> Subscribe
@@ -82,7 +82,10 @@ function Visitor() {
         <Link to="/incidents" className="text-muted no-underline hover:text-text">
           Incident history
         </Link>
-        <a href="/api/v1/report.csv?days=90" className="text-muted no-underline hover:text-text">
+        <a
+          href={`/api/v1/report.csv?${rangeQuery(range)}`}
+          className="text-muted no-underline hover:text-text"
+        >
           Uptime report (CSV)
         </a>
       </footer>

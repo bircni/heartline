@@ -7,7 +7,8 @@ import type { IncidentService } from '../services/incidents.ts';
 import type { MaintenanceService } from '../services/maintenance.ts';
 import type { LoadedMonitor } from '../services/monitors.ts';
 import { log } from '../util/log.ts';
-import { dayKey, dayRange } from '../util/time.ts';
+import { dayKey } from '@heartline/shared';
+import { dayRange } from '../util/time.ts';
 
 export interface EngineSettings {
   timezone: string;

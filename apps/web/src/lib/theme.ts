@@ -1,6 +1,6 @@
 import { THEMES, type Theme } from '@heartline/shared';
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { notify, save, saved, subscribe } from './store.ts';
+import { save, saved, subscribe } from './store.ts';
 
 /*
  * Appearance (dark or light) and colour theme. Both are saved per browser; the colour falls back to the
@@ -34,11 +34,10 @@ export function useTheme(): {
 export function useSiteAccent(siteDefault: Theme | undefined) {
   useEffect(() => {
     if (!siteDefault) return;
-    // theme-init.js paints this before the next visit's bootstrap request returns.
-    save('site-accent', siteDefault);
     const own = saved('accent');
-    if (own && (THEMES as readonly string[]).includes(own)) return;
-    root().dataset.accent = siteDefault;
-    notify();
+    if (!own || !(THEMES as readonly string[]).includes(own)) root().dataset.accent = siteDefault;
+    // theme-init.js paints this before the next visit's bootstrap request returns; saving also tells
+    // subscribers that the accent may have changed.
+    save('site-accent', siteDefault);
   }, [siteDefault]);
 }

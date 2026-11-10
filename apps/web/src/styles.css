@@ -171,6 +171,10 @@
 /* Header row of a panel: title on the left, controls on the right. */
 @utility panel-head {
   @apply flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-hair px-3.5 py-2.5;
+  /* Rows below draw their own top border; the header's bottom border already separates the first one. */
+  & + .border-t {
+    border-top-width: 0;
+  }
 }
 
 /* Group label inside a list. */
@@ -188,6 +192,11 @@
 
 @utility btn {
   @apply inline-flex h-[30px] items-center justify-center gap-[7px] rounded-md border border-hair bg-surface px-[11px] text-[13px] font-medium whitespace-nowrap text-text no-underline transition-colors hover:bg-hover disabled:opacity-40;
+}
+
+/* Compact button for row actions. */
+@utility btn-sm {
+  @apply btn h-7 px-3 text-[12px];
 }
 
 @utility btn-primary {

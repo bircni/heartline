@@ -3,23 +3,24 @@ import { type FormEvent, useState } from 'react';
 import { Icon } from '../components/Icon.tsx';
 import { usePopover } from '../components/Popover.tsx';
 import { Segmented } from '../components/Segmented.tsx';
+import { MAX_RANGE_DAYS, addDays, dayKey } from '@heartline/shared';
 import { type Range, useBootstrap } from '../lib/api.ts';
-import { dayKey } from '@heartline/shared';
-import { addDays, shortDate, shortDay } from '../lib/format.ts';
+import { DAY_MS, shortDate, shortDay } from '../lib/format.ts';
 
-export const RANGES = [7, 30, 90] as const;
-/** Longest range the API serves. */
-export const MAX_DAYS = 365;
-
-export type { Range };
+const RANGES = [7, 30, 90] as const;
 
 export function useRange(fallback = 90): Range {
   const { days, to } = useSearch({ strict: false }) as { days?: number; to?: string };
   return { days: days ?? fallback, to };
 }
 
+/** Label at the right end of a time axis: the range's last day, or "Today". */
+export function rangeEndLabel({ to }: Range): string {
+  return to ? shortDay(to) : 'Today';
+}
+
 /** "Aug 13 – Nov 10, 2026" for the range ending on `to`, or on `today` when it has no end day. */
-export function rangeLabel({ days, to }: Range, today: string): string {
+function rangeLabel({ days, to }: Range, today: string): string {
   const end = to ?? today;
   return `${shortDay(addDays(end, 1 - days))} – ${shortDate(end)}`;
 }
@@ -45,20 +46,20 @@ export function RangeControl({ fallback = 90 }: { fallback?: number }) {
     });
   const preset = !range.to && (RANGES as readonly number[]).includes(range.days);
 
-  const span = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+  const span = Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS) + 1;
+  // While a field is empty the button is simply disabled; the message explains real conflicts only.
+  const incomplete = !from || !to;
   const invalid =
-    !from || !to
-      ? 'Pick both days.'
-      : span < 1
-        ? 'The first day must come before the last.'
-        : span > MAX_DAYS
-          ? `Pick at most ${MAX_DAYS} days.`
-          : to > today
-            ? 'The last day cannot be in the future.'
-            : null;
+    span < 1
+      ? 'The first day must come before the last.'
+      : span > MAX_RANGE_DAYS
+        ? `Pick at most ${MAX_RANGE_DAYS} days.`
+        : to > today
+          ? 'The last day cannot be in the future.'
+          : null;
   const apply = (e: FormEvent) => {
     e.preventDefault();
-    if (invalid) return;
+    if (incomplete || invalid) return;
     go({ days: span, to: to === today ? undefined : to });
     pop.setOpen(false);
   };
@@ -120,9 +121,9 @@ export function RangeControl({ fallback = 90 }: { fallback?: number }) {
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
-            {invalid && from && to && <p className="m-0 text-[12px] text-bad-text">{invalid}</p>}
+            {!incomplete && invalid && <p className="m-0 text-[12px] text-bad-text">{invalid}</p>}
             <div className="flex gap-2">
-              <button type="submit" className="btn-primary flex-1" disabled={invalid !== null}>
+              <button type="submit" className="btn-primary flex-1" disabled={incomplete || invalid !== null}>
                 Show range
               </button>
               <button type="button" className="btn" onClick={() => pop.setOpen(false)}>

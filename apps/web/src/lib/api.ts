@@ -65,6 +65,9 @@ export const useBootstrap = () =>
     staleTime: Infinity,
     refetchInterval: false,
   });
+/** The site title from status.yaml, "Status" until it has loaded. */
+export const useSiteTitle = () => useBootstrap().data?.site.title ?? 'Status';
+
 export const useMe = () =>
   useQuery({
     queryKey: ['me'],
@@ -81,14 +84,29 @@ export type Range = {
 /** Query string of a range, shared by the JSON endpoints and the CSV reports. */
 export const rangeQuery = ({ days, to }: Range) => `days=${days}${to ? `&to=${to}` : ''}`;
 
-export const useOverview = (range: Range) =>
+export const useOverview = (range: Range, enabled = true) =>
   useQuery({
+    enabled,
     queryKey: ['overview', range.days, range.to],
     queryFn: () => api<Overview>(`/api/v1/overview?${rangeQuery(range)}`),
     // Poll faster while services wait for their first checks (fresh start, new monitor).
     refetchInterval: (q) =>
       q.state.data?.groups.some((g) => g.services.some((s) => s.status === 'unknown')) ? 5_000 : 30_000,
   });
+/**
+ * Services for the sidebar: names and current status. One day of history keeps the request small, it polls
+ * less often than the pages, and it starts from any overview already loaded so the list never flashes empty.
+ */
+export const useNavOverview = (enabled = true) =>
+  useQuery({
+    enabled,
+    queryKey: ['overview', 1, undefined],
+    queryFn: () => api<Overview>('/api/v1/overview?days=1'),
+    refetchInterval: 60_000,
+    placeholderData: () =>
+      queryClient.getQueriesData<Overview>({ queryKey: ['overview'] }).find(([, d]) => d)?.[1],
+  });
+
 export const useService = (id: string, range: Range) =>
   useQuery({
     queryKey: ['service', id, range.days, range.to],

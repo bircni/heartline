@@ -38,7 +38,7 @@ export function NotificationsPage() {
           </Empty>
         </Section>
       )}
-      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
         {notifiers.data.map((n) => {
           const r = results[n.id];
           const failing = r ? !r.ok : Boolean(n.lastError);

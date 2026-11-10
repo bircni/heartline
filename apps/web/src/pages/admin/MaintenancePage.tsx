@@ -73,7 +73,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           {existing ? `Edit “${existing.title}”` : 'Schedule maintenance'}
         </h2>
         {existing && (
-          <button type="button" className="btn h-7 px-3 text-[12px]" onClick={onDone}>
+          <button type="button" className="btn-sm" onClick={onDone}>
             Cancel
           </button>
         )}
@@ -183,7 +183,7 @@ export function MaintenancePage() {
         title="Maintenance"
         subtitle="Checks keep running, but services show as in maintenance and no alerts are sent."
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
           {list.data.length === 0 && <Empty>No maintenance scheduled</Empty>}
           {list.data.map((m, i) => {

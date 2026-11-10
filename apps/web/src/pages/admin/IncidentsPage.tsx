@@ -326,7 +326,7 @@ export function IncidentsPage() {
           )
         }
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[1_1_280px]">
           {incidents.data.length === 0 && <Empty>No incidents yet</Empty>}
           {incidents.data.map((i, idx) => (

@@ -18,7 +18,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className="btn h-7 shrink-0 px-3 text-[12px]"
+      className="btn-sm shrink-0"
       onClick={() => {
         void navigator.clipboard.writeText(text).then(() => {
           setDone(true);
@@ -75,7 +75,7 @@ export function TokensPage() {
           )
         }
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-[999_1_420px]">
           <Section>
             {tokens.isPending && <Spinner />}
@@ -100,7 +100,7 @@ export function TokensPage() {
                 </span>
                 <button
                   type="button"
-                  className="btn-danger h-7 px-3 text-[12px]"
+                  className="btn-sm text-bad-text"
                   onClick={() => {
                     if (
                       window.confirm(`Revoke token “${t.name}”? Clients using it stop working immediately.`)

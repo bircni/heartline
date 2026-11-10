@@ -874,7 +874,7 @@ export function MonitorsPage() {
           )
         }
       />
-      <div className="mt-4 flex flex-wrap items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
           <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-sec">
             <span className="flex-1 pl-6">Name</span>

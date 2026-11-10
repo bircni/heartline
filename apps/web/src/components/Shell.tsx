@@ -2,12 +2,13 @@ import type { Me } from '@heartline/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
-import { useBootstrap } from '../lib/api.ts';
+import { useBootstrap, useSiteTitle } from '../lib/api.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { usePopover } from './Popover.tsx';
 import { ThemeMenu } from './ThemeMenu.tsx';
+import { Avatar } from './ui.tsx';
 
-export type ShellView = 'status' | 'admin';
+type ShellView = 'status' | 'admin';
 
 const VIEWS: { view: ShellView; to: string; label: string; hint: string }[] = [
   { view: 'status', to: '/', label: 'Status page', hint: 'What visitors see' },
@@ -37,9 +38,19 @@ export function SiteLogo({ size = 26 }: { size?: number }) {
   );
 }
 
+/** Logo and site title, the brand at the top of every layout. */
+export function SiteBrand({ size = 26 }: { size?: number }) {
+  return (
+    <>
+      <SiteLogo size={size} />
+      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{useSiteTitle()}</span>
+    </>
+  );
+}
+
 /** Top-left switch between the status page and the admin area. */
 function ViewSwitcher({ view }: { view: ShellView }) {
-  const boot = useBootstrap();
+  const title = useSiteTitle();
   const { ref: popRef, ...pop } = usePopover();
   const current = VIEWS.find((v) => v.view === view) as (typeof VIEWS)[number];
   return (
@@ -53,9 +64,7 @@ function ViewSwitcher({ view }: { view: ShellView }) {
       >
         <SiteLogo />
         <span className="min-w-0 flex-1">
-          <span className="block truncate leading-tight font-semibold">
-            {boot.data?.site.title ?? 'Status'}
-          </span>
+          <span className="block truncate leading-tight font-semibold">{title}</span>
           <span className="block text-[12px] leading-tight text-muted">{current.label}</span>
         </span>
         <Icon name="updown" size={14} className="text-muted" />
@@ -104,16 +113,7 @@ function UserMenu({ me }: { me: Me }) {
         onClick={pop.toggle}
         className="flex h-11 w-full items-center gap-[9px] rounded-md px-1.5 text-left transition-colors hover:bg-fill"
       >
-        {me.image ? (
-          <img src={me.image} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-        ) : (
-          <span
-            aria-hidden="true"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-fill-2 text-[11.5px] font-semibold"
-          >
-            {initials(me.name)}
-          </span>
-        )}
+        <Avatar name={me.name} image={me.image} />
         <span className="min-w-0 flex-1">
           <span className="block truncate leading-tight font-medium">{me.name}</span>
           <span className="block truncate text-[12px] leading-tight text-muted">{me.email}</span>
@@ -131,11 +131,6 @@ function UserMenu({ me }: { me: Me }) {
       )}
     </div>
   );
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '')).toUpperCase() || '?';
 }
 
 export function NavItem({
@@ -202,7 +197,6 @@ export function Shell({
   nav: ReactNode;
   children: ReactNode;
 }) {
-  const boot = useBootstrap();
   // The phone menu belongs to the page it was opened on, so following a link closes it.
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [openOn, setOpenOn] = useState<string | null>(null);
@@ -211,8 +205,7 @@ export function Shell({
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <div className="flex h-12 items-center gap-2.5 border-b border-hair bg-side px-3 md:hidden">
-        <SiteLogo size={24} />
-        <span className="min-w-0 flex-1 truncate font-semibold">{boot.data?.site.title ?? 'Status'}</span>
+        <SiteBrand size={24} />
         <button
           type="button"
           className="icon-btn"

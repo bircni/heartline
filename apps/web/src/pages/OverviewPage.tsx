@@ -1,4 +1,4 @@
-import type { Incident, Maintenance, Overview } from '@heartline/shared';
+import type { Maintenance, Overview } from '@heartline/shared';
 import { Link } from '@tanstack/react-router';
 import {
   DayBars,
@@ -9,6 +9,7 @@ import {
   useTraceView,
 } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
+import { IncidentRow } from '../components/IncidentRow.tsx';
 import { StatusIcon } from '../components/Status.tsx';
 import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
@@ -16,51 +17,23 @@ import { rangeQuery, useOverview } from '../lib/api.ts';
 import {
   STATUS_LABEL,
   STATUS_TONE,
+  clock,
   dayTicks,
-  incidentTone,
   pct,
   relative,
   serviceNames,
-  shortDay,
+  weekdayDate,
 } from '../lib/format.ts';
-import { RangeControl, useRange } from './RangeControl.tsx';
-
-/** One active incident inside the status banner. */
-function IncidentRow({ incident: i }: { incident: Incident }) {
-  return (
-    <Link
-      to="/incidents/$id"
-      params={{ id: i.id }}
-      className="flex items-start gap-3 border-t border-hair px-3.5 py-3 text-text no-underline transition-colors hover:bg-hover"
-    >
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-baseline gap-x-2.5">
-          <span className="font-semibold">{i.title}</span>
-          <span className="text-[12px] font-medium capitalize" style={{ color: incidentTone(i) }}>
-            {i.status}
-          </span>
-          <span className="text-[12px] text-muted">
-            {serviceNames(i.services)}, updated {relative(i.updates[0]?.createdAt ?? i.createdAt)}
-          </span>
-        </span>
-        {i.updates[0] && <span className="mt-0.5 block line-clamp-2 text-sec">{i.updates[0].message}</span>}
-      </span>
-      <Icon name="chevron" size={15} className="mt-0.5 shrink-0 text-muted" />
-    </Link>
-  );
-}
+import { RangeControl, rangeEndLabel, useRange } from './RangeControl.tsx';
 
 /** The current state of everything, with the open incidents underneath. */
 function StatusBanner({ data }: { data: Overview }) {
   const tone = STATUS_TONE[data.status];
-  const trouble = data.status === 'down' || data.status === 'degraded';
   return (
     <section
       aria-labelledby="overall-status"
       className="card overflow-hidden"
-      style={
-        trouble ? { borderColor: data.status === 'down' ? 'var(--bad-line)' : 'var(--warn)' } : undefined
-      }
+      style={{ borderColor: tone.line }}
     >
       <div
         className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3.5 py-3"
@@ -75,7 +48,7 @@ function StatusBanner({ data }: { data: Overview }) {
         </span>
       </div>
       {data.activeIncidents.length > 0 ? (
-        data.activeIncidents.map((i) => <IncidentRow key={i.id} incident={i} />)
+        data.activeIncidents.map((i) => <IncidentRow key={i.id} incident={i} variant="summary" />)
       ) : (
         <p className="m-0 border-t border-hair px-3.5 py-2.5 text-sec">
           {data.status === 'operational' ? 'No known issues right now.' : data.summary}
@@ -89,8 +62,6 @@ const ROW =
   'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_4.5rem]';
 
 function MaintenanceRow({ window: m }: { window: Maintenance }) {
-  const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
   const start = m.nextStartsAt ?? m.startsAt;
   const end = m.nextEndsAt ?? m.endsAt;
   return (
@@ -99,9 +70,9 @@ function MaintenanceRow({ window: m }: { window: Maintenance }) {
       <span className="min-w-0 flex-[1_1_10rem] truncate text-sec">{serviceNames(m.services)}</span>
       <span className="text-sec">
         {m.active ? (
-          <span className="font-medium text-maint">In progress until {clock.format(end)}</span>
+          <span className="font-medium text-maint">In progress until {clock(end)}</span>
         ) : (
-          `${day.format(start)}, ${clock.format(start)} – ${clock.format(end)}`
+          `${weekdayDate(start)}, ${clock(start)} – ${clock(end)}`
         )}
       </span>
     </div>
@@ -159,11 +130,7 @@ export function OverviewPage() {
           <>
             <div className={`${ROW} py-2 text-[12px] text-muted`} aria-hidden="true">
               <span className="max-md:hidden">Service</span>
-              <TraceAxis
-                ticks={dayTicks(days)}
-                end={range.to ? shortDay(range.to) : 'Today'}
-                className="max-md:col-span-2"
-              />
+              <TraceAxis ticks={dayTicks(days)} end={rangeEndLabel(range)} className="max-md:col-span-2" />
               <span className="text-right max-md:hidden">Uptime</span>
             </div>
             {data.groups.map(

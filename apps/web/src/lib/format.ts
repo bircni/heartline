@@ -53,11 +53,25 @@ export function shortDay(day: string): string {
   );
 }
 
-/** `day` (`YYYY-MM-DD`) moved by `n` calendar days. */
-export function addDays(day: string, n: number): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+const clockFormat = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const weekdayFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+
+/** "14:05". */
+export function clock(at: number): string {
+  return clockFormat.format(at);
+}
+
+/** "Sun, Nov 15". */
+export function weekdayDate(at: number): string {
+  return weekdayFormat.format(at);
 }
 
 export function duration(from: number, to: number | null): string {
@@ -78,14 +92,35 @@ export const STATUS_LABEL: Record<ServiceStatus, string> = {
   unknown: 'Pending',
 };
 
-/** CSS variables per status: dot, text and background colour. */
-export const STATUS_TONE: Record<ServiceStatus, { dot: string; text: string; bg: string }> = {
-  operational: { dot: 'var(--ok)', text: 'var(--ok-text)', bg: 'var(--ok-bg)' },
-  degraded: { dot: 'var(--warn)', text: 'var(--warn-text)', bg: 'var(--warn-bg)' },
-  down: { dot: 'var(--bad)', text: 'var(--bad-text)', bg: 'var(--bad-bg)' },
-  maintenance: { dot: 'var(--maint)', text: 'var(--maint)', bg: 'var(--maint-bg)' },
-  paused: { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)' },
-  unknown: { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)' },
+/** Colours of a state: dot, text, tinted background and the border of a tinted surface. */
+export interface Tone {
+  dot: string;
+  text: string;
+  bg: string;
+  line: string;
+}
+
+const NEUTRAL: Tone = { dot: 'var(--fill-2)', text: 'var(--sec)', bg: 'var(--fill)', line: 'var(--hair)' };
+const WARN: Tone = {
+  dot: 'var(--warn)',
+  text: 'var(--warn-text)',
+  bg: 'var(--warn-bg)',
+  line: 'var(--warn)',
+};
+const BAD: Tone = {
+  dot: 'var(--bad)',
+  text: 'var(--bad-text)',
+  bg: 'var(--bad-bg)',
+  line: 'var(--bad-line)',
+};
+
+export const STATUS_TONE: Record<ServiceStatus, Tone> = {
+  operational: { dot: 'var(--ok)', text: 'var(--ok-text)', bg: 'var(--ok-bg)', line: 'var(--hair)' },
+  degraded: WARN,
+  down: BAD,
+  maintenance: { dot: 'var(--maint)', text: 'var(--maint)', bg: 'var(--maint-bg)', line: 'var(--hair)' },
+  paused: NEUTRAL,
+  unknown: NEUTRAL,
 };
 
 /** Background of a troubled period, behind the availability graph and the response-time chart. */
@@ -101,10 +136,10 @@ export const IMPACT_LABEL: Record<Impact, string> = {
   major: 'Major outage',
 };
 
-/** Text colour of an incident: red or amber while open, grey once resolved. */
-export function incidentTone(i: Pick<Incident, 'impact' | 'resolvedAt'>): string {
-  if (i.resolvedAt !== null) return 'var(--sec)';
-  return i.impact === 'degraded' ? 'var(--warn-text)' : 'var(--bad-text)';
+/** Colours of an incident: red or amber while open, neutral once resolved. */
+export function incidentTone(i: Pick<Incident, 'impact' | 'resolvedAt'>): Tone {
+  if (i.resolvedAt !== null) return NEUTRAL;
+  return i.impact === 'degraded' ? WARN : BAD;
 }
 
 /** "lasted 1 h 5 min" or "ongoing for 20 min". */
@@ -177,7 +212,7 @@ export interface Tick {
   label: string;
 }
 
-const DAY_MS = 86_400_000;
+export const DAY_MS = 86_400_000;
 
 /**
  * Calendar ticks between two instants: every day for a week, Mondays for a month, the first of each
@@ -212,6 +247,11 @@ export function timeTicks(from: number, to: number, snap?: number): Tick[] {
       label: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(from),
     });
   return ticks;
+}
+
+/** Leaves room at the right end of an axis for the end label ("Today" or the last day). */
+export function clearOfEndLabel(t: Tick): boolean {
+  return t.pos < 0.88;
 }
 
 /** Ticks for a run of consecutive `YYYY-MM-DD` days, one mark per day. */

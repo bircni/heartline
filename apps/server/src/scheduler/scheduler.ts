@@ -6,7 +6,7 @@ import type { Db } from '../db/index.ts';
 import type { LoadedMonitor, MonitorService } from '../services/monitors.ts';
 import type { StatusEngine } from '../status/engine.ts';
 import { log } from '../util/log.ts';
-import { dayKey } from '../util/time.ts';
+import { dayKey } from '@heartline/shared';
 
 const LOCK_KEY = 7_271_337;
 

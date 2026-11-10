@@ -216,11 +216,14 @@ export class QueryService {
     const rows = [...byDay.values()];
     const latencyCount = rows.reduce((a, r) => a + r.latency_count, 0);
     const p95s = rows.map((r) => r.latency_p95).filter((v): v is number => v !== null);
-    const since = end - daysCount * 86_400_000;
-    const incidents = await this.#d.incidents.list({ monitorId: id, since, until: end, limit: 50 });
+    // Incidents cover the same whole days as the bars.
+    const rangeStart = dayRange(days[0] as string, this.#d.site().timezone)[0];
     const state = states.get(id);
     const bars = days.map((d) => bar(d, byDay.get(d)));
-    const series = await this.#series(id, daysCount, bars, end, now);
+    const [incidents, series] = await Promise.all([
+      this.#d.incidents.list({ monitorId: id, since: rangeStart, until: end, limit: 50 }),
+      this.#series(id, daysCount, bars, end, now),
+    ]);
     return {
       id: m.id,
       name: m.name,
@@ -252,7 +255,7 @@ export class QueryService {
       incidents,
       series: series.points,
       seriesBucketMs: series.bucketMs,
-      rangeStart: dayRange(days[0] as string, this.#d.site().timezone)[0],
+      rangeStart,
       rangeEnd: end,
       generatedAt: now,
     };

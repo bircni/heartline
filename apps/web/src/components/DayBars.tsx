@@ -1,10 +1,12 @@
 import type { DayBar, DayState, LatencyPoint } from '@heartline/shared';
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DAY_BG,
   DAY_COLOR,
   DAY_LABEL,
   type Tick,
+  clearOfEndLabel,
+  clock,
   dateTime,
   ms,
   pct,
@@ -38,13 +40,6 @@ export function TraceViewToggle() {
     />
   );
 }
-
-/** Line colour of a troubled period; healthy periods use the plain green line. */
-const STROKE: Partial<Record<DayState, string>> = {
-  degraded: 'var(--warn)',
-  maintenance: 'var(--maint)',
-  down: 'var(--bad)',
-};
 
 interface Mark {
   key: string;
@@ -107,12 +102,13 @@ function TraceGraph({ marks, floor }: { marks: Mark[]; floor: number }) {
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
-      {Object.entries(STROKE).map(([state, stroke]) => (
+      {/* Troubled periods are redrawn in their status colour on top of the green line. */}
+      {(Object.keys(DAY_BG) as DayState[]).map((state) => (
         <path
           key={state}
           d={steps(marks, y, (m) => m.state === state)}
           fill="none"
-          stroke={stroke}
+          stroke={DAY_COLOR[state]}
           strokeWidth={2}
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
@@ -208,7 +204,8 @@ function StateLine({ state, children }: { state: DayState; children?: ReactNode 
   );
 }
 
-export function DayBars({
+/** Availability per day; memoised so a poll that leaves the bars unchanged does not redraw the row. */
+export const DayBars = memo(function DayBars({
   bars,
   view = 'graph',
   height = 28,
@@ -219,23 +216,29 @@ export function DayBars({
   height?: number;
   floor?: number;
 }) {
-  const marks = bars.map((b): Mark => ({
-    key: b.day,
-    state: b.state,
-    uptime: b.uptime,
-    tip: () => (
-      <>
-        <div className="font-medium">{shortDay(b.day)}</div>
-        <StateLine state={b.state}>{b.uptime !== null && <span>, {pct(b.uptime)} uptime</span>}</StateLine>
-        {b.avgLatencyMs !== null && (
-          <div className="text-sec">
-            avg {ms(b.avgLatencyMs)}
-            {b.p95LatencyMs !== null && `, p95 ${ms(b.p95LatencyMs)}`}
-          </div>
-        )}
-      </>
-    ),
-  }));
+  const marks = useMemo(
+    () =>
+      bars.map((b): Mark => ({
+        key: b.day,
+        state: b.state,
+        uptime: b.uptime,
+        tip: () => (
+          <>
+            <div className="font-medium">{shortDay(b.day)}</div>
+            <StateLine state={b.state}>
+              {b.uptime !== null && <span>, {pct(b.uptime)} uptime</span>}
+            </StateLine>
+            {b.avgLatencyMs !== null && (
+              <div className="text-sec">
+                avg {ms(b.avgLatencyMs)}
+                {b.p95LatencyMs !== null && `, p95 ${ms(b.p95LatencyMs)}`}
+              </div>
+            )}
+          </>
+        ),
+      })),
+    [bars],
+  );
   const count = (s: DayState) => bars.filter((b) => b.state === s).length;
   return (
     <Trace
@@ -246,7 +249,7 @@ export function DayBars({
       summary={`${count('down')} outage days, ${count('degraded')} degraded days in these ${bars.length} days`}
     />
   );
-}
+});
 
 const bucketRange = (from: number, to: number, bucketMs: number): [number, number] => [
   Math.floor(from / bucketMs),
@@ -271,24 +274,19 @@ export function TraceAxis({
 }) {
   return (
     <div className={`relative h-4 text-[12px] leading-4 text-muted ${className}`} aria-hidden="true">
-      {ticks
-        .filter((t) => t.pos < 0.88)
-        .map((t) => (
-          <span
-            key={t.pos}
-            className={`absolute top-0 whitespace-nowrap ${t.pos > 0.7 ? 'max-sm:hidden' : ''}`}
-            style={{ left: `${t.pos * 100}%` }}
-          >
-            {t.label}
-          </span>
-        ))}
+      {ticks.filter(clearOfEndLabel).map((t) => (
+        <span
+          key={t.pos}
+          className={`absolute top-0 whitespace-nowrap ${t.pos > 0.7 ? 'max-sm:hidden' : ''}`}
+          style={{ left: `${t.pos * 100}%` }}
+        >
+          {t.label}
+        </span>
+      ))}
       <span className="absolute top-0 right-0">{end}</span>
     </div>
   );
 }
-
-const hm = (at: number) =>
-  new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
 
 /** The same trace at the series resolution, so an outage shows when it happened instead of filling its day. */
 export function BucketBars({
@@ -306,37 +304,40 @@ export function BucketBars({
   view?: TraceView;
   height?: number;
 }) {
-  const byBucket = new Map(points.map((p) => [Math.floor(p.at / bucketMs), p]));
-  const marks: Mark[] = [];
-  const [first, last] = bucketRange(from, to, bucketMs);
-  for (let k = first; k <= last; k++) {
-    const p = byBucket.get(k);
-    const start = k * bucketMs;
-    const state = p?.state ?? 'nodata';
-    marks.push({
-      key: String(k),
-      state,
-      uptime: p?.checks ? ((p.checks - (p.down ?? 0)) / p.checks) * 100 : null,
-      tip: () => (
-        <>
-          <div className="font-medium">
-            {dateTime(start)} – {hm(start + bucketMs)}
-          </div>
-          <StateLine state={state}>
-            {p?.checks ? (
-              <span>, {p.down ? `${p.down} of ${p.checks} checks down` : `${p.checks} checks`}</span>
-            ) : null}
-          </StateLine>
-          {p && p.avgLatencyMs !== null && (
-            <div className="text-sec">
-              avg {ms(p.avgLatencyMs)}
-              {p.highLatencyMs !== null && `, peak ${ms(p.highLatencyMs)}`}
+  const marks = useMemo(() => {
+    const byBucket = new Map(points.map((p) => [Math.floor(p.at / bucketMs), p]));
+    const marks: Mark[] = [];
+    const [first, last] = bucketRange(from, to, bucketMs);
+    for (let k = first; k <= last; k++) {
+      const p = byBucket.get(k);
+      const start = k * bucketMs;
+      const state = p?.state ?? 'nodata';
+      marks.push({
+        key: String(k),
+        state,
+        uptime: p?.checks ? ((p.checks - (p.down ?? 0)) / p.checks) * 100 : null,
+        tip: () => (
+          <>
+            <div className="font-medium">
+              {dateTime(start)} – {clock(start + bucketMs)}
             </div>
-          )}
-        </>
-      ),
-    });
-  }
+            <StateLine state={state}>
+              {p?.checks ? (
+                <span>, {p.down ? `${p.down} of ${p.checks} checks down` : `${p.checks} checks`}</span>
+              ) : null}
+            </StateLine>
+            {p && p.avgLatencyMs !== null && (
+              <div className="text-sec">
+                avg {ms(p.avgLatencyMs)}
+                {p.highLatencyMs !== null && `, peak ${ms(p.highLatencyMs)}`}
+              </div>
+            )}
+          </>
+        ),
+      });
+    }
+    return marks;
+  }, [points, from, to, bucketMs]);
   const down = marks.filter((m) => m.state === 'down').length;
   const minutes = Math.round(bucketMs / 60_000);
   return (

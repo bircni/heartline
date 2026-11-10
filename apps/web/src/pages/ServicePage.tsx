@@ -10,24 +10,24 @@ import {
   useTraceView,
 } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
+import { IncidentRow } from '../components/IncidentRow.tsx';
 import { type ChartBand, LatencyChart } from '../components/LatencyChart.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
 import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
-import { DAY_BG, dateTime, dayTicks, incidentAge, ms, pct, relative, shortDay, time } from '../lib/format.ts';
-import { RangeControl, useRange } from './RangeControl.tsx';
+import { DAY_BG, DAY_MS, dayTicks, incidentTone, ms, pct, relative, time } from '../lib/format.ts';
+import { RangeControl, rangeEndLabel, useRange } from './RangeControl.tsx';
 
 const CHECK_TONE = { up: 'var(--ok)', degraded: 'var(--warn)', down: 'var(--bad)' } as const;
-const DAY = 86_400_000;
 
 /** Stretches of trouble in the range, shaded behind the response-time chart like in the availability graph. */
 function troubleBands(data: ServiceDetail): ChartBand[] {
   const periods =
-    data.seriesBucketMs >= DAY
+    data.seriesBucketMs >= DAY_MS
       ? data.bars.map((b, i) => ({
-          from: data.rangeStart + i * DAY,
-          to: data.rangeStart + (i + 1) * DAY,
+          from: data.rangeStart + i * DAY_MS,
+          to: data.rangeStart + (i + 1) * DAY_MS,
           state: b.state,
         }))
       : data.series.map((p) => ({
@@ -53,13 +53,13 @@ export function ServicePage() {
   if (error) return <ErrorNote error={error} />;
 
   const active = data.incidents.find((i) => i.resolvedAt === null);
-  const daily = data.seriesBucketMs >= DAY;
+  const daily = data.seriesBucketMs >= DAY_MS;
   // Daily points sit on calendar days, so the chart spans whole days; finer buckets end at the range end.
   const [from, to] = daily
-    ? [data.rangeStart, data.rangeStart + data.bars.length * DAY]
-    : [data.rangeEnd - range.days * DAY, data.rangeEnd];
+    ? [data.rangeStart, data.rangeStart + data.bars.length * DAY_MS]
+    : [data.rangeEnd - range.days * DAY_MS, data.rangeEnd];
   const traceHeight = view === 'graph' ? 120 : 34;
-  const endLabel = range.to ? shortDay(range.to) : 'Today';
+  const endLabel = rangeEndLabel(range);
   const every =
     data.intervalMs >= 60_000
       ? `${Math.round(data.intervalMs / 60_000)} min`
@@ -101,22 +101,12 @@ export function ServicePage() {
       {data.description && <p className="m-0 max-w-[75ch] text-sec">{data.description}</p>}
 
       {active && (
-        <Link
-          to="/incidents/$id"
-          params={{ id: active.id }}
-          className="card flex items-start gap-3 border-bad-line bg-bad-bg px-3.5 py-3 text-text no-underline"
+        <div
+          className="card overflow-hidden"
+          style={{ background: incidentTone(active).bg, borderColor: incidentTone(active).line }}
         >
-          <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-baseline gap-x-2.5">
-              <span className="font-semibold">{active.title}</span>
-              <span className="text-[12px] font-medium text-bad-text capitalize">
-                {active.status}, {incidentAge(active)}
-              </span>
-            </span>
-            <span className="block text-sec">{active.updates[0]?.message}</span>
-          </span>
-          <Icon name="chevron" size={15} className="mt-0.5 shrink-0 text-muted" />
-        </Link>
+          <IncidentRow incident={active} variant="summary" />
+        </div>
       )}
 
       <Stats
@@ -159,24 +149,7 @@ export function ServicePage() {
         {data.incidents.length === 0 ? (
           <p className="m-0 border-t border-hair px-3.5 py-2.5 text-sec">No incidents in this period.</p>
         ) : (
-          data.incidents.map((i) => (
-            <Link
-              key={i.id}
-              to="/incidents/$id"
-              params={{ id: i.id }}
-              // The marker matches the red band in the graph; only an open incident tints the whole row.
-              className={`flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 text-text no-underline transition-colors ${i.resolvedAt === null ? 'bg-bad-bg' : 'hover:bg-hover'}`}
-            >
-              <span
-                aria-hidden="true"
-                className={`h-2 w-2 shrink-0 self-center rounded-xs ${i.resolvedAt === null ? 'bg-bad' : 'bg-bad/60'}`}
-              />
-              <span className="font-semibold">{dateTime(i.createdAt)}</span>
-              <span className="min-w-0 flex-1">{i.title}</span>
-              <span className="text-[12px] text-sec">{incidentAge(i)}</span>
-              <span className="font-medium">View incident</span>
-            </Link>
-          ))
+          data.incidents.map((i) => <IncidentRow key={i.id} incident={i} variant="history" />)
         )}
       </Section>
 
