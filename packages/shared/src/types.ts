@@ -96,8 +96,11 @@ export interface AppVersion {
   node: string;
 }
 
-/** Result of a single check. */
-export type CheckStatus = 'up' | 'degraded' | 'down';
+/**
+ * Result of a single check. `maintenance` is reported by providers; `unknown` means the status
+ * could not be read (e.g. a provider's status page is unreachable) and counts neither way.
+ */
+export type CheckStatus = 'up' | 'degraded' | 'down' | 'maintenance' | 'unknown';
 /** Current status of a service as shown to users. */
 export type ServiceStatus = 'operational' | 'degraded' | 'down' | 'maintenance' | 'paused' | 'unknown';
 export type DayState = 'operational' | 'degraded' | 'down' | 'maintenance' | 'nodata';
@@ -127,10 +130,19 @@ export interface ServiceRef {
   name: string;
 }
 
+/** A dependency of a service that is not operational right now. */
+export interface UpstreamIssue extends ServiceRef {
+  status: ServiceStatus;
+}
+
 export interface ServiceSummary extends ServiceRef {
   group: string;
   kind: MonitorKind;
+  /** Third-party service (provider monitor): shown apart and left out of the overall status. */
+  external: boolean;
   status: ServiceStatus;
+  /** Dependencies (`dependsOn`) that are degraded, down or in maintenance: a likely cause. */
+  upstream: UpstreamIssue[];
   uptime: number | null;
   bars: DayBar[];
   /** Null when the service has no software block or the viewer may not see versions. */
@@ -145,7 +157,10 @@ export interface Overview {
   operational: number;
   total: number;
   days: number;
+  /** Your own services; `operational`, `total` and the headline only cover these. */
   groups: { name: string; services: ServiceSummary[] }[];
+  /** Third-party services (provider monitors) by group. */
+  external: { name: string; services: ServiceSummary[] }[];
   activeIncidents: Incident[];
   upcomingMaintenance: Maintenance[];
   /** Services needing urgent updates; null for viewers without read access. */

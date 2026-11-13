@@ -13,13 +13,20 @@ import { Icon } from '../components/Icon.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
 import { type ChartBand, LatencyChart } from '../components/LatencyChart.tsx';
 import { SoftwarePanel } from '../components/SoftwarePanel.tsx';
+import { UpstreamNote } from '../components/Upstream.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
 import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
 import { DAY_BG, DAY_MS, dayTicks, incidentTone, ms, pct, relative, time } from '../lib/format.ts';
 import { RangeControl, rangeEndLabel, useRange } from './RangeControl.tsx';
 
-const CHECK_TONE = { up: 'var(--ok)', degraded: 'var(--warn)', down: 'var(--bad)' } as const;
+const CHECK_TONE = {
+  up: 'var(--ok)',
+  degraded: 'var(--warn)',
+  down: 'var(--bad)',
+  maintenance: 'var(--maint)',
+  unknown: 'var(--muted)',
+} as const;
 
 /** Stretches of trouble in the range, shaded behind the response-time chart like in the availability graph. */
 function troubleBands(data: ServiceDetail): ChartBand[] {
@@ -74,12 +81,12 @@ export function ServicePage() {
               Overview /
             </Link>
             {data.name}
-            <StatusPill status={data.status} />
+            <StatusPill status={data.status} external={data.external} />
           </span>
         }
         subtitle={
           <>
-            {data.kind.toUpperCase()} check every {every} on{' '}
+            {data.external ? 'Provider status' : `${data.kind.toUpperCase()} check`} every {every} from{' '}
             <span className="font-mono text-[12px] break-all">{data.target}</span>
             {data.lastCheckedAt && `, last checked ${relative(data.lastCheckedAt)}`}
           </>
@@ -100,6 +107,8 @@ export function ServicePage() {
 
       {data.description && <p className="m-0 max-w-[75ch] text-sec">{data.description}</p>}
 
+      <UpstreamNote upstream={data.upstream} />
+
       {active && (
         <div
           className="card overflow-hidden"
@@ -110,12 +119,20 @@ export function ServicePage() {
       )}
 
       <Stats
-        items={[
-          { label: `Uptime, ${range.days} days`, value: pct(data.kpis.uptime) },
-          { label: 'Average response', value: ms(data.kpis.avgLatencyMs) },
-          { label: '95th percentile', value: ms(data.kpis.p95LatencyMs) },
-          { label: 'Incidents', value: data.kpis.incidents },
-        ]}
+        items={
+          // Provider status is read from their status page: there is no response time of the service itself.
+          data.external
+            ? [
+                { label: `Uptime, ${range.days} days`, value: pct(data.kpis.uptime) },
+                { label: 'Incidents', value: data.kpis.incidents },
+              ]
+            : [
+                { label: `Uptime, ${range.days} days`, value: pct(data.kpis.uptime) },
+                { label: 'Average response', value: ms(data.kpis.avgLatencyMs) },
+                { label: '95th percentile', value: ms(data.kpis.p95LatencyMs) },
+                { label: 'Incidents', value: data.kpis.incidents },
+              ]
+        }
       />
 
       <Section
@@ -153,33 +170,35 @@ export function ServicePage() {
         )}
       </Section>
 
-      <Section
-        title="Response time"
-        actions={
-          <div className="flex gap-4 text-[12px] text-sec" aria-hidden="true">
-            <span className="flex items-center gap-2">
-              <span className="block h-0.5 w-3.5 bg-accent" />
-              Average
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="block w-3.5 border-t-2 border-dotted border-muted" />
-              {daily ? '95th percentile' : 'Slowest check'}
-            </span>
+      {!data.external && (
+        <Section
+          title="Response time"
+          actions={
+            <div className="flex gap-4 text-[12px] text-sec" aria-hidden="true">
+              <span className="flex items-center gap-2">
+                <span className="block h-0.5 w-3.5 bg-accent" />
+                Average
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="block w-3.5 border-t-2 border-dotted border-muted" />
+                {daily ? '95th percentile' : 'Slowest check'}
+              </span>
+            </div>
+          }
+        >
+          <div className="px-3.5 pt-3 pb-2">
+            <LatencyChart
+              points={data.series}
+              from={from}
+              to={to}
+              bucketMs={data.seriesBucketMs}
+              highLabel={daily ? 'p95' : 'peak'}
+              endLabel={endLabel}
+              bands={troubleBands(data)}
+            />
           </div>
-        }
-      >
-        <div className="px-3.5 pt-3 pb-2">
-          <LatencyChart
-            points={data.series}
-            from={from}
-            to={to}
-            bucketMs={data.seriesBucketMs}
-            highLabel={daily ? 'p95' : 'peak'}
-            endLabel={endLabel}
-            bands={troubleBands(data)}
-          />
-        </div>
-      </Section>
+        </Section>
+      )}
 
       {data.software && (
         <SoftwarePanel
@@ -207,9 +226,11 @@ export function ServicePage() {
               <span className="sr-only">{c.status}: </span>
               {c.message ?? c.status}
             </span>
-            <span style={{ color: c.status === 'up' ? 'var(--sec)' : CHECK_TONE[c.status] }}>
-              {ms(c.latencyMs)}
-            </span>
+            {!data.external && (
+              <span style={{ color: c.status === 'up' ? 'var(--sec)' : CHECK_TONE[c.status] }}>
+                {ms(c.latencyMs)}
+              </span>
+            )}
           </div>
         ))}
       </Section>

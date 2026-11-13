@@ -17,7 +17,7 @@ import { type Vars, principalOf, requireScope } from '../auth/principal.ts';
 import { isRole, maxScopeFor, roleAtLeast, scopeAtLeast } from '../auth/roles.ts';
 import { describeTarget, runCheck } from '../checks/index.ts';
 import type { AppContext } from '../context.ts';
-import { NotFoundError, validateMonitorSpec } from '../services/monitors.ts';
+import { NotFoundError, redactSpec, restoreSecrets, validateMonitorSpec } from '../services/monitors.ts';
 import { listCatalog } from '../software/catalog.ts';
 import { log } from '../util/log.ts';
 import { BadRequestError, ForbiddenError, body } from './errors.ts';
@@ -49,7 +49,7 @@ export function adminRoutes(app: AppContext) {
         target: describeTarget(m.spec),
         lastCheckedAt: st?.last_checked_at ?? null,
         lastMessage: st?.last_message ?? null,
-        spec: m.spec,
+        spec: redactSpec(m.spec),
       };
     });
   };
@@ -72,8 +72,9 @@ export function adminRoutes(app: AppContext) {
   });
   r.put('/monitors/:id', admin, async (c) => {
     const input = await body(c, monitorInputSchema);
-    validateMonitorSpec(input.spec, app);
-    await app.monitors.update(c.req.param('id'), input.spec, input.group);
+    const spec = restoreSecrets(input.spec, app.monitors.get(c.req.param('id'))?.spec);
+    validateMonitorSpec(spec, app);
+    await app.monitors.update(c.req.param('id'), spec, input.group);
     return c.json((await adminMonitors()).find((x) => x.id === c.req.param('id')));
   });
   r.delete('/monitors/:id', admin, async (c) => {

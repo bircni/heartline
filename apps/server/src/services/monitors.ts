@@ -31,6 +31,7 @@ export function validateMonitorSpec(
       resolveArgs(p: Plugin, args: Record<string, string | number | boolean>): unknown;
     };
     notifier: { has(id: string): boolean };
+    monitors?: { get(id: string): unknown };
   },
 ): void {
   if (spec.type === 'plugin') {
@@ -44,9 +45,29 @@ export function validateMonitorSpec(
   }
   const unknown = spec.notify.filter((n) => !deps.notifier.has(n));
   if (unknown.length) throw new ValidationError(`unknown notifiers: ${unknown.join(', ')}`);
+  const missing = deps.monitors ? spec.dependsOn.filter((id) => !deps.monitors?.get(id)) : [];
+  if (missing.length) throw new ValidationError(`unknown services in dependsOn: ${missing.join(', ')}`);
 }
 
 export class ValidationError extends Error {}
+
+/** Placeholder the admin API returns instead of stored secrets; sending it back keeps the secret. */
+export const SECRET_MASK = '••••••••';
+
+/** The spec without secrets, for API responses. */
+export function redactSpec(spec: MonitorSpec): MonitorSpec {
+  if (spec.type === 'provider' && spec.m365)
+    return { ...spec, m365: { ...spec.m365, clientSecret: SECRET_MASK } };
+  return spec;
+}
+
+/** Puts stored secrets back where an update sent the mask. */
+export function restoreSecrets(spec: MonitorSpec, current: MonitorSpec | undefined): MonitorSpec {
+  if (spec.type !== 'provider' || spec.m365?.clientSecret !== SECRET_MASK) return spec;
+  const stored = current?.type === 'provider' ? current.m365?.clientSecret : undefined;
+  if (!stored) throw new ValidationError('m365.clientSecret is required');
+  return { ...spec, m365: { ...spec.m365, clientSecret: stored } };
+}
 
 /** Deletes a monitor and everything that references it (there are no foreign keys). */
 export async function purgeMonitorRows(
@@ -137,6 +158,10 @@ export class MonitorService {
     });
     this.#groupOrder = config.groups.map((g) => g.name);
     await this.reload();
+    for (const m of this.#monitors) {
+      const missing = m.spec.dependsOn.filter((id) => !this.get(id));
+      if (missing.length) log.warn('dependsOn names unknown services, ignoring them', { id: m.id, missing });
+    }
   }
 
   async reload(): Promise<void> {

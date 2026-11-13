@@ -10,6 +10,7 @@ import type {
   ServiceSummary,
   SiteInfo,
   SoftwareSummary,
+  UpstreamIssue,
 } from '@heartline/shared';
 import { sql } from 'kysely';
 import { describeTarget } from '../checks/index.ts';
@@ -118,6 +119,22 @@ export class QueryService {
     return (stored as ServiceStatus | undefined) ?? 'unknown';
   }
 
+  /** Dependencies of `m` that are degraded, down or in maintenance; unknown ids are ignored. */
+  #upstreamFrom(m: LoadedMonitor, status: (dep: LoadedMonitor) => ServiceStatus): UpstreamIssue[] {
+    return m.spec.dependsOn
+      .map((id) => this.#d.monitors.get(id))
+      .filter((dep): dep is LoadedMonitor => dep !== undefined)
+      .map((dep) => ({ id: dep.id, name: dep.name, status: status(dep) }))
+      .filter((u) => u.status === 'down' || u.status === 'degraded' || u.status === 'maintenance');
+  }
+
+  /** Current upstream issues of one monitor (used for notifications). */
+  async upstream(m: LoadedMonitor, now = Date.now()): Promise<UpstreamIssue[]> {
+    if (!m.spec.dependsOn.length) return [];
+    const states = await this.#states(m.spec.dependsOn);
+    return this.#upstreamFrom(m, (dep) => this.#statusOf(dep, states.get(dep.id)?.status, now));
+  }
+
   /** Services with their bars for the `daysCount` days ending with the day of `end`. */
   async summaries(daysCount: number, end = Date.now(), now = Date.now()): Promise<ServiceSummary[]> {
     const monitors = this.#d.monitors.list();
@@ -128,6 +145,7 @@ export class QueryService {
       this.#states(ids),
       this.#d.software(),
     ]);
+    const status = new Map(monitors.map((m) => [m.id, this.#statusOf(m, states.get(m.id)?.status, now)]));
     return monitors.map((m) => {
       const byDay = rollups.get(m.id) ?? new Map<string, Rollup>();
       return {
@@ -135,7 +153,9 @@ export class QueryService {
         name: m.name,
         group: m.group,
         kind: m.spec.type,
-        status: this.#statusOf(m, states.get(m.id)?.status, now),
+        external: m.spec.type === 'provider',
+        status: status.get(m.id) as ServiceStatus,
+        upstream: this.#upstreamFrom(m, (dep) => status.get(dep.id) ?? 'unknown'),
         uptime: uptimeOf([...byDay.values()]),
         bars: days.map((d) => bar(d, byDay.get(d))),
         software: software.get(m.id) ?? null,
@@ -145,8 +165,10 @@ export class QueryService {
 
   /** The current state of every service, with history for the `daysCount` days ending with the day of `end`. */
   async overview(daysCount: number, end = Date.now(), now = Date.now()): Promise<Overview> {
-    const services = await this.summaries(daysCount, end, now);
+    const all = await this.summaries(daysCount, end, now);
+    const services = all.filter((s) => !s.external);
     const activeIncidents = await this.#d.incidents.list({ activeOnly: true });
+    // Third-party services are shown apart and never decide your own overall status.
     const relevant = services.filter((s) => s.status !== 'paused');
     const worst = relevant.reduce<ServiceStatus>(
       (acc, s) => (SEVERITY[s.status] > SEVERITY[acc] ? s.status : acc),
@@ -177,9 +199,13 @@ export class QueryService {
         ? `${operational} of ${relevant.length} services are operational.`
         : `${names.length > 2 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(' and ')} ${names.length === 1 ? 'is' : 'are'} affected. ${operational} of ${relevant.length} services are operational.`;
 
-    const groups = this.#d.monitors
-      .groups()
-      .map((name) => ({ name, services: services.filter((s) => s.group === name) }));
+    const byGroup = (list: ServiceSummary[]) =>
+      this.#d.monitors
+        .groups()
+        .map((name) => ({ name, services: list.filter((s) => s.group === name) }))
+        .filter((g) => g.services.length > 0);
+    const groups = byGroup(services);
+    const external = byGroup(all.filter((s) => s.external));
     return {
       site: this.#d.site(),
       status,
@@ -189,6 +215,7 @@ export class QueryService {
       total: relevant.length,
       days: daysCount,
       groups,
+      external,
       activeIncidents,
       upcomingMaintenance: this.#d.maintenance.upcoming(now),
       security: await this.#d.security(),
@@ -220,6 +247,7 @@ export class QueryService {
     const rangeStart = dayRange(days[0] as string, this.#d.site().timezone)[0];
     const state = states.get(id);
     const bars = days.map((d) => bar(d, byDay.get(d)));
+    const upstream = await this.upstream(m, now);
     const [incidents, series] = await Promise.all([
       this.#d.incidents.list({ monitorId: id, since: rangeStart, until: end, limit: 50 }),
       this.#series(id, daysCount, bars, end, now),
@@ -229,6 +257,8 @@ export class QueryService {
       name: m.name,
       group: m.group,
       kind: m.spec.type,
+      external: m.spec.type === 'provider',
+      upstream,
       description: m.spec.description ?? null,
       status: this.#statusOf(m, state?.status, now),
       target: describeTarget(m.spec),
@@ -301,6 +331,7 @@ export class QueryService {
         .where('monitor_id', '=', id)
         .where('checked_at', '>=', end - span)
         .where('checked_at', '<=', end)
+        .where('status', '!=', 'unknown')
         .groupBy(sql`checked_at / ${sql.lit(bucketMs)}`)
         .orderBy('bucket')
         .execute(),
@@ -311,14 +342,14 @@ export class QueryService {
         .where('monitor_id', '=', id)
         .where('checked_at', '>=', end - span)
         .where('checked_at', '<=', end)
-        .where('status', '!=', 'up')
+        .where('status', 'not in', ['up', 'unknown'])
         .execute(),
     ]);
     const counts = new Map<number, { down: number; degraded: number; maintenance: number }>();
     for (const f of failed) {
       const key = Math.floor(f.checked_at / bucketMs);
       const c = counts.get(key) ?? { down: 0, degraded: 0, maintenance: 0 };
-      if (this.#d.maintenance.isActive(id, f.checked_at)) c.maintenance++;
+      if (f.status === 'maintenance' || this.#d.maintenance.isActive(id, f.checked_at)) c.maintenance++;
       else if (f.status === 'down') c.down++;
       else c.degraded++;
       counts.set(key, c);

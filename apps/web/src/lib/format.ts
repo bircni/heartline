@@ -92,6 +92,11 @@ export const STATUS_LABEL: Record<ServiceStatus, string> = {
   unknown: 'Pending',
 };
 
+/** Like STATUS_LABEL, but a third-party status that cannot be read is not "pending". */
+export function statusLabel(status: ServiceStatus, external = false): string {
+  return external && status === 'unknown' ? 'Unavailable' : STATUS_LABEL[status];
+}
+
 /** Colours of a state: dot, text, tinted background and the border of a tinted surface. */
 export interface Tone {
   dot: string;

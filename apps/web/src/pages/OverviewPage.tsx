@@ -1,4 +1,4 @@
-import type { Maintenance, Overview } from '@heartline/shared';
+import type { Maintenance, Overview, ServiceSummary } from '@heartline/shared';
 import { Link } from '@tanstack/react-router';
 import {
   DayBars,
@@ -11,11 +11,12 @@ import {
 import { Icon } from '../components/Icon.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
 import { StatusIcon } from '../components/Status.tsx';
+import { UpstreamHint } from '../components/Upstream.tsx';
 import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
 import { rangeQuery, useOverview } from '../lib/api.ts';
 import {
-  STATUS_LABEL,
+  statusLabel,
   STATUS_TONE,
   clock,
   dayTicks,
@@ -59,7 +60,7 @@ function StatusBanner({ data }: { data: Overview }) {
 }
 
 const ROW =
-  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_4.5rem]';
+  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem]';
 
 function MaintenanceRow({ window: m }: { window: Maintenance }) {
   const start = m.nextStartsAt ?? m.startsAt;
@@ -79,6 +80,98 @@ function MaintenanceRow({ window: m }: { window: Maintenance }) {
   );
 }
 
+function ServiceRow({
+  s,
+  range,
+  view,
+  floor,
+}: {
+  s: ServiceSummary;
+  range: ReturnType<typeof useRange>;
+  view: ReturnType<typeof useTraceView>[0];
+  floor: number;
+}) {
+  return (
+    <Link
+      to="/services/$id"
+      params={{ id: s.id }}
+      search={range}
+      className={`${ROW} items-center border-b border-hair py-2 text-text no-underline transition-colors last:border-b-0 hover:bg-hover`}
+      aria-label={`${s.name}: ${statusLabel(s.status, s.external)}, ${pct(s.uptime)} uptime. Open details.`}
+    >
+      <span className="flex min-w-0 items-center gap-2.5">
+        <StatusIcon status={s.status} />
+        <span className="truncate font-medium">{s.name}</span>
+        {s.status !== 'operational' && (
+          <span className="shrink-0 text-[12px] font-medium" style={{ color: STATUS_TONE[s.status].text }}>
+            {statusLabel(s.status, s.external)}
+          </span>
+        )}
+        {s.status !== 'operational' && <UpstreamHint upstream={s.upstream} />}
+        {/* Running version: shown to visitors when site.showVersions is on, always when signed in. */}
+        {s.software?.version && (
+          <span className="shrink-0 font-mono text-[12px] text-muted max-sm:hidden">
+            v{s.software.version}
+          </span>
+        )}
+        {s.software?.urgency && s.software.urgency !== 'none' && s.software.urgency !== 'unknown' && (
+          <UrgencyBadge level={s.software.urgency} score={s.software.score} />
+        )}
+      </span>
+      <span className="min-w-0 max-md:order-last max-md:col-span-2">
+        <DayBars bars={s.bars} view={view} floor={floor} />
+      </span>
+      <span className="text-right text-sec" aria-hidden="true">
+        {pct(s.uptime)}
+      </span>
+    </Link>
+  );
+}
+
+/** Third-party services: their state as their status pages report it, apart from your own. */
+function ExternalSection({
+  data,
+  days,
+  range,
+  view,
+  floor,
+}: {
+  data: Overview;
+  days: string[];
+  range: ReturnType<typeof useRange>;
+  view: ReturnType<typeof useTraceView>[0];
+  floor: number;
+}) {
+  const services = data.external.flatMap((g) => g.services);
+  if (services.length === 0) return null;
+  const affected = services.filter((s) => s.status === 'down' || s.status === 'degraded').length;
+  return (
+    <section aria-labelledby="external-status" className="card">
+      <div className="panel-head">
+        <h2 id="external-status" className="m-0 flex-1 text-[13px] font-semibold">
+          Third-party services
+        </h2>
+        <span className="text-[12px] text-sec">
+          {affected === 0 ? 'No known issues' : `${affected} with issues`}, as reported by the providers
+        </span>
+      </div>
+      <div className={`${ROW} py-2 text-[12px] text-muted`} aria-hidden="true">
+        <span className="max-md:hidden">Provider</span>
+        <TraceAxis ticks={dayTicks(days)} end={rangeEndLabel(range)} className="max-md:col-span-2" />
+        <span className="text-right max-md:hidden">Uptime</span>
+      </div>
+      {data.external.map((g) => (
+        <div key={g.name}>
+          <h3 className="group-head m-0 border-t">{g.name}</h3>
+          {g.services.map((s) => (
+            <ServiceRow key={s.id} s={s} range={range} view={view} floor={floor} />
+          ))}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function OverviewPage() {
   const range = useRange();
   const [view] = useTraceView();
@@ -87,9 +180,10 @@ export function OverviewPage() {
   if (error) return <ErrorNote error={error} />;
 
   const services = data.groups.flatMap((g) => g.services);
+  const external = data.external.flatMap((g) => g.services);
   // Every service covers the same days, so one axis and one scale serve all rows.
-  const days = services[0]?.bars.map((b) => b.day) ?? [];
-  const floor = traceFloor(services.flatMap((s) => s.bars.map((b) => b.uptime)));
+  const days = [...services, ...external][0]?.bars.map((b) => b.day) ?? [];
+  const floor = traceFloor([...services, ...external].flatMap((s) => s.bars.map((b) => b.uptime)));
   const urgent = data.security ? data.security.critical + data.security.high : 0;
 
   return (
@@ -139,44 +233,7 @@ export function OverviewPage() {
                   <div key={g.name}>
                     <h3 className="group-head m-0 border-t">{g.name}</h3>
                     {g.services.map((s) => (
-                      <Link
-                        key={s.id}
-                        to="/services/$id"
-                        params={{ id: s.id }}
-                        search={range}
-                        className={`${ROW} items-center border-b border-hair py-2 text-text no-underline transition-colors last:border-b-0 hover:bg-hover`}
-                        aria-label={`${s.name}: ${STATUS_LABEL[s.status]}, ${pct(s.uptime)} uptime. Open details.`}
-                      >
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <StatusIcon status={s.status} />
-                          <span className="truncate font-medium">{s.name}</span>
-                          {s.status !== 'operational' && (
-                            <span
-                              className="shrink-0 text-[12px] font-medium"
-                              style={{ color: STATUS_TONE[s.status].text }}
-                            >
-                              {STATUS_LABEL[s.status]}
-                            </span>
-                          )}
-                          {/* Running version: shown to visitors when site.showVersions is on, always when signed in. */}
-                          {s.software?.version && (
-                            <span className="shrink-0 font-mono text-[12px] text-muted max-sm:hidden">
-                              v{s.software.version}
-                            </span>
-                          )}
-                          {s.software?.urgency &&
-                            s.software.urgency !== 'none' &&
-                            s.software.urgency !== 'unknown' && (
-                              <UrgencyBadge level={s.software.urgency} score={s.software.score} />
-                            )}
-                        </span>
-                        <span className="min-w-0 max-md:order-last max-md:col-span-2">
-                          <DayBars bars={s.bars} view={view} floor={floor} />
-                        </span>
-                        <span className="text-right text-sec" aria-hidden="true">
-                          {pct(s.uptime)}
-                        </span>
-                      </Link>
+                      <ServiceRow key={s.id} s={s} range={range} view={view} floor={floor} />
                     ))}
                   </div>
                 ),
@@ -194,6 +251,8 @@ export function OverviewPage() {
           </>
         )}
       </section>
+
+      <ExternalSection data={data} days={days} range={range} view={view} floor={floor} />
 
       {data.upcomingMaintenance.length > 0 && (
         <Section title="Scheduled maintenance">

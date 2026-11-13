@@ -1,4 +1,4 @@
-import type { CheckStatus, ServiceStatus } from '@heartline/shared';
+import type { CheckStatus, ServiceStatus, UpstreamIssue } from '@heartline/shared';
 import { sql } from 'kysely';
 import type { CheckOutcome } from '../checks/types.ts';
 import type { Db } from '../db/index.ts';
@@ -28,8 +28,11 @@ export function nextState(
   threshold: number,
   inMaintenance: boolean,
 ): { status: ServiceStatus; failures: number } {
-  const failures = result === 'up' ? 0 : prev.failures + 1;
-  if (inMaintenance) return { status: 'maintenance', failures };
+  // An unreadable status says nothing about the service: keep the failure count, show unknown.
+  if (result === 'unknown')
+    return { status: inMaintenance ? 'maintenance' : 'unknown', failures: prev.failures };
+  const failures = result === 'up' || result === 'maintenance' ? 0 : prev.failures + 1;
+  if (inMaintenance || result === 'maintenance') return { status: 'maintenance', failures };
   if (result === 'up') return { status: 'operational', failures };
   if (failures >= threshold) return { status: result === 'down' ? 'down' : 'degraded', failures };
   // Below threshold: keep what users see, except leaving maintenance or the very first checks.
@@ -43,12 +46,38 @@ export function p95(values: number[]): number | null {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] as number;
 }
 
+const SERVICE_STATUS: Record<CheckStatus, ServiceStatus> = {
+  up: 'operational',
+  degraded: 'degraded',
+  down: 'down',
+  maintenance: 'maintenance',
+  unknown: 'unknown',
+};
+
+const LABEL: Record<ServiceStatus, string> = {
+  operational: 'operational',
+  degraded: 'degraded',
+  down: 'down',
+  maintenance: 'in maintenance',
+  paused: 'paused',
+  unknown: 'unknown',
+};
+
+/** Appends the dependencies that are not operational to a status message. */
+export function withUpstream(message: string | null, upstream: UpstreamIssue[]): string | null {
+  if (!upstream.length) return message;
+  const cause = `Likely cause: ${upstream.map((u) => `${u.name} is ${LABEL[u.status]}`).join(', ')}.`;
+  return message ? `${message}\n${cause}` : cause;
+}
+
 export class StatusEngine {
   #db: Db;
   #notifier: NotifierService;
   #incidents: IncidentService;
   #maintenance: MaintenanceService;
   settings: EngineSettings = { timezone: 'UTC', recoveryNotifications: true, reminderEveryMs: 0 };
+  /** Dependencies of a monitor that are not operational; set by the app. */
+  upstream: (monitor: LoadedMonitor) => Promise<UpstreamIssue[]> = async () => [];
 
   constructor(
     db: Db,
@@ -79,6 +108,8 @@ export class StatusEngine {
     const day = dayKey(at, this.settings.timezone);
     const latency = outcome.latencyMs;
     const counted = inMaintenance ? 'maintenance' : outcome.status;
+    // Unreadable results are kept as raw checks but count neither for nor against uptime.
+    const rollup = counted !== 'unknown';
 
     await db.transaction().execute(async (trx) => {
       await trx
@@ -102,22 +133,23 @@ export class StatusEngine {
         latency_count: latency === null ? 0 : 1,
         latency_max: latency ?? 0,
       };
-      await trx
-        .insertInto('daily_rollups')
-        .values({ monitor_id: monitor.id, day, ...inc, latency_p95: null })
-        .onConflict((oc) =>
-          oc.columns(['monitor_id', 'day']).doUpdateSet((eb) => ({
-            checks: eb('daily_rollups.checks', '+', inc.checks),
-            up: eb('daily_rollups.up', '+', inc.up),
-            degraded: eb('daily_rollups.degraded', '+', inc.degraded),
-            down: eb('daily_rollups.down', '+', inc.down),
-            maintenance: eb('daily_rollups.maintenance', '+', inc.maintenance),
-            latency_sum: eb('daily_rollups.latency_sum', '+', inc.latency_sum),
-            latency_count: eb('daily_rollups.latency_count', '+', inc.latency_count),
-            latency_max: sql<number>`case when ${eb.ref('daily_rollups.latency_max')} > ${inc.latency_max} then ${eb.ref('daily_rollups.latency_max')} else ${inc.latency_max} end`,
-          })),
-        )
-        .execute();
+      if (rollup)
+        await trx
+          .insertInto('daily_rollups')
+          .values({ monitor_id: monitor.id, day, ...inc, latency_p95: null })
+          .onConflict((oc) =>
+            oc.columns(['monitor_id', 'day']).doUpdateSet((eb) => ({
+              checks: eb('daily_rollups.checks', '+', inc.checks),
+              up: eb('daily_rollups.up', '+', inc.up),
+              degraded: eb('daily_rollups.degraded', '+', inc.degraded),
+              down: eb('daily_rollups.down', '+', inc.down),
+              maintenance: eb('daily_rollups.maintenance', '+', inc.maintenance),
+              latency_sum: eb('daily_rollups.latency_sum', '+', inc.latency_sum),
+              latency_count: eb('daily_rollups.latency_count', '+', inc.latency_count),
+              latency_max: sql<number>`case when ${eb.ref('daily_rollups.latency_max')} > ${inc.latency_max} then ${eb.ref('daily_rollups.latency_max')} else ${inc.latency_max} end`,
+            })),
+          )
+          .execute();
       const state = {
         status: next.status,
         since: changed ? at : (prevRow?.since ?? at),
@@ -141,7 +173,12 @@ export class StatusEngine {
         to: next.status,
         message: outcome.message,
       });
-      await this.#onTransition(monitor, prev.status, next.status, outcome, at);
+      // After a spell of unreadable results, compare with the last status that was actually read.
+      const from =
+        prev.status === 'unknown' && prevRow?.last_status === 'unknown'
+          ? await this.#lastKnown(monitor.id, at)
+          : prev.status;
+      if (from !== next.status) await this.#onTransition(monitor, from, next.status, outcome, at);
       return { from: prev.status, to: next.status };
     }
     await this.#maybeRemind(
@@ -155,6 +192,19 @@ export class StatusEngine {
     return null;
   }
 
+  async #lastKnown(monitorId: string, before: number): Promise<ServiceStatus> {
+    const row = await this.#db.kysely
+      .selectFrom('check_results')
+      .select('status')
+      .where('monitor_id', '=', monitorId)
+      .where('checked_at', '<', before)
+      .where('status', '!=', 'unknown')
+      .orderBy('checked_at', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+    return row ? SERVICE_STATUS[row.status as CheckStatus] : 'unknown';
+  }
+
   async #onTransition(
     monitor: LoadedMonitor,
     from: ServiceStatus,
@@ -162,21 +212,24 @@ export class StatusEngine {
     outcome: CheckOutcome,
     at: number,
   ): Promise<void> {
-    const quiet = to === 'maintenance' || from === 'maintenance' || to === 'paused' || from === 'paused';
+    const quiet =
+      to === 'maintenance' ||
+      from === 'maintenance' ||
+      to === 'paused' ||
+      from === 'paused' ||
+      to === 'unknown';
     const firstCheck = from === 'unknown' && to === 'operational';
     const recovery = to === 'operational';
     const bad = to === 'down' || to === 'degraded';
     const service = { id: monitor.id, name: monitor.name };
+    const message = bad ? withUpstream(outcome.message, await this.#upstreamOf(monitor)) : outcome.message;
 
     if (
       !quiet &&
       !firstCheck &&
       (bad || (recovery && this.settings.recoveryNotifications && from !== 'unknown'))
     ) {
-      await this.#notifier.send(
-        { kind: 'status', service, from, to, message: outcome.message, at },
-        monitor.spec.notify,
-      );
+      await this.#notifier.send({ kind: 'status', service, from, to, message, at }, monitor.spec.notify);
       await this.#db.kysely
         .updateTable('monitor_state')
         .set({ last_notified_at: at })
@@ -193,7 +246,7 @@ export class StatusEngine {
             title: `${monitor.name} is unavailable`,
             impact: 'major',
             status: 'investigating',
-            message: `Automatic checks are failing: ${outcome.message ?? 'no details'}.`,
+            message: `Automatic checks are failing: ${message ?? 'no details'}.`,
             services: [monitor.id],
             notify: false,
           },
@@ -209,6 +262,16 @@ export class StatusEngine {
       }
     } catch (error) {
       log.error('automatic incident handling failed', { service: monitor.id, error });
+    }
+  }
+
+  async #upstreamOf(monitor: LoadedMonitor): Promise<UpstreamIssue[]> {
+    if (!monitor.spec.dependsOn.length) return [];
+    try {
+      return await this.upstream(monitor);
+    } catch (error) {
+      log.warn('could not read upstream status', { service: monitor.id, error });
+      return [];
     }
   }
 
@@ -229,7 +292,7 @@ export class StatusEngine {
         service: { id: monitor.id, name: monitor.name },
         from: 'down',
         to: 'down',
-        message: outcome.message,
+        message: withUpstream(outcome.message, await this.#upstreamOf(monitor)),
         at,
         reminder: true,
       },

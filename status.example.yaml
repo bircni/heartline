@@ -89,6 +89,12 @@ groups:
         interval: 15m
         args: { path: /backups, max_age_hours: 26 }
 
+  - name: Third-party
+    monitors:
+      # Read from the provider's own status page; shown apart, never part of the overall status.
+      - { id: github, name: GitHub, type: provider, provider: github, components: [Actions] }
+      - { id: jira, name: Jira, type: provider, provider: atlassian-jira }
+
 notifiers:
   - id: teams
     type: teams
