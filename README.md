@@ -108,6 +108,7 @@ The client signs in through heartline (Gitea or a local account) and gets at mos
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
 | [Configuration](docs/configuration.md)                    | `status.yaml`: site, monitors and their check types, notifiers, env vars  |
 | [Software versions and vulnerabilities](docs/software.md) | Version probes, release sources, data sources, urgency scoring, privacy   |
+| [Subscribers](docs/subscribers.md)                        | E-mail sign-up, double opt-in, what is sent, feeds                        |
 | [Sign-in, roles and MCP](docs/auth.md)                    | Local accounts, Gitea/OIDC with role mapping, MCP tools by scope          |
 | [HTTP API](docs/api.md)                                   | Public, software and admin routes; OpenAPI at `/api/v1/openapi.json`      |
 | [Plugins](plugins/README.md)                              | Write a check in any language: exit code, JSON line, arguments            |

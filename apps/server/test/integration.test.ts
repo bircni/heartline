@@ -317,7 +317,7 @@ describe('incidents via API', () => {
     expect(updated.updates[0]?.author).toBe('Admin');
     expect(h.sent).toHaveLength(1);
     const rss = await (await h.request('/api/v1/incidents.rss')).text();
-    expect(rss).toContain('<title>Slow sync (resolved)</title>');
+    expect(rss).toContain('<title>Slow sync (Resolved)</title>');
   });
 });
 

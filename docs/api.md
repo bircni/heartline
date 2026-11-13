@@ -4,6 +4,9 @@ The full description is served by the instance: `GET /api/v1/openapi.json` (Open
 `/api/docs`. Timestamps are Unix milliseconds. Admin routes take the browser session or
 `Authorization: Bearer hl_…` with an API token whose scopes are `read` ⊂ `write` ⊂ `admin`.
 
+Links in subscriber e-mails use `POST /api/v1/subscribers/confirm`, `GET|PATCH|DELETE /api/v1/subscribers/me`
+(header `X-Subscriber-Token`), `POST /api/v1/subscribers/unsubscribe?t=` and `POST /api/v1/subscribers/manage-link`.
+
 Push monitors report to `GET|POST /api/v1/push/:token` (no sign-in, also on private sites); see
 [push monitors](configuration.md#push-monitors).
 
@@ -16,7 +19,9 @@ Public (or for any signed-in user when `site.public: false`):
   a full page sends `X-Next-Cursor`, pass it as `before` for the next one. `GET /api/v1/incidents/:id`,
   `GET /api/v1/maintenance?state=active|upcoming|past`, `GET /api/v1/maintenance/:id`
 - `GET /api/v1/report.csv?days=90`, `GET /api/v1/services/:id/report.csv` (both also take `to`)
-- `GET /api/v1/badge/:id.svg` (`?kind=version` for a version badge), `GET /api/v1/incidents.rss`
+- `GET /api/v1/badge/:id.svg` (`?kind=version` for a version badge), `GET /api/v1/incidents.atom`,
+  `GET /api/v1/incidents.rss` (incidents and maintenance)
+- `POST /api/v1/subscribers` (e-mail sign-up, see [subscribers](subscribers.md))
 
 Software inventory (`read` scope; anonymous visitors only with `site.showVersions`, and never the
 vulnerabilities): `GET /api/v1/software`, `GET /api/v1/services/:id/software`,
@@ -37,6 +42,7 @@ Admin (`/api/v1/admin/…`):
 | `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |
 | `POST monitors/:id/push-token` (new push URL)                                                                                      | admin |
 | `GET users`, `POST users`, `PATCH users/:id`, `DELETE users/:id`                                                                   | admin |
+| `GET subscribers`, `DELETE subscribers/:id`                                                                                        | admin |
 | `GET audit?limit&before&entityType&entityId&actor` (newest first; page with `before` = the last `at`)                              | admin |
 
 Monitor bodies are `{ groupId, spec }` or `{ group, spec }`, where `group` is a group id or name and a new

@@ -6,7 +6,7 @@ import { type Auth, createAuth, migrateAuth, seedUsers } from './auth/auth.ts';
 import { TokenService } from './auth/tokens.ts';
 import { PluginRegistry } from './checks/plugins.ts';
 import { loadConfig } from './config/load.ts';
-import type { AppConfig } from './config/schema.ts';
+import type { AppConfig, NotifierConfig } from './config/schema.ts';
 import type { AppContext } from './context.ts';
 import { type Db, openDb } from './db/index.ts';
 import { migrate } from './db/migrations.ts';
@@ -23,6 +23,7 @@ import { MonitorService } from './services/monitors.ts';
 import { PushService } from './services/push.ts';
 import { QueryService } from './services/queries.ts';
 import { SoftwareService } from './software/service.ts';
+import { type MailTransport, SubscriberService } from './services/subscribers.ts';
 import { StatusEngine } from './status/engine.ts';
 import { log } from './util/log.ts';
 
@@ -37,6 +38,8 @@ export interface BootstrapOptions {
   config: AppConfig;
   db?: Db;
   fetchImpl?: typeof fetch;
+  /** Sends subscriber e-mails instead of SMTP (tests). */
+  mailTransport?: MailTransport;
   /** Extra trusted origins for auth (the Vite dev server). */
   devOrigins?: string[];
 }
@@ -111,6 +114,19 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   });
   engine.upstream = (m) => queries.upstream(m);
   const tokens = new TokenService(db);
+  const subscribers = new SubscriberService({
+    db,
+    secret: env.authSecret,
+    baseUrl: env.baseUrl,
+    monitors,
+    transportFactory: opts.mailTransport ? () => opts.mailTransport as MailTransport : undefined,
+  });
+  subscribers.isLeader = () => scheduler.isLeader;
+  subscribers.audit = audit;
+  incidents.listeners.push((e) => subscribers.onIncident(e));
+  maintenance.listeners.push((e) => subscribers.onMaintenance(e));
+  engine.transitionListeners.push((e) => subscribers.onStatus(e));
+  scheduler.housekeepingTasks.push({ name: 'subscriber outbox', run: (now) => subscribers.prune(30, now) });
 
   const applyConfig = async (next: AppConfig) => {
     config = next;
@@ -118,6 +134,22 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     incidents.notifyIncidents = next.notifications.incidents;
     maintenance.notifyChannels = next.notifications.maintenance;
     maintenance.reminderBeforeMs = next.maintenance.reminderBefore;
+    const mailers = next.notifiers.filter((n) => n.type === 'email');
+    const mailer = next.subscribers.email.notifier
+      ? mailers.find((n) => n.id === next.subscribers.email.notifier)
+      : mailers[0];
+    if (next.subscribers.email.notifier && !mailer)
+      log.warn('subscribers.email.notifier names no e-mail notifier; e-mail subscriptions are off', {
+        notifier: next.subscribers.email.notifier,
+      });
+    subscribers.settings = {
+      enabled: next.subscribers.enabled,
+      events: SubscriberService.offered(next.subscribers.events),
+      confirmTtlMs: next.subscribers.confirmTtl,
+      ratePerMinute: next.subscribers.email.ratePerMinute,
+      mailer: (mailer as Extract<NotifierConfig, { type: 'email' }> | undefined) ?? null,
+    };
+    subscribers.siteTitle = next.site.title;
     engine.settings = {
       timezone: next.site.timezone,
       recoveryNotifications: next.notifications.recovery,
@@ -178,10 +210,12 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     software,
     audit,
     rateLimiter,
+    subscribers,
     applyConfig,
     async start() {
       await scheduler.start();
       software.start();
+      subscribers.start();
       // Maintenance windows can be edited by another replica; refresh the cache regularly.
       maintenanceTimer = setInterval(() => {
         void maintenance.reload().catch(() => {});
@@ -232,6 +266,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
       if (maintenanceTimer) clearInterval(maintenanceTimer);
       if (tickTimer) clearInterval(tickTimer);
       await software.stop();
+      await subscribers.stop();
       await scheduler.stop();
       await db.close();
     },

@@ -14,6 +14,10 @@ groups:
           software: { product: heartline },
         }
       - { id: self-tcp, name: Status port, type: tcp, host: 127.0.0.1, port: 3100, interval: 5s }
+# A mail server nothing listens on: sign-up works, delivery just keeps retrying.
+notifiers:
+  - { id: mail, type: email, from: status@e2e.local, to: [ops@e2e.local], smtp: { host: 127.0.0.1, port: 2 } }
+notifications: { incidents: false, maintenance: false, recovery: false }
 auth:
   users:
     - { email: admin@e2e.local, name: E2E Admin, password: e2e-admin-password, role: admin }

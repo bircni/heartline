@@ -66,6 +66,35 @@ const incident = createRoute({
   component: IncidentPage,
 });
 
+const subscribe = createRoute({
+  getParentRoute: () => publicLayout,
+  path: 'subscribe',
+  validateSearch: (search: Record<string, unknown>): { incident?: string } =>
+    typeof search.incident === 'string' && search.incident ? { incident: search.incident } : {},
+  component: lazyRouteComponent(() => import('./pages/SubscriptionPages.tsx'), 'SubscribePage'),
+});
+
+/** Pages opened from subscriber e-mails: they work without signing in, also on private status pages. */
+const plain = createRoute({
+  getParentRoute: () => root,
+  id: 'plain',
+  component: lazyRouteComponent(() => import('./pages/PlainLayout.tsx'), 'PlainLayout'),
+});
+const subscriptionConfirm = createRoute({
+  getParentRoute: () => plain,
+  path: 'subscriptions/confirm',
+  component: lazyRouteComponent(() => import('./pages/SubscriptionPages.tsx'), 'ConfirmPage'),
+});
+const subscriptionManage = createRoute({
+  getParentRoute: () => plain,
+  path: 'subscriptions/manage',
+  validateSearch: (search: Record<string, unknown>): { t?: string; unsubscribe?: string } => ({
+    ...(typeof search.t === 'string' ? { t: search.t } : {}),
+    ...(search.unsubscribe ? { unsubscribe: '1' } : {}),
+  }),
+  component: lazyRouteComponent(() => import('./pages/SubscriptionPages.tsx'), 'ManagePage'),
+});
+
 const login = createRoute({
   getParentRoute: () => root,
   path: '/login',
@@ -144,6 +173,15 @@ const users = createRoute({
   component: lazyRouteComponent(() => import('./pages/admin/UsersPage.tsx'), 'UsersPage'),
 });
 
+const subscribers = createRoute({
+  getParentRoute: () => admin,
+  path: 'subscribers',
+  beforeLoad: async () => {
+    const me = await queryClient.ensureQueryData(meQueryOptions);
+    if (me && !can(me.role, 'admin')) throw redirect({ to: '/admin/monitors' });
+  },
+  component: lazyRouteComponent(() => import('./pages/admin/SubscribersPage.tsx'), 'SubscribersPage'),
+});
 const audit = createRoute({
   getParentRoute: () => admin,
   path: 'audit',
@@ -156,7 +194,8 @@ const audit = createRoute({
 
 // Sign-in and admin code (auth client, schemas) loads on demand; the public page stays small.
 const routeTree = root.addChildren([
-  publicLayout.addChildren([overview, service, incidentHistory, incident, maintenanceWindow]),
+  publicLayout.addChildren([overview, service, incidentHistory, incident, maintenanceWindow, subscribe]),
+  plain.addChildren([subscriptionConfirm, subscriptionManage]),
   login,
   consent,
   admin.addChildren([
@@ -170,6 +209,7 @@ const routeTree = root.addChildren([
     notifications,
     tokens,
     users,
+    subscribers,
     audit,
   ]),
 ]);

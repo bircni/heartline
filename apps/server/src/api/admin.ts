@@ -605,6 +605,19 @@ export function adminRoutes(app: AppContext) {
     return c.body(null, 204);
   });
 
+  // Subscribers (e-mail addresses are personal data: admins only)
+  r.get('/subscribers', admin, async (c) => c.json(await app.subscribers.list()));
+  r.delete('/subscribers/:id', admin, async (c) => {
+    const email = await app.subscribers.remove(c.req.param('id'));
+    await audit(c, {
+      action: 'subscriber.delete',
+      entityType: 'subscriber',
+      entityId: c.req.param('id'),
+      summary: `Removed subscriber ${email}`,
+    });
+    return c.body(null, 204);
+  });
+
   // Audit log
   r.get('/audit', admin, async (c) => {
     const before = Number(c.req.query('before'));

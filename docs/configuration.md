@@ -208,6 +208,8 @@ notifiers:
 notifications: { recovery: true, incidents: true, reminderEvery: 1h, maintenance: true }
 ```
 
+Visitors can subscribe to e-mails too; see [subscribers](subscribers.md).
+
 **Microsoft Teams**: in the channel, open _Workflows_ and pick _Post to a channel when a webhook request
 is received_. Use that URL as `webhookUrl`.
 
@@ -226,6 +228,7 @@ rateLimit:
   public: { max: 300, window: 1m } # anonymous API, feed and badge reads per IP and replica
   auth: { max: 10, window: 1m } # sign-in and OAuth client registration per IP, all replicas together
   push: { max: 120, window: 1m } # push monitor reports per IP, all replicas together
+  subscribe: { max: 10, window: 10m } # subscription sign-ups per IP, all replicas together
   trustProxy: false # true behind a reverse proxy or ingress: the client IP comes from X-Forwarded-For
 ```
 

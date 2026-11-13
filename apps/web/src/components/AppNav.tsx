@@ -74,6 +74,7 @@ const MANAGE: Section[] = [
 const ACCESS: Section[] = [
   { to: '/admin/tokens', label: 'API tokens', icon: 'key', min: 'viewer' },
   { to: '/admin/users', label: 'Users', icon: 'users', min: 'admin' },
+  { to: '/admin/subscribers', label: 'Subscribers', icon: 'bell', min: 'admin' },
   { to: '/admin/audit', label: 'Audit log', icon: 'list', min: 'admin' },
 ];
 

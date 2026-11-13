@@ -33,6 +33,10 @@ export interface Harness {
   runtime: Runtime;
   app: ReturnType<typeof createApp>;
   sent: { url: string; body: unknown }[];
+  /** Subscriber e-mails, in the order they were sent. */
+  mails: { to: string; subject: string; text: string; html: string; headers: Record<string, string> }[];
+  /** Makes the next subscriber e-mails fail with this error, until set back to null. */
+  failMail: (error: string | null) => void;
   request: (
     path: string,
     init?: RequestInit & { json?: unknown; cookie?: string; token?: string },
@@ -76,6 +80,8 @@ export async function harness(configYaml = BASE_CONFIG, opts: HarnessOptions = {
     ...opts.env,
   };
   const sent: Harness['sent'] = [];
+  const mails: Harness['mails'] = [];
+  let mailError: string | null = null;
   const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
     const stubbed = await opts.fetchImpl?.(url, init);
     if (stubbed) return stubbed;
@@ -90,6 +96,12 @@ export async function harness(configYaml = BASE_CONFIG, opts: HarnessOptions = {
     config: parseConfig(configYaml, {}),
     db: opts.db ?? openDb('sqlite::memory:'),
     fetchImpl,
+    mailTransport: {
+      sendMail: async (m) => {
+        if (mailError) throw new Error(mailError);
+        mails.push({ to: m.to, subject: m.subject, text: m.text, html: m.html, headers: m.headers });
+      },
+    },
   });
   const app = createApp(runtime);
   // A real listener lets the MCP token check fetch JWKS from this process, like in production.
@@ -124,6 +136,10 @@ export async function harness(configYaml = BASE_CONFIG, opts: HarnessOptions = {
     runtime,
     app,
     sent,
+    mails,
+    failMail: (error) => {
+      mailError = error;
+    },
     request,
     login,
     close: async () => {

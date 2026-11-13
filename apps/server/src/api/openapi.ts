@@ -7,6 +7,7 @@ import {
   MAX_RANGE_DAYS,
   MONITOR_KINDS,
   ROLES,
+  SUBSCRIBER_EVENTS,
   SCOPES,
   THEMES,
   URGENCY_LEVELS,
@@ -18,6 +19,8 @@ import {
   maintenanceUpdateSchema,
   monitorSpecSchema,
   postmortemSchema,
+  subscribeSchema,
+  subscriberPrefsSchema,
   templateSchema,
   tokenCreateSchema,
   userCreateSchema,
@@ -88,7 +91,33 @@ const schemas: Record<string, Schema> = {
     site: ref('SiteInfo'),
     public: bool(),
     showVersions: bool(),
+    subscribe: obj({ enabled: bool(), email: bool(), events: arr(en(SUBSCRIBER_EVENTS)) }),
     auth: obj({ local: bool(), oidc: arr(obj({ id: str(), name: str() })) }),
+  }),
+  Subscribe: jsonSchema(subscribeSchema),
+  SubscriberPrefs: jsonSchema(subscriberPrefsSchema),
+  Subscription: obj({
+    email: str(),
+    status: en(['pending', 'active', 'unsubscribed']),
+    events: arr(en(SUBSCRIBER_EVENTS)),
+    components: { oneOf: [{ const: 'all' }, arr(str())] },
+    incidents: arr(obj({ id: str(), title: str() })),
+    available: obj({
+      events: arr(en(SUBSCRIBER_EVENTS)),
+      services: arr(obj({ id: str(), name: str(), group: str() })),
+    }),
+  }),
+  Subscriber: obj({
+    id: str(),
+    email: str(),
+    status: en(['pending', 'active', 'unsubscribed']),
+    events: arr(en(SUBSCRIBER_EVENTS)),
+    components: { oneOf: [{ const: 'all' }, arr(str())] },
+    incidents: int(),
+    createdAt: ts(),
+    confirmedAt: nullable(ts()),
+    lastSentAt: nullable(ts()),
+    lastError: nullable(str()),
   }),
   Me: obj({ id: str(), name: str(), email: str(), role: en(ROLES), image: nullable(str()) }),
   AppVersion: obj({ name: str(), version: str(), node: str() }),
@@ -613,9 +642,94 @@ const paths: Record<string, Record<string, Op>> = {
   '/api/v1/incidents.rss': {
     get: {
       ...pub,
-      summary: 'Incident feed (RSS 2.0)',
+      summary: 'Incident and maintenance feed (RSS 2.0)',
       tags: ['Public'],
       responses: { 200: { description: 'RSS', content: { 'application/rss+xml': { schema: str() } } } },
+    },
+  },
+  '/api/v1/incidents.atom': {
+    get: {
+      ...pub,
+      summary: 'Incident and maintenance feed (Atom), each entry with its whole timeline',
+      tags: ['Public'],
+      responses: { 200: { description: 'Atom', content: { 'application/atom+xml': { schema: str() } } } },
+    },
+  },
+  '/api/v1/subscribers': {
+    post: {
+      ...pub,
+      summary: 'Sign up for e-mail notifications (sends a confirmation e-mail; always 202)',
+      tags: ['Subscribers'],
+      requestBody: body(ref('Subscribe')),
+      responses: {
+        202: json(obj({ ok: bool() })),
+        400: E400,
+        429: { description: 'Too many sign-ups from this address' },
+      },
+    },
+  },
+  '/api/v1/subscribers/confirm': {
+    post: {
+      summary: 'Confirm a sign-up with the token from the e-mail',
+      tags: ['Subscribers'],
+      security: [{}],
+      requestBody: body(obj({ token: str() })),
+      responses: { 200: json(obj({ manageToken: str() })), 400: E400 },
+    },
+  },
+  '/api/v1/subscribers/me': Object.fromEntries(
+    (['get', 'patch', 'delete'] as const).map((m) => [
+      m,
+      {
+        summary: { get: 'Your subscription', patch: 'Change what you hear about', delete: 'Unsubscribe' }[m],
+        tags: ['Subscribers'],
+        security: [{}],
+        parameters: [
+          {
+            name: 'X-Subscriber-Token',
+            in: 'header',
+            schema: str(),
+            description: 'Manage token from an e-mail link',
+          },
+        ],
+        ...(m === 'patch' ? { requestBody: body(ref('SubscriberPrefs')) } : {}),
+        responses: m === 'delete' ? { 204: E204, 400: E400 } : { 200: json(ref('Subscription')), 400: E400 },
+      },
+    ]),
+  ),
+  '/api/v1/subscribers/unsubscribe': {
+    post: {
+      summary: 'One-click unsubscribe (RFC 8058) with the token as `t`',
+      tags: ['Subscribers'],
+      security: [{}],
+      parameters: [{ name: 't', in: 'query', required: true, schema: str() }],
+      responses: { 204: E204, 400: E400 },
+    },
+  },
+  '/api/v1/subscribers/manage-link': {
+    post: {
+      summary: 'E-mail the manage link to a subscribed address (always 202)',
+      tags: ['Subscribers'],
+      security: [{}],
+      requestBody: body(obj({ email: str() })),
+      responses: { 202: json(obj({ ok: bool() })) },
+    },
+  },
+  '/api/v1/admin/subscribers': {
+    get: {
+      ...scope('admin'),
+      summary: 'Subscribers',
+      tags: ['Subscribers'],
+      responses: { 200: json(arr(ref('Subscriber'))) },
+    },
+  },
+  '/api/v1/admin/subscribers/{id}': {
+    delete: {
+      ...scope('admin'),
+      summary: 'Remove a subscriber',
+      tags: ['Subscribers'],
+      parameters: [pathId('id', 'Subscriber id')],
+      responses: { 204: E204, 404: E404 },
     },
   },
   '/api/v1/maintenance': {
