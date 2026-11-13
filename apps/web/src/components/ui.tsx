@@ -1,4 +1,40 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, createContext, useContext } from 'react';
+import { ApiError } from '../lib/api.ts';
+
+/** Field id → message for the fields of the enclosing form that the server rejected. */
+const FieldErrorsContext = createContext<Record<string, string>>({});
+
+/**
+ * Maps a failed request's per-field issues onto the form's fields. `fields` maps a request path (`spec.url`) to
+ * the id of the input showing it (`m-url`); a nested path such as `spec.expect.0` uses its longest listed prefix.
+ */
+export function fieldErrorsOf(
+  error: unknown,
+  fields: Record<string, string>,
+): {
+  byId: Record<string, string>;
+  /** Problems no field shows; the form lists these in its summary. */
+  rest: string[];
+} {
+  const byId: Record<string, string> = {};
+  const rest: string[] = [];
+  if (!(error instanceof ApiError)) return { byId, rest: error instanceof Error ? [error.message] : [] };
+  if (error.issues.length === 0) return { byId, rest: [error.message] };
+  for (const issue of error.issues) {
+    const key = Object.keys(fields)
+      .filter((k) => issue.path === k || issue.path.startsWith(`${k}.`))
+      .sort((a, b) => b.length - a.length)[0];
+    const id = key ? fields[key] : undefined;
+    if (id) byId[id] ??= issue.message;
+    else rest.push(issue.path ? `${issue.path}: ${issue.message}` : issue.message);
+  }
+  return { byId, rest };
+}
+
+/** Provides per-field errors to every `Field` inside, keyed by the field's input id. */
+export function FieldErrors({ errors, children }: { errors: Record<string, string>; children: ReactNode }) {
+  return <FieldErrorsContext.Provider value={errors}>{children}</FieldErrorsContext.Provider>;
+}
 
 /** Headline figures of a record, side by side on one surface. */
 export function Stats({ items }: { items: { label: string; value: ReactNode; hint?: string }[] }) {
@@ -114,19 +150,40 @@ export function Field({
   htmlFor,
   children,
   hint,
+  error,
 }: {
   label: string;
   htmlFor: string;
   children: ReactNode;
   hint?: ReactNode;
+  /** A problem with the value, shown in place of the hint. Defaults to the enclosing `FieldErrors`. */
+  error?: string;
 }) {
+  const fromForm = useContext(FieldErrorsContext)[htmlFor];
+  error ??= fromForm;
   return (
-    <div className="mt-3">
+    <div className={`mt-3 ${error ? 'field-invalid' : ''}`}>
       <label htmlFor={htmlFor} className="label">
         {label}
       </label>
       {children}
-      {hint && <div className="mt-1 text-xs text-sec">{hint}</div>}
+      {error ? (
+        <div id={`${htmlFor}-error`} className="mt-1 text-xs text-bad-text">
+          {error}
+        </div>
+      ) : (
+        hint && <div className="mt-1 text-xs text-sec">{hint}</div>
+      )}
+    </div>
+  );
+}
+
+/** An empty list: what is missing and, optionally, how to add the first entry. */
+export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="px-3.5 py-8 text-center">
+      <div className="font-medium">{title}</div>
+      {children && <div className="mx-auto mt-1 max-w-[28rem] text-sec">{children}</div>}
     </div>
   );
 }

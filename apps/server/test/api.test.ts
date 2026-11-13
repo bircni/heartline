@@ -156,6 +156,15 @@ describe('admin hardening', () => {
       json: { group: 'X', spec: { id: 'x', name: 'X', type: 'tcp', host: 'h', port: 1, notify: ['nope'] } },
     });
     expect(bad.status).toBe(400);
+    const invalid = await h.request('/api/v1/admin/monitors', {
+      method: 'POST',
+      cookie,
+      json: { group: 'X', spec: { id: 'x', name: 'X', type: 'tcp', host: 'h', port: 'nope' } },
+    });
+    expect(invalid.status).toBe(400);
+    const body = (await invalid.json()) as { error: string; issues: { path: string; message: string }[] };
+    expect(body.error).toBeTruthy();
+    expect(body.issues.map((i) => i.path)).toContain('spec.port');
     expect(
       (
         await h.request('/api/v1/admin/monitors', {

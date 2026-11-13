@@ -6,7 +6,20 @@ import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { Switch } from '../../components/Switch.tsx';
-import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { useConfirm } from '../../components/Dialog.tsx';
+import { toast } from '../../components/Toast.tsx';
+import {
+  Empty,
+  EmptyState,
+  ErrorNote,
+  Field,
+  FieldErrors,
+  Notice,
+  PageHeader,
+  Section,
+  Spinner,
+  fieldErrorsOf,
+} from '../../components/ui.tsx';
 import { api, useAdminMonitors, useIncidents, useMe } from '../../lib/api.ts';
 import { IMPACT_LABEL, dateTime, duration, incidentTone } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
@@ -51,9 +64,11 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
     onSuccess: async (i) => {
       await qc.invalidateQueries({ queryKey: ['incidents'] });
       await qc.invalidateQueries({ queryKey: ['overview'] });
+      toast(`Declared ${i.title}`);
       onDone(i);
     },
   });
+  const createErrors = fieldErrorsOf(create.error, { title: 'i-title', message: 'i-msg' });
   return (
     <form
       className="p-4"
@@ -63,44 +78,46 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
       }}
     >
       <h2 className="m-0 text-lg font-medium">Declare incident</h2>
-      <Field label="Title" htmlFor="i-title">
-        <input
-          id="i-title"
-          className="field"
-          required
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Slow file sync"
-        />
-      </Field>
-      <div className="mt-3">
-        <div className="label">Impact</div>
-        <Segmented
-          size="sm"
-          label="Impact"
-          value={impact}
-          onChange={setImpact}
-          options={IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] }))}
-        />
-      </div>
-      <div className="mt-3">
-        <div className="label">Affected services</div>
-        <ServicePicker value={services} onChange={setServices} />
-      </div>
-      <Field label="First update (public)" htmlFor="i-msg">
-        <textarea
-          id="i-msg"
-          rows={3}
-          required
-          className="field h-auto resize-y py-2"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="We are investigating reports of…"
-        />
-      </Field>
-      {create.error && (
+      <FieldErrors errors={createErrors.byId}>
+        <Field label="Title" htmlFor="i-title">
+          <input
+            id="i-title"
+            className="field"
+            required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Slow file sync"
+          />
+        </Field>
         <div className="mt-3">
-          <Notice tone="bad">{create.error.message}</Notice>
+          <div className="label">Impact</div>
+          <Segmented
+            size="sm"
+            label="Impact"
+            value={impact}
+            onChange={setImpact}
+            options={IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] }))}
+          />
+        </div>
+        <div className="mt-3">
+          <div className="label">Affected services</div>
+          <ServicePicker value={services} onChange={setServices} />
+        </div>
+        <Field label="First update (public)" htmlFor="i-msg">
+          <textarea
+            id="i-msg"
+            rows={3}
+            required
+            className="field h-auto resize-y py-2"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="We are investigating reports of…"
+          />
+        </Field>
+      </FieldErrors>
+      {createErrors.rest.length > 0 && (
+        <div className="mt-3" role="alert">
+          <Notice tone="bad">{createErrors.rest.join(' · ')}</Notice>
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -108,7 +125,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
           <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
         </span>
         <button type="submit" className="btn-primary" disabled={create.isPending}>
-          Declare
+          {create.isPending ? 'Declaring…' : 'Declare'}
         </button>
       </div>
     </form>
@@ -143,14 +160,18 @@ function Detail({
     onSuccess: async () => {
       setMessage('');
       await refresh();
+      toast('Update posted');
     },
   });
+  const postErrors = fieldErrorsOf(post.error, { message: 'u-msg' });
   const remove = useMutation({
     mutationFn: () => api(`/api/v1/admin/incidents/${incident.id}`, { method: 'DELETE' }),
     onSuccess: async () => {
       onDeleted();
       await refresh();
+      toast(`Deleted ${incident.title}`);
     },
+    meta: { errorToast: true },
   });
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(incident.title);
@@ -165,8 +186,11 @@ function Detail({
     onSuccess: async () => {
       setEditing(false);
       await refresh();
+      toast('Saved');
     },
   });
+  const editErrors = fieldErrorsOf(edit.error, { title: 'e-title' });
+  const confirm = useConfirm();
   const open = incident.resolvedAt === null;
   return (
     <div className="p-4">
@@ -199,7 +223,7 @@ function Detail({
             edit.mutate();
           }}
         >
-          <Field label="Title" htmlFor="e-title">
+          <Field label="Title" htmlFor="e-title" error={editErrors.byId['e-title']}>
             <input
               id="e-title"
               className="field bg-bg"
@@ -224,7 +248,11 @@ function Detail({
             <div className="label">Affected services</div>
             <ServicePicker value={services} onChange={setServices} />
           </div>
-          {edit.error && <p className="m-0 mt-2 text-base text-bad-text">{edit.error.message}</p>}
+          {editErrors.rest.length > 0 && (
+            <p role="alert" className="m-0 mt-2 text-base text-bad-text">
+              {editErrors.rest.join(' · ')}
+            </p>
+          )}
           <div className="mt-3 flex justify-end gap-2">
             <button type="button" className="btn" onClick={() => setEditing(false)}>
               Cancel
@@ -264,13 +292,17 @@ function Detail({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
-          {post.error && <p className="m-0 mt-2 text-base text-bad-text">{post.error.message}</p>}
+          {(postErrors.byId['u-msg'] ?? postErrors.rest.length > 0) && (
+            <p role="alert" className="m-0 mt-2 text-base text-bad-text">
+              {postErrors.byId['u-msg'] ?? postErrors.rest.join(' · ')}
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-base text-sec">
               <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
             </span>
             <button type="submit" className="btn-primary" disabled={post.isPending}>
-              Post update
+              {post.isPending ? 'Posting…' : 'Post update'}
             </button>
           </div>
         </form>
@@ -293,8 +325,16 @@ function Detail({
         <button
           type="button"
           className="btn-danger mt-2"
-          onClick={() => {
-            if (window.confirm('Delete this incident permanently?')) remove.mutate();
+          disabled={remove.isPending}
+          onClick={async () => {
+            if (
+              await confirm({
+                title: 'Delete this incident?',
+                message: 'It disappears from the status page and its history. This cannot be undone.',
+                confirm: 'Delete incident',
+              })
+            )
+              remove.mutate();
           }}
         >
           <Icon name="trash" size={16} /> Delete incident
@@ -333,7 +373,11 @@ export function IncidentsPage() {
       />
       <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[1_1_280px]">
-          {incidents.data.length === 0 && <Empty>No incidents yet</Empty>}
+          {incidents.data.length === 0 && (
+            <EmptyState title="No incidents yet">
+              Declare one when users are affected; it appears on the status page.
+            </EmptyState>
+          )}
           {incidents.data.map((i, idx) => (
             // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the label is the nested text
             <button

@@ -14,14 +14,36 @@ import type {
   SoftwareInventory,
   UserDto,
 } from '@heartline/shared';
-import { QueryClient, useQuery } from '@tanstack/react-query';
+import { MutationCache, QueryClient, useQuery } from '@tanstack/react-query';
+import { toast } from '../components/Toast.tsx';
+
+export interface FieldIssue {
+  /** Dotted path of the field in the request body, e.g. `url` or `expect.status`. */
+  path: string;
+  message: string;
+}
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  issues: FieldIssue[];
+  constructor(status: number, message: string, issues: FieldIssue[] = []) {
     super(message);
     this.status = status;
+    this.issues = issues;
   }
+}
+
+/** The message for one field of a failed request, if the server named it. */
+export function fieldError(error: unknown, path: string): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  return error.issues.find((i) => i.path === path)?.message;
+}
+
+/** True when every problem of a failed request is shown next to a field, so no summary is needed. */
+export function onlyFieldErrors(error: unknown, paths: string[]): boolean {
+  return (
+    error instanceof ApiError && error.issues.length > 0 && error.issues.every((i) => paths.includes(i.path))
+  );
 }
 
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
@@ -42,11 +64,18 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
       (data as { error?: string; message?: string } | null)?.error ??
         (data as { message?: string } | null)?.message ??
         `Request failed (${res.status})`,
+      (data as { issues?: FieldIssue[] } | null)?.issues ?? [],
     );
   return data as T;
 }
 
 export const queryClient = new QueryClient({
+  // Mutations that show no error of their own (deletes, toggles) opt in with `meta: { errorToast: true }`.
+  mutationCache: new MutationCache({
+    onError: (error, _vars, _ctx, mutation) => {
+      if (mutation.meta?.errorToast) toast(error.message, 'bad');
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 15_000,
@@ -167,3 +196,9 @@ export const useCatalog = () =>
     staleTime: Infinity,
     refetchInterval: false,
   });
+
+declare module '@tanstack/react-query' {
+  interface Register {
+    mutationMeta: { errorToast?: boolean };
+  }
+}
