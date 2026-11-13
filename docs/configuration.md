@@ -17,7 +17,9 @@ site:
   showVersions: false # show running versions to anonymous visitors (vulnerabilities never are)
   theme: green # default colour: green, blue, violet, amber or rose; visitors can pick their own
 
-retention: { rawDays: 30 } # raw check results; daily rollups are kept forever
+retention:
+  rawDays: 30 # raw check results; daily rollups are kept forever
+  auditDays: 365 # audit log entries
 ```
 
 ## Monitors
@@ -125,6 +127,27 @@ notifications: { recovery: true, incidents: true, reminderEvery: 1h }
 
 **Microsoft Teams**: in the channel, open _Workflows_ and pick _Post to a channel when a webhook request
 is received_. Use that URL as `webhookUrl`.
+
+## Audit log
+
+Admins find every change under _Audit log_ (`GET /api/v1/admin/audit`, MCP `list_audit_log`): who created,
+edited or deleted monitors, incidents, maintenance, users and tokens, from the web, an API token or MCP.
+Automatic incidents and `status.yaml` reloads are recorded as _automatic_. Secrets in the recorded values
+(passwords, tokens, client secrets, auth headers) are replaced by `[redacted]`.
+
+## Rate limits
+
+```yaml
+rateLimit:
+  enabled: true
+  public: { max: 300, window: 1m } # anonymous API, feed and badge reads per IP and replica
+  auth: { max: 10, window: 1m } # sign-in and OAuth client registration per IP, all replicas together
+  trustProxy: false # true behind a reverse proxy or ingress: the client IP comes from X-Forwarded-For
+```
+
+Signed-in users and API tokens are not limited on reads. Over the limit, the API answers `429` with
+`Retry-After`. Behind an ingress, set `trustProxy: true`, or every visitor shares the proxy's address.
+Only enable it when the proxy sets `X-Forwarded-For`, because clients can otherwise send their own.
 
 ## Environment
 

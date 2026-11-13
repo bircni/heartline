@@ -2,6 +2,8 @@
 site:
   title: Status
   timezone: UTC
+# Behind the ingress, client IPs for rate limits come from X-Forwarded-For.
+rateLimit: { trustProxy: true }
 groups:
   - name: Services
     monitors:

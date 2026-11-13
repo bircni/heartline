@@ -129,12 +129,32 @@ const users = createRoute({
   component: lazyRouteComponent(() => import('./pages/admin/UsersPage.tsx'), 'UsersPage'),
 });
 
+const audit = createRoute({
+  getParentRoute: () => admin,
+  path: 'audit',
+  beforeLoad: async () => {
+    const me = await queryClient.ensureQueryData(meQueryOptions);
+    if (me && !can(me.role, 'admin')) throw redirect({ to: '/admin/monitors' });
+  },
+  component: lazyRouteComponent(() => import('./pages/admin/AuditPage.tsx'), 'AuditPage'),
+});
+
 // Sign-in and admin code (auth client, schemas) loads on demand; the public page stays small.
 const routeTree = root.addChildren([
   publicLayout.addChildren([overview, service, incidentHistory, incident]),
   login,
   consent,
-  admin.addChildren([adminIndex, monitors, software, incidents, maintenance, notifications, tokens, users]),
+  admin.addChildren([
+    adminIndex,
+    monitors,
+    software,
+    incidents,
+    maintenance,
+    notifications,
+    tokens,
+    users,
+    audit,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: true });

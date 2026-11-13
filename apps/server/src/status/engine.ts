@@ -4,6 +4,7 @@ import type { CheckOutcome } from '../checks/types.ts';
 import type { Db } from '../db/index.ts';
 import type { NotifierService } from '../notify/index.ts';
 import type { IncidentService } from '../services/incidents.ts';
+import { type AuditService, SYSTEM } from '../services/audit.ts';
 import type { MaintenanceService } from '../services/maintenance.ts';
 import type { LoadedMonitor } from '../services/monitors.ts';
 import { log } from '../util/log.ts';
@@ -78,6 +79,8 @@ export class StatusEngine {
   settings: EngineSettings = { timezone: 'UTC', recoveryNotifications: true, reminderEveryMs: 0 };
   /** Dependencies of a monitor that are not operational; set by the app. */
   upstream: (monitor: LoadedMonitor) => Promise<UpstreamIssue[]> = async () => [];
+  /** Records automatic incidents in the audit log. */
+  audit: AuditService | null = null;
 
   constructor(
     db: Db,
@@ -241,7 +244,7 @@ export class StatusEngine {
     try {
       const open = await this.#incidents.openAutomatic(monitor.id);
       if (to === 'down' && !open) {
-        await this.#incidents.create(
+        const incident = await this.#incidents.create(
           {
             title: `${monitor.name} is unavailable`,
             impact: 'major',
@@ -253,12 +256,26 @@ export class StatusEngine {
           null,
           true,
         );
+        await this.audit?.record(SYSTEM, {
+          action: 'incident.auto_open',
+          entityType: 'incident',
+          entityId: incident.id,
+          summary: `Opened “${incident.title}” because ${monitor.name} is down`,
+          detail: { monitor: monitor.id },
+        });
       } else if (recovery && open) {
         await this.#incidents.addUpdate(
           open.id,
           { status: 'resolved', message: 'Automatic checks are passing again.', notify: false },
           null,
         );
+        await this.audit?.record(SYSTEM, {
+          action: 'incident.auto_resolve',
+          entityType: 'incident',
+          entityId: open.id,
+          summary: `Resolved the automatic incident of ${monitor.name}`,
+          detail: { monitor: monitor.id },
+        });
       }
     } catch (error) {
       log.error('automatic incident handling failed', { service: monitor.id, error });

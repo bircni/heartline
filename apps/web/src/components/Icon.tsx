@@ -18,6 +18,7 @@ const PATHS = {
   grid: 'M4 5h7v7H4zM13 5h7v4h-7zM13 11h7v8h-7zM4 14h7v5H4z',
   calendar: 'M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
   plus: 'M12 5v14M5 12h14',
   play: 'M7 5l12 7-12 7z',
   pause: 'M8 5v14M16 5v14',

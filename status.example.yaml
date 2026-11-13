@@ -12,6 +12,12 @@ site:
 
 retention:
   rawDays: 30 # raw check results; daily rollups are kept forever
+  auditDays: 365 # audit log entries
+
+# rateLimit:
+#   public: { max: 300, window: 1m } # anonymous reads per IP
+#   auth: { max: 10, window: 1m } # sign-in attempts per IP
+#   trustProxy: true # behind a reverse proxy or ingress
 
 groups:
   - name: Code

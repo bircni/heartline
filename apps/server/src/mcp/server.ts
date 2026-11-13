@@ -14,6 +14,7 @@ import {
 } from '@heartline/shared';
 import { z } from 'zod';
 import { type Principal, principalForUser } from '../auth/principal.ts';
+import type { AuditInput } from '../services/audit.ts';
 import { mcpResource } from '../auth/auth.ts';
 import { OAUTH_SCOPES, oauthScopesToScopes, scopeAtLeast } from '../auth/roles.ts';
 import { describeTarget, runCheck } from '../checks/index.ts';
@@ -58,6 +59,13 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
         'Read service availability, uptime reports, incidents and the software inventory (running versions, known vulnerabilities, update urgency) of this self-hosted status page. Write tools (incidents, maintenance, monitors, refreshes) need matching permissions.',
     },
   );
+
+  /** Records a change made through MCP, marked as such in the actor name. */
+  const audit = (entry: AuditInput) =>
+    app.audit.record(
+      { userId: principal.userId, name: `${principal.name} (MCP)`, via: principal.via },
+      entry,
+    );
 
   const guard = async (needed: Scope, fn: () => Promise<ToolResult>): Promise<ToolResult> => {
     if (!scopeAtLeast(principal.scope, needed))
@@ -216,12 +224,18 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       }),
     },
     async (input) =>
-      guard('write', async () =>
-        ok(
-          await app.incidents.create(incidentCreateSchema.parse(input), `${principal.name} (MCP)`),
-          'Incident created.',
-        ),
-      ),
+      guard('write', async () => {
+        const parsed = incidentCreateSchema.parse(input);
+        const i = await app.incidents.create(parsed, `${principal.name} (MCP)`);
+        await audit({
+          action: 'incident.create',
+          entityType: 'incident',
+          entityId: i.id,
+          summary: `Declared incident “${i.title}”`,
+          detail: parsed,
+        });
+        return ok(i, 'Incident created.');
+      }),
   );
 
   server.registerTool(
@@ -237,16 +251,18 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       }),
     },
     async ({ id, ...rest }) =>
-      guard('write', async () =>
-        ok(
-          await app.incidents.addUpdate(
-            id,
-            incidentUpdateCreateSchema.parse(rest),
-            `${principal.name} (MCP)`,
-          ),
-          'Update posted.',
-        ),
-      ),
+      guard('write', async () => {
+        const parsed = incidentUpdateCreateSchema.parse(rest);
+        const i = await app.incidents.addUpdate(id, parsed, `${principal.name} (MCP)`);
+        await audit({
+          action: 'incident.post_update',
+          entityType: 'incident',
+          entityId: i.id,
+          summary: `Posted a “${parsed.status}” update to “${i.title}”`,
+          detail: parsed,
+        });
+        return ok(i, 'Update posted.');
+      }),
   );
 
   server.registerTool(
@@ -265,12 +281,18 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       }),
     },
     async (input) =>
-      guard('write', async () =>
-        ok(
-          await app.maintenance.create(maintenanceCreateSchema.parse(input), `${principal.name} (MCP)`),
-          'Maintenance scheduled.',
-        ),
-      ),
+      guard('write', async () => {
+        const parsed = maintenanceCreateSchema.parse(input);
+        const m = await app.maintenance.create(parsed, `${principal.name} (MCP)`);
+        await audit({
+          action: 'maintenance.create',
+          entityType: 'maintenance',
+          entityId: m.id,
+          summary: `Scheduled maintenance “${m.title}”`,
+          detail: parsed,
+        });
+        return ok(m, 'Maintenance scheduled.');
+      }),
   );
 
   server.registerTool(
@@ -298,6 +320,12 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       guard('write', async () => {
         await app.monitors.setPaused(id, paused);
         await app.engine.setPausedState(id, paused);
+        await audit({
+          action: paused ? 'monitor.pause' : 'monitor.resume',
+          entityType: 'monitor',
+          entityId: id,
+          summary: `${paused ? 'Paused' : 'Resumed'} monitor ${app.monitors.get(id)?.name ?? id}`,
+        });
         return ok({ id, paused });
       }),
   );
@@ -315,6 +343,13 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
         const parsed = monitorSpecSchema.parse(spec);
         validateMonitorSpec(parsed, app);
         const m = await app.monitors.create(parsed, group);
+        await audit({
+          action: 'monitor.create',
+          entityType: 'monitor',
+          entityId: m.id,
+          summary: `Created monitor ${m.name}`,
+          detail: { group, spec: parsed },
+        });
         return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor created.');
       }),
   );
@@ -331,6 +366,13 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
         const parsed = restoreSecrets(monitorSpecSchema.parse(spec), app.monitors.get(id)?.spec);
         validateMonitorSpec(parsed, app);
         const m = await app.monitors.update(id, parsed, group);
+        await audit({
+          action: 'monitor.update',
+          entityType: 'monitor',
+          entityId: m.id,
+          summary: `Updated monitor ${m.name}`,
+          detail: { group, spec: parsed },
+        });
         return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor updated.');
       }),
   );
@@ -345,7 +387,14 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     },
     async ({ id }) =>
       guard('admin', async () => {
+        const name = app.monitors.get(id)?.name ?? id;
         await app.monitors.remove(id);
+        await audit({
+          action: 'monitor.delete',
+          entityType: 'monitor',
+          entityId: id,
+          summary: `Deleted monitor ${name}`,
+        });
         return ok({ id, deleted: true }, 'Monitor deleted.');
       }),
   );
@@ -405,9 +454,18 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       }),
     },
     async ({ id, ...rest }) =>
-      guard('write', async () =>
-        ok(await app.incidents.update(id, incidentPatchSchema.parse(rest)), 'Incident edited.'),
-      ),
+      guard('write', async () => {
+        const parsed = incidentPatchSchema.parse(rest);
+        const i = await app.incidents.update(id, parsed);
+        await audit({
+          action: 'incident.edit',
+          entityType: 'incident',
+          entityId: i.id,
+          summary: `Edited incident “${i.title}”`,
+          detail: parsed,
+        });
+        return ok(i, 'Incident edited.');
+      }),
   );
 
   server.registerTool(
@@ -420,7 +478,14 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     },
     async ({ id }) =>
       guard('admin', async () => {
+        const title = (await app.incidents.get(id).catch(() => null))?.title ?? id;
         await app.incidents.remove(id);
+        await audit({
+          action: 'incident.delete',
+          entityType: 'incident',
+          entityId: id,
+          summary: `Deleted incident “${title}”`,
+        });
         return ok({ id, deleted: true }, 'Incident deleted.');
       }),
   );
@@ -441,9 +506,18 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       }),
     },
     async ({ id, ...rest }) =>
-      guard('write', async () =>
-        ok(await app.maintenance.update(id, maintenanceUpdateSchema.parse(rest)), 'Maintenance updated.'),
-      ),
+      guard('write', async () => {
+        const parsed = maintenanceUpdateSchema.parse(rest);
+        const m = await app.maintenance.update(id, parsed);
+        await audit({
+          action: 'maintenance.update',
+          entityType: 'maintenance',
+          entityId: m.id,
+          summary: `Updated maintenance “${m.title}”`,
+          detail: parsed,
+        });
+        return ok(m, 'Maintenance updated.');
+      }),
   );
 
   server.registerTool(
@@ -456,8 +530,39 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     },
     async ({ id }) =>
       guard('write', async () => {
+        const title = app.maintenance.list().find((m) => m.id === id)?.title ?? id;
         await app.maintenance.remove(id);
+        await audit({
+          action: 'maintenance.delete',
+          entityType: 'maintenance',
+          entityId: id,
+          summary: `Deleted maintenance “${title}”`,
+        });
         return ok({ id, deleted: true }, 'Maintenance deleted.');
+      }),
+  );
+
+  server.registerTool(
+    'list_audit_log',
+    {
+      title: 'Audit log',
+      description:
+        'Recent changes: who created, edited or deleted monitors, incidents, maintenance, users and tokens, plus automatic actions. Newest first.',
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(500).default(50),
+        entityType: z.string().optional(),
+        entityId: z.string().optional(),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      guard('admin', async () => {
+        const entries = await app.audit.list(input);
+        return ok(
+          { entries },
+          entries.map((e) => `- ${new Date(e.at).toISOString()} ${e.actor.name}: ${e.summary}`).join('\n') ||
+            'No entries.',
+        );
       }),
   );
 

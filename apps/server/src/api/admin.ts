@@ -11,7 +11,7 @@ import {
   userCreateSchema,
   userUpdateSchema,
 } from '@heartline/shared';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { z } from 'zod';
 import { type Vars, principalOf, requireScope } from '../auth/principal.ts';
 import { isRole, maxScopeFor, roleAtLeast, scopeAtLeast } from '../auth/roles.ts';
@@ -20,7 +20,9 @@ import type { AppContext } from '../context.ts';
 import { NotFoundError, redactSpec, restoreSecrets, validateMonitorSpec } from '../services/monitors.ts';
 import { listCatalog } from '../software/catalog.ts';
 import { log } from '../util/log.ts';
+import type { AuditInput } from '../services/audit.ts';
 import { BadRequestError, ForbiddenError, body } from './errors.ts';
+import { clientIp } from './rate-limit.ts';
 
 export const monitorInputSchema = z.object({ group: z.string().min(1).max(80), spec: monitorSpecSchema });
 const pluginTestSchema = z.object({
@@ -33,6 +35,9 @@ export function adminRoutes(app: AppContext) {
   const read = requireScope('read');
   const write = requireScope('write');
   const admin = requireScope('admin');
+  /** Records a change by the caller of this request. */
+  const audit = (c: Context<Vars>, entry: AuditInput) =>
+    app.audit.record(principalOf(c), { ...entry, ip: clientIp(c, app.config().rateLimit.trustProxy) });
 
   const adminMonitors = async (): Promise<AdminMonitor[]> => {
     const states = await app.db.kysely.selectFrom('monitor_state').selectAll().execute();
@@ -65,6 +70,13 @@ export function adminRoutes(app: AppContext) {
     const input = await body(c, monitorInputSchema);
     validateMonitorSpec(input.spec, app);
     const m = await app.monitors.create(input.spec, input.group);
+    await audit(c, {
+      action: 'monitor.create',
+      entityType: 'monitor',
+      entityId: m.id,
+      summary: `Created monitor ${m.name}`,
+      detail: { group: input.group, spec: input.spec },
+    });
     return c.json(
       (await adminMonitors()).find((x) => x.id === m.id),
       201,
@@ -74,11 +86,26 @@ export function adminRoutes(app: AppContext) {
     const input = await body(c, monitorInputSchema);
     const spec = restoreSecrets(input.spec, app.monitors.get(c.req.param('id'))?.spec);
     validateMonitorSpec(spec, app);
-    await app.monitors.update(c.req.param('id'), spec, input.group);
+    const m = await app.monitors.update(c.req.param('id'), spec, input.group);
+    await audit(c, {
+      action: 'monitor.update',
+      entityType: 'monitor',
+      entityId: m.id,
+      summary: `Updated monitor ${m.name}`,
+      detail: { group: input.group, spec },
+    });
     return c.json((await adminMonitors()).find((x) => x.id === c.req.param('id')));
   });
   r.delete('/monitors/:id', admin, async (c) => {
-    await app.monitors.remove(c.req.param('id'));
+    const id = c.req.param('id');
+    const name = app.monitors.get(id)?.name ?? id;
+    await app.monitors.remove(id);
+    await audit(c, {
+      action: 'monitor.delete',
+      entityType: 'monitor',
+      entityId: id,
+      summary: `Deleted monitor ${name}`,
+    });
     return c.body(null, 204);
   });
   r.post('/monitors/:id/run', write, async (c) => {
@@ -90,6 +117,12 @@ export function adminRoutes(app: AppContext) {
     const { paused } = await body(c, z.object({ paused: z.boolean() }));
     const m = await app.monitors.setPaused(c.req.param('id'), paused);
     await app.engine.setPausedState(m.id, paused);
+    await audit(c, {
+      action: paused ? 'monitor.pause' : 'monitor.resume',
+      entityType: 'monitor',
+      entityId: m.id,
+      summary: `${paused ? 'Paused' : 'Resumed'} monitor ${m.name}`,
+    });
     return c.json((await adminMonitors()).find((x) => x.id === m.id));
   });
   r.post('/monitors/:id/software/refresh', write, async (c) => {
@@ -123,19 +156,52 @@ export function adminRoutes(app: AppContext) {
   // Incidents
   r.post('/incidents', write, async (c) => {
     const p = principalOf(c);
-    return c.json(await app.incidents.create(await body(c, incidentCreateSchema), p.name), 201);
+    const input = await body(c, incidentCreateSchema);
+    const i = await app.incidents.create(input, p.name);
+    await audit(c, {
+      action: 'incident.create',
+      entityType: 'incident',
+      entityId: i.id,
+      summary: `Declared incident “${i.title}”`,
+      detail: input,
+    });
+    return c.json(i, 201);
   });
   r.post('/incidents/:id/updates', write, async (c) => {
     const p = principalOf(c);
-    return c.json(
-      await app.incidents.addUpdate(c.req.param('id'), await body(c, incidentUpdateCreateSchema), p.name),
-    );
+    const input = await body(c, incidentUpdateCreateSchema);
+    const i = await app.incidents.addUpdate(c.req.param('id'), input, p.name);
+    await audit(c, {
+      action: 'incident.post_update',
+      entityType: 'incident',
+      entityId: i.id,
+      summary: `Posted a “${input.status}” update to “${i.title}”`,
+      detail: input,
+    });
+    return c.json(i);
   });
-  r.patch('/incidents/:id', write, async (c) =>
-    c.json(await app.incidents.update(c.req.param('id'), await body(c, incidentPatchSchema))),
-  );
+  r.patch('/incidents/:id', write, async (c) => {
+    const input = await body(c, incidentPatchSchema);
+    const i = await app.incidents.update(c.req.param('id'), input);
+    await audit(c, {
+      action: 'incident.edit',
+      entityType: 'incident',
+      entityId: i.id,
+      summary: `Edited incident “${i.title}”`,
+      detail: input,
+    });
+    return c.json(i);
+  });
   r.delete('/incidents/:id', admin, async (c) => {
-    await app.incidents.remove(c.req.param('id'));
+    const id = c.req.param('id');
+    const title = (await app.incidents.get(id).catch(() => null))?.title ?? id;
+    await app.incidents.remove(id);
+    await audit(c, {
+      action: 'incident.delete',
+      entityType: 'incident',
+      entityId: id,
+      summary: `Deleted incident “${title}”`,
+    });
     return c.body(null, 204);
   });
 
@@ -143,7 +209,16 @@ export function adminRoutes(app: AppContext) {
   r.post('/maintenance', write, async (c) => {
     const p = principalOf(c);
     try {
-      return c.json(await app.maintenance.create(await body(c, maintenanceCreateSchema), p.name), 201);
+      const input = await body(c, maintenanceCreateSchema);
+      const m = await app.maintenance.create(input, p.name);
+      await audit(c, {
+        action: 'maintenance.create',
+        entityType: 'maintenance',
+        entityId: m.id,
+        summary: `Scheduled maintenance “${m.title}”`,
+        detail: input,
+      });
+      return c.json(m, 201);
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof z.ZodError) throw error;
       if (error instanceof Error && /rrule|Unknown|Invalid/i.test(error.message))
@@ -153,7 +228,16 @@ export function adminRoutes(app: AppContext) {
   });
   r.put('/maintenance/:id', write, async (c) => {
     try {
-      return c.json(await app.maintenance.update(c.req.param('id'), await body(c, maintenanceUpdateSchema)));
+      const input = await body(c, maintenanceUpdateSchema);
+      const m = await app.maintenance.update(c.req.param('id'), input);
+      await audit(c, {
+        action: 'maintenance.update',
+        entityType: 'maintenance',
+        entityId: m.id,
+        summary: `Updated maintenance “${m.title}”`,
+        detail: input,
+      });
+      return c.json(m);
     } catch (error) {
       if (
         error instanceof Error &&
@@ -165,7 +249,15 @@ export function adminRoutes(app: AppContext) {
     }
   });
   r.delete('/maintenance/:id', write, async (c) => {
-    await app.maintenance.remove(c.req.param('id'));
+    const id = c.req.param('id');
+    const title = app.maintenance.list().find((m) => m.id === id)?.title ?? id;
+    await app.maintenance.remove(id);
+    await audit(c, {
+      action: 'maintenance.delete',
+      entityType: 'maintenance',
+      entityId: id,
+      summary: `Deleted maintenance “${title}”`,
+    });
     return c.body(null, 204);
   });
 
@@ -189,11 +281,24 @@ export function adminRoutes(app: AppContext) {
     const tooHigh = input.scopes.filter((s) => !scopeAtLeast(allowed, s));
     if (tooHigh.length) throw new ForbiddenError(`your role cannot grant: ${tooHigh.join(', ')}`);
     const { token, dto } = await app.tokens.create(p.userId, input);
+    await audit(c, {
+      action: 'token.create',
+      entityType: 'token',
+      entityId: dto.id,
+      summary: `Created API token ${dto.name} (${dto.prefix})`,
+      detail: { scopes: dto.scopes, expiresAt: dto.expiresAt },
+    });
     return c.json({ token, ...dto }, 201);
   });
   r.delete('/tokens/:id', read, async (c) => {
     const p = principalOf(c);
     await app.tokens.revoke(c.req.param('id'), p.scope === 'admin' ? null : p.userId);
+    await audit(c, {
+      action: 'token.revoke',
+      entityType: 'token',
+      entityId: c.req.param('id'),
+      summary: 'Revoked an API token',
+    });
     return c.body(null, 204);
   });
 
@@ -238,6 +343,12 @@ export function adminRoutes(app: AppContext) {
       accountId: user.id,
       password: await ctx.password.hash(input.password),
     });
+    await audit(c, {
+      action: 'user.create',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `Added local user ${input.name} <${email}> as ${input.role}`,
+    });
     return c.json(
       (await listUsers()).find((u) => u.id === user.id),
       201,
@@ -255,17 +366,46 @@ export function adminRoutes(app: AppContext) {
       .where('id', '=', id)
       .executeTakeFirst();
     if (!Number(res.numUpdatedRows)) throw new NotFoundError('user not found');
-    return c.json((await listUsers()).find((u) => u.id === id));
+    const user = (await listUsers()).find((u) => u.id === id);
+    await audit(c, {
+      action: 'user.role',
+      entityType: 'user',
+      entityId: id,
+      summary: `Changed the role of ${user?.name ?? id} to ${role}`,
+      detail: { role },
+    });
+    return c.json(user);
   });
   r.delete('/users/:id', admin, async (c) => {
     const p = principalOf(c);
     const id = c.req.param('id');
     if (id === p.userId) throw new BadRequestError('you cannot delete yourself');
+    const victim = (await listUsers()).find((u) => u.id === id);
     const ctx = await app.auth.$context;
     await ctx.internalAdapter.deleteUserSessions(id);
     await app.db.kysely.deleteFrom('api_tokens').where('user_id', '=', id).execute();
     await ctx.internalAdapter.deleteUser(id);
+    await audit(c, {
+      action: 'user.delete',
+      entityType: 'user',
+      entityId: id,
+      summary: `Deleted user ${victim ? `${victim.name} <${victim.email}>` : id}`,
+    });
     return c.body(null, 204);
+  });
+
+  // Audit log
+  r.get('/audit', admin, async (c) => {
+    const before = Number(c.req.query('before'));
+    return c.json(
+      await app.audit.list({
+        limit: Number.parseInt(c.req.query('limit') ?? '100', 10) || 100,
+        before: Number.isFinite(before) && before > 0 ? before : undefined,
+        entityType: c.req.query('entityType') || undefined,
+        entityId: c.req.query('entityId') || undefined,
+        actor: c.req.query('actor') || undefined,
+      }),
+    );
   });
 
   return r;

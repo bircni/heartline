@@ -13,6 +13,8 @@ import { migrate } from './db/migrations.ts';
 import type { Env } from './env.ts';
 import { NotifierService } from './notify/index.ts';
 import { Scheduler } from './scheduler/scheduler.ts';
+import { RateLimiter } from './api/rate-limit.ts';
+import { AuditService, SYSTEM } from './services/audit.ts';
 import { IncidentService } from './services/incidents.ts';
 import { MaintenanceService } from './services/maintenance.ts';
 import { MonitorService } from './services/monitors.ts';
@@ -50,7 +52,10 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   const notifier = new NotifierService(db, env.baseUrl, opts.fetchImpl);
   const maintenance = new MaintenanceService(db, monitors);
   const incidents = new IncidentService(db, monitors, notifier);
+  const audit = new AuditService(db);
+  const rateLimiter = new RateLimiter(db);
   const engine = new StatusEngine(db, notifier, incidents, maintenance);
+  engine.audit = audit;
   const scheduler = new Scheduler(db, monitors, plugins, engine);
   const software = new SoftwareService({
     db,
@@ -60,6 +65,23 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     fetchImpl: opts.fetchImpl,
   });
   scheduler.onOutcome = (m, o) => software.observeCheck(m, o);
+  scheduler.housekeepingTasks.push(
+    {
+      name: 'audit log',
+      run: async (now) => {
+        const pruned = await audit.prune(config.retention.auditDays, now);
+        if (pruned) log.info('pruned audit log', { rows: pruned });
+      },
+    },
+    {
+      name: 'rate limits',
+      run: (now) =>
+        rateLimiter.prune(
+          Math.max(config.rateLimit.public.window, config.rateLimit.auth.window, 3_600_000),
+          now,
+        ),
+    },
+  );
 
   const site = (): SiteInfo => ({
     title: config.site.title,
@@ -135,6 +157,8 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     scheduler,
     queries,
     software,
+    audit,
+    rateLimiter,
     applyConfig,
     async start() {
       await scheduler.start();
@@ -154,6 +178,14 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
               lastHash = hash;
               await applyConfig(await loadConfig(env.configPath));
               log.info('reloaded status.yaml');
+              // Every replica reloads; one entry is enough.
+              if (scheduler.isLeader)
+                await audit.record(SYSTEM, {
+                  action: 'config.reload',
+                  entityType: 'config',
+                  entityId: null,
+                  summary: 'Reloaded status.yaml',
+                });
             } catch (error) {
               log.error('status.yaml reload failed; keeping the previous config', {
                 error: (error as Error).message,

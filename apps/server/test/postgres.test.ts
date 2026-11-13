@@ -34,6 +34,13 @@ async function exercise(db: Db) {
       json: { name: 'pg', scopes: ['read'] },
     });
     expect(tok.status).toBe(201);
+    // The shared rate limit counter is one upsert; check it on Postgres too.
+    const rl = h.runtime.rateLimiter;
+    const bucket = { max: 1, window: 60_000 };
+    expect(await rl.take(rl.shared, 'pg-test', bucket, t)).toBeNull();
+    expect(await rl.take(rl.shared, 'pg-test', bucket, t + 1)).toBeGreaterThan(0);
+    expect(await rl.take(rl.shared, 'pg-test', bucket, t + 60_000)).toBeNull();
+    expect((await h.request('/api/v1/admin/audit', { cookie })).status).toBe(200);
   } finally {
     await h.close();
   }
