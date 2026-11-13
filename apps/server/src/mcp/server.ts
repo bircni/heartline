@@ -5,12 +5,15 @@ import {
   INCIDENT_STATUSES,
   type Scope,
   URGENCY_LEVELS,
+  affectedServiceSchema,
   incidentCreateSchema,
   incidentPatchSchema,
   incidentUpdateCreateSchema,
   maintenanceCreateSchema,
   maintenanceUpdateSchema,
   monitorSpecSchema,
+  postmortemSchema,
+  templateSchema,
 } from '@heartline/shared';
 import { z } from 'zod';
 import { type Principal, principalForUser } from '../auth/principal.ts';
@@ -211,14 +214,16 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     'create_incident',
     {
       title: 'Create incident',
-      description: 'Open a public incident. Notifies Teams/e-mail unless notify is false.',
+      description:
+        'Open a public incident. `services` lists affected service ids, or { id, status } with status operational, degraded, partial or down; while the incident is open the status page shows that status. Without `impact` it follows the services (down → major). `message` is Markdown. Set `createdAt` (ISO) for an incident written up afterwards; it never notifies. Notifies channels unless notify is false.',
       inputSchema: z.object({
         title: z.string(),
         message: z.string(),
-        impact: z.enum(IMPACTS).default('degraded'),
+        impact: z.enum(IMPACTS).optional(),
         status: z.enum(INCIDENT_STATUSES).default('investigating'),
-        services: z.array(z.string()).default([]),
+        services: z.array(affectedServiceSchema).default([]),
         notify: z.boolean().default(true),
+        createdAt: z.string().optional(),
       }),
     },
     async (input) =>
@@ -240,12 +245,15 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     'update_incident',
     {
       title: 'Post incident update',
-      description: 'Add a status update to an incident; status "resolved" closes it.',
+      description:
+        'Add a status update (Markdown) to an incident; status "resolved" closes it. `services` changes the status of affected services, e.g. [{ id: "api", status: "operational" }].',
       inputSchema: z.object({
         id: z.string(),
         status: z.enum(INCIDENT_STATUSES),
         message: z.string(),
         notify: z.boolean().default(true),
+        services: z.array(affectedServiceSchema).optional(),
+        createdAt: z.string().optional(),
       }),
     },
     async ({ id, ...rest }) =>
@@ -520,12 +528,13 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     'edit_incident',
     {
       title: 'Edit incident',
-      description: 'Change the title, impact or affected services of an incident without posting an update.',
+      description:
+        'Change the title, impact or affected services of an incident without posting an update. `impact: null` lets the impact follow the services again.',
       inputSchema: z.object({
         id: z.string(),
         title: z.string().optional(),
-        impact: z.enum(IMPACTS).optional(),
-        services: z.array(z.string()).optional(),
+        impact: z.enum(IMPACTS).nullable().optional(),
+        services: z.array(affectedServiceSchema).optional(),
       }),
     },
     async ({ id, ...rest }) =>
@@ -638,6 +647,91 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
           entries.map((e) => `- ${new Date(e.at).toISOString()} ${e.actor.name}: ${e.summary}`).join('\n') ||
             'No entries.',
         );
+      }),
+  );
+
+  server.registerTool(
+    'set_postmortem',
+    {
+      title: 'Write a postmortem',
+      description:
+        'Save the postmortem (Markdown) of an incident. publish: true shows it on the incident page; notify tells the channels when it is first published.',
+      inputSchema: z.object({
+        id: z.string(),
+        body: z.string(),
+        publish: z.boolean().default(false),
+        notify: z.boolean().default(false),
+      }),
+    },
+    async ({ id, ...rest }) =>
+      guard('write', async () => {
+        const { incident, published } = await app.incidents.setPostmortem(id, postmortemSchema.parse(rest));
+        await audit({
+          action: published ? 'incident.postmortem_publish' : 'incident.postmortem_save',
+          entityType: 'incident',
+          entityId: id,
+          summary: `${published ? 'Published' : 'Saved'} the postmortem of “${incident.title}”`,
+        });
+        return ok(incident, published ? 'Postmortem published.' : 'Postmortem saved.');
+      }),
+  );
+
+  server.registerTool(
+    'list_templates',
+    {
+      title: 'List templates',
+      description:
+        'Incident and maintenance templates: title, Markdown body, status, impact, services, duration.',
+      inputSchema: z.object({ kind: z.enum(['incident', 'maintenance']).optional() }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ kind }) => guard('read', async () => ok({ templates: app.templates.list(kind) })),
+  );
+
+  server.registerTool(
+    'save_template',
+    {
+      title: 'Create or update a template',
+      description: 'Create a template, or replace a UI-managed one when `id` names an existing template.',
+      inputSchema: z.object({ template: z.record(z.string(), z.unknown()) }),
+    },
+    async ({ template }) =>
+      guard('write', async () => {
+        const input = templateSchema.parse(template);
+        const exists = input.id ? app.templates.list().some((t) => t.id === input.id) : false;
+        const t = exists
+          ? await app.templates.update(input.id as string, input)
+          : await app.templates.create(input);
+        await audit({
+          action: exists ? 'template.update' : 'template.create',
+          entityType: 'template',
+          entityId: t.id,
+          summary: `${exists ? 'Updated' : 'Created'} template ${t.name}`,
+          detail: input,
+        });
+        return ok(t, exists ? 'Template updated.' : 'Template created.');
+      }),
+  );
+
+  server.registerTool(
+    'delete_template',
+    {
+      title: 'Delete template',
+      description: 'Delete a UI-managed template.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ id }) =>
+      guard('write', async () => {
+        const t = app.templates.require(id);
+        await app.templates.remove(id);
+        await audit({
+          action: 'template.delete',
+          entityType: 'template',
+          entityId: id,
+          summary: `Deleted template ${t.name}`,
+        });
+        return ok({ id, deleted: true }, 'Template deleted.');
       }),
   );
 

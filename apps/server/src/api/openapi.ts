@@ -1,5 +1,7 @@
 import {
+  COMPONENT_STATUSES,
   IMPACTS,
+  TEMPLATE_KINDS,
   INCIDENT_STATUSES,
   MAX_RANGE_DAYS,
   MONITOR_KINDS,
@@ -13,6 +15,8 @@ import {
   maintenanceCreateSchema,
   maintenanceUpdateSchema,
   monitorSpecSchema,
+  postmortemSchema,
+  templateSchema,
   tokenCreateSchema,
   userCreateSchema,
   userUpdateSchema,
@@ -48,7 +52,15 @@ const obj = (properties: Record<string, Schema>, required?: string[]) => ({
 const en = (values: readonly string[]) => ({ type: 'string', enum: [...values] });
 const ts = () => int({ description: 'Unix time in milliseconds' });
 
-const SERVICE_STATUS = ['operational', 'degraded', 'down', 'maintenance', 'paused', 'unknown'] as const;
+const SERVICE_STATUS = [
+  'operational',
+  'degraded',
+  'partial',
+  'down',
+  'maintenance',
+  'paused',
+  'unknown',
+] as const;
 const DAY_STATE = ['operational', 'degraded', 'down', 'maintenance', 'nodata'] as const;
 const CHECK_STATUS = ['up', 'degraded', 'down', 'maintenance', 'unknown'] as const;
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
@@ -113,6 +125,8 @@ const schemas: Record<string, Schema> = {
     kind: en(MONITOR_KINDS),
     external: bool(),
     status: en(SERVICE_STATUS),
+    checkStatus: en(SERVICE_STATUS),
+    incident: nullable(obj({ id: str(), title: str() })),
     upstream: arr(obj({ id: str(), name: str(), status: en(SERVICE_STATUS) })),
     uptime: nullable(num()),
     bars: arr(ref('DayBar')),
@@ -121,20 +135,46 @@ const schemas: Record<string, Schema> = {
   IncidentUpdate: obj({
     id: str(),
     status: en(INCIDENT_STATUSES),
-    message: str(),
+    message: str({ description: 'Markdown' }),
     createdAt: ts(),
     author: nullable(str()),
+    notify: bool(),
+    components: arr(
+      obj({
+        id: str(),
+        name: str(),
+        oldStatus: nullable(en(COMPONENT_STATUSES)),
+        newStatus: en(COMPONENT_STATUSES),
+      }),
+    ),
   }),
   Incident: obj({
     id: str(),
     title: str(),
     status: en(INCIDENT_STATUSES),
     impact: en(IMPACTS),
-    services: arr(ref('ServiceRef')),
+    impactOverride: bool(),
+    services: arr(obj({ id: str(), name: str(), status: en(COMPONENT_STATUSES) })),
     createdAt: ts(),
+    updatedAt: ts(),
     resolvedAt: nullable(ts()),
     automatic: bool(),
     updates: arr(ref('IncidentUpdate')),
+    postmortem: nullable(obj({ body: str({ description: 'Markdown' }), publishedAt: nullable(ts()) })),
+  }),
+  Postmortem: jsonSchema(postmortemSchema),
+  TemplateInput: jsonSchema(templateSchema),
+  Template: obj({
+    id: str(),
+    kind: en(TEMPLATE_KINDS),
+    name: str(),
+    title: str(),
+    body: str({ description: 'Markdown' }),
+    status: nullable(en(INCIDENT_STATUSES)),
+    impact: nullable(en(IMPACTS)),
+    services: arr(obj({ id: str(), status: nullable(en(COMPONENT_STATUSES)) })),
+    durationMs: nullable(int()),
+    source: en(['config', 'db']),
   }),
   Maintenance: obj({
     id: str(),
@@ -755,6 +795,13 @@ const paths: Record<string, Record<string, Op>> = {
     },
   },
   '/api/v1/admin/incidents/{id}': {
+    get: {
+      ...scope('read'),
+      summary: 'An incident, including an unpublished postmortem',
+      tags: ['Incidents'],
+      parameters: [pathId('id', 'Incident id')],
+      responses: { 200: json(ref('Incident')), 404: E404 },
+    },
     patch: {
       ...scope('write'),
       summary: 'Edit title, impact or services',
@@ -769,6 +816,56 @@ const paths: Record<string, Record<string, Op>> = {
       tags: ['Incidents'],
       parameters: [pathId('id', 'Incident id')],
       responses: { 204: E204, 404: E404 },
+    },
+  },
+  '/api/v1/admin/incidents/{id}/postmortem': {
+    put: {
+      ...scope('write'),
+      summary: 'Save or publish the postmortem',
+      tags: ['Incidents'],
+      parameters: [pathId('id', 'Incident id')],
+      requestBody: body(ref('Postmortem')),
+      responses: { 200: json(ref('Incident')), 400: E400, 404: E404 },
+    },
+    delete: {
+      ...scope('write'),
+      summary: 'Delete the postmortem',
+      tags: ['Incidents'],
+      parameters: [pathId('id', 'Incident id')],
+      responses: { 200: json(ref('Incident')), 404: E404 },
+    },
+  },
+  '/api/v1/admin/templates': {
+    get: {
+      ...scope('read'),
+      summary: 'Incident and maintenance templates',
+      tags: ['Incidents'],
+      parameters: [{ name: 'kind', in: 'query', schema: en(TEMPLATE_KINDS) }],
+      responses: { 200: json(arr(ref('Template'))) },
+    },
+    post: {
+      ...scope('write'),
+      summary: 'Create a template',
+      tags: ['Incidents'],
+      requestBody: body(ref('TemplateInput')),
+      responses: { 201: json(ref('Template')), 400: E400, 409: { description: 'Id already exists' } },
+    },
+  },
+  '/api/v1/admin/templates/{id}': {
+    put: {
+      ...scope('write'),
+      summary: 'Replace a template',
+      tags: ['Incidents'],
+      parameters: [pathId('id', 'Template id')],
+      requestBody: body(ref('TemplateInput')),
+      responses: { 200: json(ref('Template')), 404: E404, 409: { description: 'Managed in status.yaml' } },
+    },
+    delete: {
+      ...scope('write'),
+      summary: 'Delete a template',
+      tags: ['Incidents'],
+      parameters: [pathId('id', 'Template id')],
+      responses: { 204: E204, 404: E404, 409: { description: 'Managed in status.yaml' } },
     },
   },
   '/api/v1/admin/incidents/{id}/updates': {

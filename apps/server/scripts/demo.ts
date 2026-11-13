@@ -148,11 +148,22 @@ async function seed(db: Db, ids: string[], timezone: string, now: number) {
         impact,
         automatic: 0,
         created_at: start,
+        updated_at: start + Math.max(0, ...updates.map(([m]) => m)) * 60_000,
         resolved_at: resolved,
         created_by: 'Demo Admin',
+        impact_override: null,
+        postmortem: null,
+        postmortem_published_at: null,
       })
       .execute();
-    await k.insertInto('incident_services').values({ incident_id: id, monitor_id: svc }).execute();
+    await k
+      .insertInto('incident_services')
+      .values({
+        incident_id: id,
+        monitor_id: svc,
+        status: impact === 'major' ? 'down' : impact === 'partial' ? 'partial' : 'degraded',
+      })
+      .execute();
     for (const [min, status, message] of updates) {
       await k
         .insertInto('incident_updates')
@@ -163,6 +174,7 @@ async function seed(db: Db, ids: string[], timezone: string, now: number) {
           message,
           created_at: start + min * 60_000,
           author: 'Demo Admin',
+          notify: 0,
         })
         .execute();
     }

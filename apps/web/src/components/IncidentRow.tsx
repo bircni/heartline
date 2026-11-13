@@ -1,4 +1,4 @@
-import type { Incident } from '@heartline/shared';
+import { type Incident, markdownToText } from '@heartline/shared';
 import { Link } from '@tanstack/react-router';
 import { IMPACT_LABEL, dateTime, incidentAge, incidentTone, relative, serviceNames } from '../lib/format.ts';
 import { Icon } from './Icon.tsx';
@@ -37,7 +37,9 @@ export function IncidentRow({
               {serviceNames(i.services)}, updated {relative(i.updates[0]?.createdAt ?? i.createdAt)}
             </span>
           </span>
-          {i.updates[0] && <span className="mt-0.5 block line-clamp-2 text-sec">{i.updates[0].message}</span>}
+          {i.updates[0] && (
+            <span className="mt-0.5 block line-clamp-2 text-sec">{markdownToText(i.updates[0].message)}</span>
+          )}
         </span>
         <Icon name="chevron" size={15} className="mt-0.5 shrink-0 text-muted" />
       </Link>

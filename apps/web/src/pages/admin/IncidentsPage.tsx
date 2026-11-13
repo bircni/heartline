@@ -1,9 +1,18 @@
-import type { Impact, Incident, IncidentStatus } from '@heartline/shared';
-import { IMPACTS, INCIDENT_STATUSES } from '@heartline/shared';
+import type { ComponentStatus, Impact, Incident, IncidentStatus, TemplateDto } from '@heartline/shared';
+import {
+  COMPONENT_STATUSES,
+  IMPACTS,
+  INCIDENT_STATUSES,
+  defaultComponentStatus,
+  deriveImpact,
+} from '@heartline/shared';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
+import { Markdown } from '../../components/Markdown.tsx';
+import { MarkdownField } from '../../components/MarkdownField.tsx';
+import { UpdateTimeline } from '../../components/UpdateTimeline.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { useConfirm } from '../../components/Dialog.tsx';
@@ -20,16 +29,28 @@ import {
   Spinner,
   fieldErrorsOf,
 } from '../../components/ui.tsx';
-import { api, useAdminMonitors, useIncidents, useMe } from '../../lib/api.ts';
-import { IMPACT_LABEL, dateTime, duration, incidentTone } from '../../lib/format.ts';
+import { api, useAdminIncident, useAdminMonitors, useIncidents, useMe, useTemplates } from '../../lib/api.ts';
+import {
+  COMPONENT_LABEL,
+  COMPONENT_TONE,
+  IMPACT_LABEL,
+  dateTime,
+  duration,
+  fromZonedInput,
+  incidentTone,
+  toZonedInput,
+} from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+type Affected = { id: string; status: ComponentStatus };
+
+/** Services to pick, as toggles. Maintenance windows use it too. */
 function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const monitors = useAdminMonitors();
   return (
-    <div className="flex flex-wrap gap-2">
+    <div role="group" aria-label="Services" className="flex flex-wrap gap-2">
       {monitors.data?.map((m) => {
         const on = value.includes(m.id);
         return (
@@ -48,18 +69,156 @@ function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: str
   );
 }
 
+/** Affected services, each with the status the incident gives it on the status page. */
+function AffectedPicker({
+  value,
+  onChange,
+  fallback,
+}: {
+  value: Affected[];
+  onChange: (v: Affected[]) => void;
+  /** Status for a newly picked service. */
+  fallback: ComponentStatus;
+}) {
+  const monitors = useAdminMonitors();
+  return (
+    <>
+      <ServicePicker
+        value={value.map((a) => a.id)}
+        onChange={(ids) =>
+          onChange(ids.map((id) => value.find((a) => a.id === id) ?? { id, status: fallback }))
+        }
+      />
+      {value.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1.5">
+          {value.map((a) => (
+            <label key={a.id} className="flex items-center gap-2 text-base">
+              <span className="min-w-0 flex-1 truncate">
+                {monitors.data?.find((m) => m.id === a.id)?.name ?? a.id}
+              </span>
+              <select
+                className="field h-7 w-auto py-0 text-xs"
+                aria-label={`Status of ${monitors.data?.find((m) => m.id === a.id)?.name ?? a.id}`}
+                value={a.status}
+                onChange={(e) =>
+                  onChange(
+                    value.map((x) =>
+                      x.id === a.id ? { ...x, status: e.target.value as ComponentStatus } : x,
+                    ),
+                  )
+                }
+                style={{ color: COMPONENT_TONE[a.status].text }}
+              >
+                {COMPONENT_STATUSES.map((st) => (
+                  <option key={st} value={st}>
+                    {COMPONENT_LABEL[st]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Impact: follows the services ("auto") or set by hand. */
+function ImpactPicker({
+  value,
+  onChange,
+  derived,
+}: {
+  value: Impact | 'auto';
+  onChange: (v: Impact | 'auto') => void;
+  derived: Impact | null;
+}) {
+  return (
+    <Segmented
+      size="sm"
+      label="Impact"
+      value={value}
+      onChange={onChange}
+      options={[
+        ...(derived ? [{ value: 'auto' as const, label: `Auto: ${IMPACT_LABEL[derived]}` }] : []),
+        ...IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] })),
+      ]}
+    />
+  );
+}
+
+/** "Happened earlier": a past time for an incident or update written up afterwards. */
+function BackfillField({
+  value,
+  onChange,
+  id,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  id: string;
+}) {
+  return (
+    <div className="mt-3">
+      <label className="flex items-center gap-2 text-base text-sec">
+        <input
+          type="checkbox"
+          checked={value !== null}
+          onChange={(e) => onChange(e.target.checked ? toZonedInput(Date.now() - 3_600_000) : null)}
+        />
+        Happened earlier (no notifications)
+      </label>
+      {value !== null && (
+        <input
+          id={id}
+          aria-label="When it happened"
+          type="datetime-local"
+          className="field mt-1.5"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
 function Declare({ onDone }: { onDone: (i: Incident) => void }) {
   const qc = useQueryClient();
+  const templates = useTemplates('incident');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [impact, setImpact] = useState<Impact>('degraded');
-  const [services, setServices] = useState<string[]>([]);
+  const [status, setStatus] = useState<IncidentStatus>('investigating');
+  const [impact, setImpact] = useState<Impact | 'auto'>('auto');
+  const [services, setServices] = useState<Affected[]>([]);
   const [notify, setNotify] = useState(true);
+  const [earlier, setEarlier] = useState<string | null>(null);
+  const derived = services.length ? deriveImpact(services.map((s) => s.status)) : null;
+  // Without services the impact cannot follow them.
+  const chosen = impact === 'auto' && !derived ? 'degraded' : impact;
+  const applyTemplate = (t: TemplateDto) => {
+    setTitle(t.title);
+    setMessage(t.body);
+    if (t.status) setStatus(t.status);
+    setImpact(t.impact ?? 'auto');
+    setServices(
+      t.services.map((s) => ({
+        id: s.id,
+        status: s.status ?? defaultComponentStatus(t.impact ?? undefined),
+      })),
+    );
+  };
   const create = useMutation({
     mutationFn: () =>
       api<Incident>('/api/v1/admin/incidents', {
         method: 'POST',
-        json: { title, message, impact, services, notify },
+        json: {
+          title,
+          message,
+          status,
+          impact: chosen === 'auto' ? undefined : chosen,
+          services,
+          notify: notify && earlier === null,
+          createdAt: earlier ? new Date(fromZonedInput(earlier)).toISOString() : undefined,
+        },
       }),
     onSuccess: async (i) => {
       await qc.invalidateQueries({ queryKey: ['incidents'] });
@@ -68,7 +227,11 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
       onDone(i);
     },
   });
-  const createErrors = fieldErrorsOf(create.error, { title: 'i-title', message: 'i-msg' });
+  const createErrors = fieldErrorsOf(create.error, {
+    title: 'i-title',
+    message: 'i-msg',
+    createdAt: 'i-when',
+  });
   return (
     <form
       className="p-4"
@@ -77,7 +240,27 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
         create.mutate();
       }}
     >
-      <h2 className="m-0 text-lg font-medium">Declare incident</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 text-lg font-medium">Declare incident</h2>
+        {(templates.data?.length ?? 0) > 0 && (
+          <select
+            aria-label="Start from a template"
+            className="field h-7 w-auto py-0 text-xs"
+            value=""
+            onChange={(e) => {
+              const t = templates.data?.find((x) => x.id === e.target.value);
+              if (t) applyTemplate(t);
+            }}
+          >
+            <option value="">From a template…</option>
+            {templates.data?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
       <FieldErrors errors={createErrors.byId}>
         <Field label="Title" htmlFor="i-title">
           <input
@@ -90,30 +273,33 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
           />
         </Field>
         <div className="mt-3">
-          <div className="label">Impact</div>
-          <Segmented
-            size="sm"
-            label="Impact"
-            value={impact}
-            onChange={setImpact}
-            options={IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] }))}
-          />
+          <div className="label">Affected services and their status</div>
+          <AffectedPicker value={services} onChange={setServices} fallback="degraded" />
         </div>
         <div className="mt-3">
-          <div className="label">Affected services</div>
-          <ServicePicker value={services} onChange={setServices} />
+          <div className="label">Impact</div>
+          <ImpactPicker value={chosen} onChange={setImpact} derived={derived} />
+        </div>
+        <div className="mt-3">
+          <div className="label">Status</div>
+          <Segmented
+            size="sm"
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            options={INCIDENT_STATUSES.map((st) => ({ value: st, label: cap(st) }))}
+          />
         </div>
         <Field label="First update (public)" htmlFor="i-msg">
-          <textarea
+          <MarkdownField
             id="i-msg"
-            rows={3}
             required
-            className="field h-auto resize-y py-2"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={setMessage}
             placeholder="We are investigating reports of…"
           />
         </Field>
+        <BackfillField id="i-when" value={earlier} onChange={setEarlier} />
       </FieldErrors>
       {createErrors.rest.length > 0 && (
         <div className="mt-3" role="alert">
@@ -122,13 +308,135 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
       )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-base text-sec">
-          <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
+          <Switch
+            checked={notify && earlier === null}
+            disabled={earlier !== null}
+            onChange={setNotify}
+            label="Notify channels"
+          />{' '}
+          Notify channels
         </span>
         <button type="submit" className="btn-primary" disabled={create.isPending}>
           {create.isPending ? 'Declaring…' : 'Declare'}
         </button>
       </div>
     </form>
+  );
+}
+
+function Postmortem({ incident, canWrite }: { incident: Incident; canWrite: boolean }) {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const [body, setBody] = useState(incident.postmortem?.body ?? '');
+  const [notify, setNotify] = useState(false);
+  const published = incident.postmortem?.publishedAt !== null && incident.postmortem !== null;
+  const refresh = async () => {
+    await qc.invalidateQueries({ queryKey: ['incidents'] });
+    await qc.invalidateQueries({ queryKey: ['incident', incident.id] });
+  };
+  const save = useMutation({
+    mutationFn: (publish: boolean) =>
+      api<Incident>(`/api/v1/admin/incidents/${incident.id}/postmortem`, {
+        method: 'PUT',
+        json: { body, publish, notify: publish && notify },
+      }),
+    onSuccess: async (_i, publish) => {
+      await refresh();
+      toast(publish ? (published ? 'Postmortem updated' : 'Postmortem published') : 'Draft saved');
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () =>
+      api<Incident>(`/api/v1/admin/incidents/${incident.id}/postmortem`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      setBody('');
+      await refresh();
+      toast('Postmortem deleted');
+    },
+    meta: { errorToast: true },
+  });
+  if (!canWrite && !incident.postmortem) return null;
+  return (
+    <section className="mt-4 rounded-xl bg-fill p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="m-0 text-base font-semibold">Postmortem</h3>
+        <span className="text-xs text-sec">
+          {incident.postmortem
+            ? published
+              ? `Published ${dateTime(incident.postmortem.publishedAt as number)}`
+              : 'Draft, not public'
+            : 'None yet'}
+        </span>
+      </div>
+      {canWrite ? (
+        <>
+          <MarkdownField
+            id="pm-body"
+            label="Postmortem"
+            className="mt-2"
+            rows={8}
+            value={body}
+            onChange={setBody}
+            placeholder={'## What happened\n\n## Why\n\n## What we change'}
+          />
+          {save.error && (
+            <p role="alert" className="m-0 mt-2 text-base text-bad-text">
+              {save.error.message}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {!published && (
+              <span className="flex items-center gap-2 text-base text-sec">
+                <Switch checked={notify} onChange={setNotify} label="Notify channels on publish" /> Notify on
+                publish
+              </span>
+            )}
+            <span className="flex-1" />
+            {incident.postmortem && (
+              <button
+                type="button"
+                className="btn-sm text-bad-text"
+                disabled={remove.isPending}
+                onClick={async () => {
+                  if (await confirm({ title: 'Delete the postmortem?', confirm: 'Delete' })) remove.mutate();
+                }}
+              >
+                Delete
+              </button>
+            )}
+            {published ? (
+              <button
+                type="button"
+                className="btn-sm"
+                disabled={save.isPending || !body.trim()}
+                onClick={() => save.mutate(false)}
+              >
+                Unpublish
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-sm"
+                disabled={save.isPending || !body.trim()}
+                onClick={() => save.mutate(false)}
+              >
+                Save draft
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-primary h-7 px-3 text-xs"
+              disabled={save.isPending || !body.trim()}
+              onClick={() => save.mutate(true)}
+            >
+              {published ? 'Update' : 'Publish'}
+            </button>
+          </div>
+        </>
+      ) : (
+        incident.postmortem && <Markdown text={incident.postmortem.body} className="mt-2" />
+      )}
+    </section>
   );
 }
 
@@ -144,26 +452,41 @@ function Detail({
   onDeleted: () => void;
 }) {
   const qc = useQueryClient();
-  const [status, setStatus] = useState<IncidentStatus>(incident.status);
+  const [status, setStatus] = useState<IncidentStatus>(
+    incident.status === 'resolved' ? 'resolved' : incident.status,
+  );
   const [message, setMessage] = useState('');
   const [notify, setNotify] = useState(true);
+  const [earlier, setEarlier] = useState<string | null>(null);
+  // Statuses to post with the update; services left unchanged are not sent.
+  const [changes, setChanges] = useState<Affected[]>(
+    incident.services.map((s) => ({ id: s.id, status: s.status })),
+  );
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ['incidents'] });
     await qc.invalidateQueries({ queryKey: ['overview'] });
   };
+  const changed = changes.filter((c) => incident.services.find((s) => s.id === c.id)?.status !== c.status);
   const post = useMutation({
     mutationFn: () =>
       api<Incident>(`/api/v1/admin/incidents/${incident.id}/updates`, {
         method: 'POST',
-        json: { status, message, notify },
+        json: {
+          status,
+          message,
+          notify: notify && earlier === null,
+          services: changed.length ? changed : undefined,
+          createdAt: earlier ? new Date(fromZonedInput(earlier)).toISOString() : undefined,
+        },
       }),
     onSuccess: async () => {
       setMessage('');
+      setEarlier(null);
       await refresh();
       toast('Update posted');
     },
   });
-  const postErrors = fieldErrorsOf(post.error, { message: 'u-msg' });
+  const postErrors = fieldErrorsOf(post.error, { message: 'u-msg', createdAt: 'u-when' });
   const remove = useMutation({
     mutationFn: () => api(`/api/v1/admin/incidents/${incident.id}`, { method: 'DELETE' }),
     onSuccess: async () => {
@@ -175,13 +498,16 @@ function Detail({
   });
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(incident.title);
-  const [impact, setImpact] = useState<Impact>(incident.impact);
-  const [services, setServices] = useState<string[]>(incident.services.map((s) => s.id));
+  const [impact, setImpact] = useState<Impact | 'auto'>(incident.impactOverride ? incident.impact : 'auto');
+  const [services, setServices] = useState<Affected[]>(
+    incident.services.map((s) => ({ id: s.id, status: s.status })),
+  );
+  const editDerived = services.length ? deriveImpact(services.map((s) => s.status)) : null;
   const edit = useMutation({
     mutationFn: () =>
       api<Incident>(`/api/v1/admin/incidents/${incident.id}`, {
         method: 'PATCH',
-        json: { title, impact, services },
+        json: { title, impact: impact === 'auto' ? null : impact, services },
       }),
     onSuccess: async () => {
       setEditing(false);
@@ -200,17 +526,29 @@ function Detail({
             className="text-xs font-medium"
             style={{ color: open ? incidentTone(incident).text : 'var(--sec)' }}
           >
-            {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
-            {incident.services.map((s) => s.name).join(', ') || 'no services'}
+            {cap(incident.status)} · {IMPACT_LABEL[incident.impact]}
+            {incident.impactOverride ? ' (set by hand)' : ''}
           </div>
           <h2 className="m-0 mt-0.5 text-2xl font-medium">{incident.title}</h2>
           <div className="text-xs text-sec">
             {dateTime(incident.createdAt)} · {duration(incident.createdAt, incident.resolvedAt)}
             {incident.automatic && ' · automatic'}
           </div>
+          {incident.services.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
+              {incident.services.map((s) => (
+                <span key={s.id} className="text-sec">
+                  {s.name}:{' '}
+                  <span className="font-medium" style={{ color: COMPONENT_TONE[s.status].text }}>
+                    {COMPONENT_LABEL[s.status]}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {canWrite && !editing && (
-          <button type="button" className="btn h-7 shrink-0 px-3 text-xs" onClick={() => setEditing(true)}>
+          <button type="button" className="btn-sm shrink-0" onClick={() => setEditing(true)}>
             <Icon name="edit" size={16} /> Edit
           </button>
         )}
@@ -233,20 +571,18 @@ function Detail({
             />
           </Field>
           <div className="mt-3">
-            <div className="label">Impact</div>
-            <div className="rounded-md bg-bg p-0.5">
-              <Segmented
-                size="sm"
-                label="Impact"
-                value={impact}
-                onChange={setImpact}
-                options={IMPACTS.map((i) => ({ value: i, label: IMPACT_LABEL[i] }))}
-              />
-            </div>
+            <div className="label">Affected services</div>
+            <AffectedPicker value={services} onChange={setServices} fallback="degraded" />
           </div>
           <div className="mt-3">
-            <div className="label">Affected services</div>
-            <ServicePicker value={services} onChange={setServices} />
+            <div className="label">Impact</div>
+            <div className="rounded-md bg-bg p-0.5">
+              <ImpactPicker
+                value={impact === 'auto' && !editDerived ? incident.impact : impact}
+                onChange={setImpact}
+                derived={editDerived}
+              />
+            </div>
           </div>
           {editErrors.rest.length > 0 && (
             <p role="alert" className="m-0 mt-2 text-base text-bad-text">
@@ -276,30 +612,52 @@ function Detail({
               size="sm"
               label="New status"
               value={status}
-              onChange={setStatus}
-              options={INCIDENT_STATUSES.map((s) => ({ value: s, label: cap(s) }))}
+              onChange={(next) => {
+                setStatus(next);
+                // Resolving usually means the services are fine again.
+                if (next === 'resolved') setChanges(changes.map((c) => ({ ...c, status: 'operational' })));
+              }}
+              options={INCIDENT_STATUSES.map((st) => ({ value: st, label: cap(st) }))}
             />
           </div>
-          <label htmlFor="u-msg" className="sr-only">
-            Update message
-          </label>
-          <textarea
-            id="u-msg"
-            rows={3}
-            required
-            className="mt-3 block w-full resize-y rounded-md border-0 bg-surface px-3 py-2 text-base text-text"
-            placeholder="What changed? This is shown publicly."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-          {(postErrors.byId['u-msg'] ?? postErrors.rest.length > 0) && (
+          <FieldErrors errors={postErrors.byId}>
+            <label htmlFor="u-msg" className="sr-only">
+              Update message
+            </label>
+            <MarkdownField
+              id="u-msg"
+              className="mt-3"
+              rows={3}
+              required
+              value={message}
+              onChange={setMessage}
+              placeholder="What changed? This is shown publicly."
+            />
+            {postErrors.byId['u-msg'] && (
+              <p className="m-0 mt-1 text-xs text-bad-text">{postErrors.byId['u-msg']}</p>
+            )}
+            {changes.length > 0 && (
+              <div className="mt-3">
+                <div className="label">Service statuses with this update</div>
+                <AffectedPicker value={changes} onChange={setChanges} fallback="degraded" />
+              </div>
+            )}
+            <BackfillField id="u-when" value={earlier} onChange={setEarlier} />
+          </FieldErrors>
+          {postErrors.rest.length > 0 && (
             <p role="alert" className="m-0 mt-2 text-base text-bad-text">
-              {postErrors.byId['u-msg'] ?? postErrors.rest.join(' · ')}
+              {postErrors.rest.join(' · ')}
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-base text-sec">
-              <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
+              <Switch
+                checked={notify && earlier === null}
+                disabled={earlier !== null}
+                onChange={setNotify}
+                label="Notify channels"
+              />{' '}
+              Notify channels
             </span>
             <button type="submit" className="btn-primary" disabled={post.isPending}>
               {post.isPending ? 'Posting…' : 'Post update'}
@@ -307,24 +665,18 @@ function Detail({
           </div>
         </form>
       )}
-      <ol className="m-0 mt-4 list-none p-0">
-        {incident.updates.map((u) => (
-          <li key={u.id} className="flex gap-3 border-t border-hair py-2">
-            <span className="w-24 shrink-0 pt-px text-xs text-sec">{dateTime(u.createdAt)}</span>
-            <span className="min-w-0">
-              <span className="block text-base font-medium">
-                {cap(u.status)}
-                {u.author && <span className="font-normal text-sec"> · {u.author}</span>}
-              </span>
-              <span className="block whitespace-pre-line text-sec">{u.message}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
+      <div className="mt-4 border-t border-hair pt-3">
+        <UpdateTimeline updates={incident.updates} accent={incidentTone(incident).text} />
+      </div>
+      <Postmortem
+        key={`${incident.id}-${incident.postmortem?.publishedAt ?? 'draft'}`}
+        incident={incident}
+        canWrite={canWrite}
+      />
       {canDelete && (
         <button
           type="button"
-          className="btn-danger mt-2"
+          className="btn-danger mt-4"
           disabled={remove.isPending}
           onClick={async () => {
             if (
@@ -351,11 +703,14 @@ export function IncidentsPage() {
   const { incident: linked } = useSearch({ strict: false }) as { incident?: string };
   const navigate = useNavigate();
   const [picked, setSelected] = useState<string | null>(linked ?? null);
+  const detail = useAdminIncident(picked && picked !== '__new' ? picked : (incidents.data?.[0]?.id ?? null));
   const canWrite = can(me.data?.role, 'editor');
   if (incidents.isPending) return <Spinner />;
   if (incidents.error) return <ErrorNote error={incidents.error} />;
   const selected = picked ?? incidents.data[0]?.id ?? null;
-  const current = incidents.data.find((i) => i.id === selected);
+  const listed = incidents.data.find((i) => i.id === selected);
+  // The admin view adds an unpublished postmortem; the list entry shows until it loads.
+  const current = detail.data?.id === selected ? detail.data : listed;
   const active = incidents.data.filter((i) => i.resolvedAt === null).length;
 
   return (
@@ -407,7 +762,7 @@ export function IncidentsPage() {
             <Declare onDone={(i) => setSelected(i.id)} />
           ) : current ? (
             <Detail
-              key={current.id}
+              key={`${current.id}-${current.updatedAt}`}
               incident={current}
               canWrite={canWrite}
               canDelete={can(me.data?.role, 'admin')}

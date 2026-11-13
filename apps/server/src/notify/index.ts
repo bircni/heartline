@@ -1,4 +1,6 @@
+import { markdownToText } from '@heartline/shared';
 import type {
+  ComponentStatus,
   Incident,
   IncidentUpdateDto,
   NotifierDto,
@@ -50,10 +52,18 @@ export interface RenderedMessage {
 const STATUS_LABEL: Record<ServiceStatus, string> = {
   operational: 'operational',
   degraded: 'degraded',
+  partial: 'partly down',
   down: 'down',
   maintenance: 'in maintenance',
   paused: 'paused',
   unknown: 'unknown',
+};
+
+const COMPONENT_LABEL: Record<ComponentStatus, string> = {
+  operational: 'operational',
+  degraded: 'degraded',
+  partial: 'partial outage',
+  down: 'major outage',
 };
 
 export function render(event: NotificationEvent, baseUrl: string, siteTitle: string): RenderedMessage {
@@ -119,13 +129,27 @@ export function render(event: NotificationEvent, baseUrl: string, siteTitle: str
     };
   }
   const { incident, update } = event;
+  const facts: [string, string][] = [
+    ['Impact', incident.impact],
+    [
+      'Affected',
+      incident.services.map((s) => `${s.name} (${COMPONENT_LABEL[s.status]})`).join(', ') || 'none listed',
+    ],
+  ];
+  if (update.components.length)
+    facts.push([
+      'Changed',
+      update.components
+        .map(
+          (c) =>
+            `${c.name}: ${c.oldStatus ? `${COMPONENT_LABEL[c.oldStatus]} → ` : ''}${COMPONENT_LABEL[c.newStatus]}`,
+        )
+        .join(', '),
+    ]);
   return {
     title: `${incident.title}: ${update.status}`,
-    text: update.message,
-    facts: [
-      ['Impact', incident.impact],
-      ['Affected', incident.services.map((s) => s.name).join(', ') || 'none listed'],
-    ],
+    text: markdownToText(update.message),
+    facts,
     tone: update.status === 'resolved' ? 'Good' : incident.impact === 'major' ? 'Attention' : 'Warning',
     url: `${baseUrl}/incidents/${incident.id}`,
   };

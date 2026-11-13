@@ -1,4 +1,4 @@
-import { THEMES, duration, monitorSpecSchema, roleSchema } from '@heartline/shared';
+import { THEMES, duration, monitorSpecSchema, roleSchema, templateSchema } from '@heartline/shared';
 import { z } from 'zod';
 import { slugify } from '../util/slug.ts';
 
@@ -136,6 +136,8 @@ export const configSchema = z
         sources: { osv: true, nvd: 'auto', endoflife: true, kev: true, releases: true },
       }),
     groups: z.array(groupSchema).default([]),
+    /** Incident and maintenance templates; read-only in the UI. */
+    templates: z.array(templateSchema).default([]),
     notifiers: z.array(notifierSchema).default([]),
     notifications: z
       .object({

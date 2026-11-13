@@ -68,6 +68,7 @@ const MANAGE: Section[] = [
   { to: '/admin/groups', label: 'Groups', icon: 'grid', min: 'viewer' },
   { to: '/admin/software', label: 'Software', icon: 'shield', min: 'viewer' },
   { to: '/admin/maintenance', label: 'Maintenance', icon: 'calendar', min: 'viewer' },
+  { to: '/admin/templates', label: 'Templates', icon: 'list', min: 'viewer' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell', min: 'viewer' },
 ];
 const ACCESS: Section[] = [

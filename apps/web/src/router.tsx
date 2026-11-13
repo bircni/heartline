@@ -108,6 +108,11 @@ const incidents = createRoute({
     typeof search.incident === 'string' && search.incident ? { incident: search.incident } : {},
   component: lazyRouteComponent(() => import('./pages/admin/IncidentsPage.tsx'), 'IncidentsPage'),
 });
+const templates = createRoute({
+  getParentRoute: () => admin,
+  path: 'templates',
+  component: lazyRouteComponent(() => import('./pages/admin/TemplatesPage.tsx'), 'TemplatesPage'),
+});
 const maintenance = createRoute({
   getParentRoute: () => admin,
   path: 'maintenance',
@@ -155,6 +160,7 @@ const routeTree = root.addChildren([
     groups,
     software,
     incidents,
+    templates,
     maintenance,
     notifications,
     tokens,

@@ -48,7 +48,7 @@ test('admin flow: monitor, incident and token', async ({ page }) => {
   await page.getByRole('button', { name: 'Declare', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Database maintenance overran' })).toBeVisible();
   await page.getByPlaceholder('What changed? This is shown publicly.').fill('Fixed.');
-  await page.getByRole('button', { name: 'Resolved' }).click();
+  await page.getByRole('button', { name: 'Resolved', exact: true }).click();
   await page.getByRole('button', { name: 'Post update' }).click();
   await expect(page.getByText('Fixed.')).toBeVisible();
 

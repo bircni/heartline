@@ -6,6 +6,8 @@ import {
   maintenanceCreateSchema,
   maintenanceUpdateSchema,
   monitorSpecSchema,
+  postmortemSchema,
+  templateSchema,
   roleSchema,
   tokenCreateSchema,
   userCreateSchema,
@@ -286,6 +288,31 @@ export function adminRoutes(app: AppContext) {
     });
     return c.json(i);
   });
+  // The admin view of an incident includes an unpublished postmortem.
+  r.get('/incidents/:id', read, async (c) =>
+    c.json(await app.incidents.get(c.req.param('id'), { drafts: true })),
+  );
+  r.put('/incidents/:id/postmortem', write, async (c) => {
+    const input = await body(c, postmortemSchema);
+    const { incident, published } = await app.incidents.setPostmortem(c.req.param('id'), input);
+    await audit(c, {
+      action: published ? 'incident.postmortem_publish' : 'incident.postmortem_save',
+      entityType: 'incident',
+      entityId: incident.id,
+      summary: `${published ? 'Published' : input.publish ? 'Updated the published' : 'Saved a draft'} postmortem of “${incident.title}”`,
+    });
+    return c.json(incident);
+  });
+  r.delete('/incidents/:id/postmortem', write, async (c) => {
+    const incident = await app.incidents.removePostmortem(c.req.param('id'));
+    await audit(c, {
+      action: 'incident.postmortem_delete',
+      entityType: 'incident',
+      entityId: incident.id,
+      summary: `Deleted the postmortem of “${incident.title}”`,
+    });
+    return c.json(incident);
+  });
   r.patch('/incidents/:id', write, async (c) => {
     const input = await body(c, incidentPatchSchema);
     const i = await app.incidents.update(c.req.param('id'), input);
@@ -307,6 +334,47 @@ export function adminRoutes(app: AppContext) {
       entityType: 'incident',
       entityId: id,
       summary: `Deleted incident “${title}”`,
+    });
+    return c.body(null, 204);
+  });
+
+  // Templates
+  r.get('/templates', read, (c) => {
+    const kind = c.req.query('kind');
+    return c.json(app.templates.list(kind === 'incident' || kind === 'maintenance' ? kind : undefined));
+  });
+  r.post('/templates', write, async (c) => {
+    const input = await body(c, templateSchema);
+    const t = await app.templates.create(input);
+    await audit(c, {
+      action: 'template.create',
+      entityType: 'template',
+      entityId: t.id,
+      summary: `Created template ${t.name}`,
+      detail: input,
+    });
+    return c.json(t, 201);
+  });
+  r.put('/templates/:id', write, async (c) => {
+    const input = await body(c, templateSchema);
+    const t = await app.templates.update(c.req.param('id'), input);
+    await audit(c, {
+      action: 'template.update',
+      entityType: 'template',
+      entityId: t.id,
+      summary: `Updated template ${t.name}`,
+      detail: input,
+    });
+    return c.json(t);
+  });
+  r.delete('/templates/:id', write, async (c) => {
+    const t = app.templates.require(c.req.param('id'));
+    await app.templates.remove(t.id);
+    await audit(c, {
+      action: 'template.delete',
+      entityType: 'template',
+      entityId: t.id,
+      summary: `Deleted template ${t.name}`,
     });
     return c.body(null, 204);
   });

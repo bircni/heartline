@@ -278,31 +278,87 @@ export const incidentStatusSchema = z.enum(INCIDENT_STATUSES);
 /** Colour themes of the web UI; status colours are the same in every theme. */
 export const THEMES = ['green', 'blue', 'violet', 'amber', 'rose'] as const;
 
-export const IMPACTS = ['degraded', 'partial', 'major'] as const;
+/** How bad an incident is: `none` informs without changing any status. */
+export const IMPACTS = ['none', 'degraded', 'partial', 'major'] as const;
 export const impactSchema = z.enum(IMPACTS);
+
+/** What an incident says about one affected service. */
+export const COMPONENT_STATUSES = ['operational', 'degraded', 'partial', 'down'] as const;
+export const componentStatusSchema = z.enum(COMPONENT_STATUSES);
+
+/**
+ * An affected service: its id, optionally with the status the incident gives it. A bare id takes its status
+ * from the incident's impact (major → down, partial → partial, otherwise degraded).
+ */
+export const affectedServiceSchema = z.union([
+  z.string().min(1),
+  z.object({ id: z.string().min(1), status: componentStatusSchema }),
+]);
+
+const markdown = (max: number) => z.string().min(1).max(max);
 
 export const incidentCreateSchema = z.object({
   title: z.string().min(1).max(200),
-  impact: impactSchema.default('degraded'),
+  /** Sets the impact; without it the impact follows the services' statuses. */
+  impact: impactSchema.optional(),
   status: incidentStatusSchema.default('investigating'),
-  message: z.string().min(1).max(5000),
-  services: z.array(z.string()).default([]),
+  /** Markdown. */
+  message: markdown(10_000),
+  services: z.array(affectedServiceSchema).default([]),
   notify: z.boolean().default(true),
+  /** When it started, for an incident written up afterwards (backfill). A past time never notifies. */
+  createdAt: z.coerce.date().optional(),
 });
 
 /** Editable incident fields; updates (status changes) go through incidentUpdateCreateSchema. */
 export const incidentPatchSchema = z
   .object({
     title: z.string().min(1).max(200).optional(),
-    impact: impactSchema.optional(),
-    services: z.array(z.string()).optional(),
+    /** Sets the impact; `null` lets it follow the services' statuses again. */
+    impact: impactSchema.nullable().optional(),
+    services: z.array(affectedServiceSchema).optional(),
   })
   .refine((p) => Object.keys(p).length > 0, { message: 'nothing to change' });
 
 export const incidentUpdateCreateSchema = z.object({
   status: incidentStatusSchema,
-  message: z.string().min(1).max(5000),
+  /** Markdown. */
+  message: markdown(10_000),
   notify: z.boolean().default(true),
+  /** New statuses of affected services; services not listed keep theirs, new ones are added. */
+  services: z.array(affectedServiceSchema).optional(),
+  /** When it was posted, for updates written up afterwards. A past time never notifies. */
+  createdAt: z.coerce.date().optional(),
+});
+
+export const postmortemSchema = z.object({
+  /** Markdown. */
+  body: markdown(50_000),
+  /** Published postmortems appear on the incident page; drafts only in the admin area. */
+  publish: z.boolean().default(false),
+  /** Tell subscribers when it is published. */
+  notify: z.boolean().default(false),
+});
+
+export const TEMPLATE_KINDS = ['incident', 'maintenance'] as const;
+
+export const templateSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{0,59}$/, 'lowercase letters, digits and dashes')
+    .optional(),
+  kind: z.enum(TEMPLATE_KINDS),
+  /** Name in the template picker. */
+  name: z.string().min(1).max(100),
+  /** Title of the incident or maintenance it starts. */
+  title: z.string().min(1).max(200),
+  /** Markdown: the first update or the maintenance description. */
+  body: z.string().max(10_000).default(''),
+  status: incidentStatusSchema.optional(),
+  impact: impactSchema.optional(),
+  services: z.array(affectedServiceSchema).default([]),
+  /** Length of a maintenance window. */
+  duration: duration.optional(),
 });
 
 export const maintenanceCreateSchema = z
