@@ -5,7 +5,7 @@ export function UrgencyBadge({ level, score }: { level: UrgencyLevel; score?: nu
   const tone = URGENCY_TONE[level];
   return (
     <span
-      className="inline-flex h-6 items-center gap-2 whitespace-nowrap rounded-md bg-fill px-2 text-[12px] font-medium"
+      className="inline-flex h-6 items-center gap-2 whitespace-nowrap rounded-md bg-fill px-2 text-xs font-medium"
       style={{ color: tone.text }}
       title={score === null || score === undefined ? undefined : `Urgency score ${score}/100`}
     >
@@ -49,7 +49,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
     <div>
       <div
         aria-hidden="true"
-        className="flex gap-3 border-t border-hair px-4 py-2 text-[12px] font-medium text-sec"
+        className="flex gap-3 border-t border-hair px-4 py-2 text-xs font-medium text-sec"
       >
         <span className="w-[150px] shrink-0 pl-[17px]">Advisory</span>
         <span className="w-14 shrink-0">CVSS</span>
@@ -57,7 +57,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
         <span className="w-24 shrink-0">Fixed in</span>
       </div>
       {vulns.map((v) => (
-        <div key={v.id} className="flex items-start gap-3 border-t border-hair px-4 py-2 text-[13px]">
+        <div key={v.id} className="flex items-start gap-3 border-t border-hair px-4 py-2 text-base">
           <span className="flex w-[150px] shrink-0 items-start gap-2.5 pt-1">
             <SeverityDot severity={v.severity} />
             <span className="min-w-0">
@@ -65,32 +65,29 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
                 href={v.urls.nvd ?? v.urls.osv ?? '#'}
                 target="_blank"
                 rel="noreferrer"
-                className="block truncate font-mono text-[12px] text-text"
+                className="block truncate font-mono text-xs text-text"
               >
                 {v.id}
               </a>
               {v.kev && (
-                <span className="mt-1 inline-block rounded-sm bg-fill px-1 text-[12px] font-medium text-bad-text">
+                <span className="mt-1 inline-block rounded-sm bg-fill px-1 text-xs font-medium text-bad-text">
                   exploited
                 </span>
               )}
             </span>
           </span>
-          <span
-            className="w-14 shrink-0 pt-1 font-mono text-[12px]"
-            style={{ color: SEVERITY_TONE[v.severity] }}
-          >
+          <span className="w-14 shrink-0 pt-1 font-mono text-xs" style={{ color: SEVERITY_TONE[v.severity] }}>
             {v.score === null ? '–' : v.score.toFixed(1)}
           </span>
           <span className="min-w-0 flex-1">
             <span className="line-clamp-2 text-text">{v.summary ?? 'No summary.'}</span>
-            <span className="block text-[12px] text-muted">
+            <span className="block text-xs text-muted">
               {v.sources.join(' + ')}
               {v.publishedAt ? ` · ${dateTime(v.publishedAt)}` : ''}
               {v.aliases.length ? ` · ${v.aliases.join(', ')}` : ''}
             </span>
           </span>
-          <span className="w-24 shrink-0 pt-1 font-mono text-[12px]">
+          <span className="w-24 shrink-0 pt-1 font-mono text-xs">
             {v.fixedIn ?? <span className="text-sec">no fix</span>}
           </span>
         </div>

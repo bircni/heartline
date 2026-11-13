@@ -25,7 +25,7 @@ function ServicePicker({ value, onChange }: { value: string[]; onChange: (v: str
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== m.id) : [...value, m.id])}
-            className={`h-7 rounded-md px-3 text-[12px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+            className={`h-7 rounded-md px-3 text-xs font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
           >
             {m.name}
           </button>
@@ -62,7 +62,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
         create.mutate();
       }}
     >
-      <h2 className="m-0 text-[16px] font-medium">Declare incident</h2>
+      <h2 className="m-0 text-lg font-medium">Declare incident</h2>
       <Field label="Title" htmlFor="i-title">
         <input
           id="i-title"
@@ -104,7 +104,7 @@ function Declare({ onDone }: { onDone: (i: Incident) => void }) {
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-[13px] text-sec">
+        <span className="flex items-center gap-2 text-base text-sec">
           <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
         </span>
         <button type="submit" className="btn-primary" disabled={create.isPending}>
@@ -167,25 +167,18 @@ function Detail({
     <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div
-            className="text-[12px] font-medium"
-            style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}
-          >
+          <div className="text-xs font-medium" style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}>
             {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
             {incident.services.map((s) => s.name).join(', ') || 'no services'}
           </div>
-          <h2 className="m-0 mt-0.5 text-[20px] font-medium">{incident.title}</h2>
-          <div className="text-[12px] text-sec">
+          <h2 className="m-0 mt-0.5 text-2xl font-medium">{incident.title}</h2>
+          <div className="text-xs text-sec">
             {dateTime(incident.createdAt)} · {duration(incident.createdAt, incident.resolvedAt)}
             {incident.automatic && ' · automatic'}
           </div>
         </div>
         {canWrite && !editing && (
-          <button
-            type="button"
-            className="btn h-7 shrink-0 px-3 text-[12px]"
-            onClick={() => setEditing(true)}
-          >
+          <button type="button" className="btn h-7 shrink-0 px-3 text-xs" onClick={() => setEditing(true)}>
             <Icon name="edit" size={16} /> Edit
           </button>
         )}
@@ -223,7 +216,7 @@ function Detail({
             <div className="label">Affected services</div>
             <ServicePicker value={services} onChange={setServices} />
           </div>
-          {edit.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{edit.error.message}</p>}
+          {edit.error && <p className="m-0 mt-2 text-base text-bad-text">{edit.error.message}</p>}
           <div className="mt-3 flex justify-end gap-2">
             <button type="button" className="btn" onClick={() => setEditing(false)}>
               Cancel
@@ -258,14 +251,14 @@ function Detail({
             id="u-msg"
             rows={3}
             required
-            className="mt-3 block w-full resize-y rounded-md border-0 bg-surface px-3 py-2 text-[14px] text-text"
+            className="mt-3 block w-full resize-y rounded-md border-0 bg-surface px-3 py-2 text-base text-text"
             placeholder="What changed? This is shown publicly."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
-          {post.error && <p className="m-0 mt-2 text-[13px] text-bad-text">{post.error.message}</p>}
+          {post.error && <p className="m-0 mt-2 text-base text-bad-text">{post.error.message}</p>}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-[13px] text-sec">
+            <span className="flex items-center gap-2 text-base text-sec">
               <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
             </span>
             <button type="submit" className="btn-primary" disabled={post.isPending}>
@@ -277,9 +270,9 @@ function Detail({
       <ol className="m-0 mt-4 list-none p-0">
         {incident.updates.map((u) => (
           <li key={u.id} className="flex gap-3 border-t border-hair py-2">
-            <span className="w-24 shrink-0 pt-px text-[12px] text-sec">{dateTime(u.createdAt)}</span>
+            <span className="w-24 shrink-0 pt-px text-xs text-sec">{dateTime(u.createdAt)}</span>
             <span className="min-w-0">
-              <span className="block text-[13px] font-medium">
+              <span className="block text-base font-medium">
                 {cap(u.status)}
                 {u.author && <span className="font-normal text-sec"> · {u.author}</span>}
               </span>
@@ -348,7 +341,7 @@ export function IncidentsPage() {
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{i.title}</span>
-                <span className="block text-[12px] text-sec">
+                <span className="block text-xs text-sec">
                   {i.services.map((s) => s.name).join(', ') || 'no services'} · {dateTime(i.createdAt)} ·{' '}
                   {cap(i.status)}
                 </span>

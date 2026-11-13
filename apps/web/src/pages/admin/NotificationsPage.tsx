@@ -45,10 +45,10 @@ export function NotificationsPage() {
           return (
             <section key={n.id} className="card p-4">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="m-0 text-[16px] font-medium">
+                <h2 className="m-0 text-lg font-medium">
                   {TYPE_LABEL[n.type]} <span className="font-normal text-sec">· {n.id}</span>
                 </h2>
-                <span className="flex items-center gap-2 text-[12px] text-sec">
+                <span className="flex items-center gap-2 text-xs text-sec">
                   <span
                     aria-hidden="true"
                     className="block h-2 w-2 rounded-full"
@@ -57,10 +57,10 @@ export function NotificationsPage() {
                   {failing ? 'Failing' : 'Ready'}
                 </span>
               </div>
-              <div className="mt-2 font-mono text-[12px] text-sec">{n.target}</div>
+              <div className="mt-2 font-mono text-xs text-sec">{n.target}</div>
               <div className="mt-4 flex items-center justify-between gap-2">
                 <span
-                  className="min-w-0 truncate text-[12px]"
+                  className="min-w-0 truncate text-xs"
                   style={{
                     color: r
                       ? r.ok

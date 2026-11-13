@@ -37,7 +37,7 @@ export function SiteBrand({ size = 26 }: { size?: number }) {
   return (
     <>
       <SiteLogo size={size} />
-      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{useSiteTitle()}</span>
+      <span className="min-w-0 flex-1 truncate text-lg font-semibold">{useSiteTitle()}</span>
     </>
   );
 }
@@ -66,12 +66,12 @@ function UserMenu({ me }: { me: Me }) {
         <Avatar name={me.name} image={me.image} />
         <span className="min-w-0 flex-1">
           <span className="block truncate leading-tight font-medium">{me.name}</span>
-          <span className="block truncate text-[12px] leading-tight text-muted">{me.email}</span>
+          <span className="block truncate text-xs leading-tight text-muted">{me.email}</span>
         </span>
       </button>
       {pop.open && (
         <div role="menu" className="popover inset-x-0 bottom-12">
-          <div className="px-2 py-1.5 text-[12px] text-muted">
+          <div className="px-2 py-1.5 text-xs text-muted">
             Signed in as <span className="capitalize">{me.role}</span>
           </div>
           <button type="button" role="menuitem" className="menu-item" onClick={() => void signOut()}>

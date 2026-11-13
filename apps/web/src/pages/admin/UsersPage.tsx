@@ -62,7 +62,7 @@ export function UsersPage() {
                   {u.name}
                   {u.id === me.data?.id && <span className="text-sec"> (you)</span>}
                 </span>
-                <span className="block truncate text-[12px] text-sec">
+                <span className="block truncate text-xs text-sec">
                   {u.email} ·{' '}
                   {u.providers.map((p) => (p === 'credential' ? 'local' : p)).join(', ') ||
                     'no sign-in method'}{' '}
@@ -110,7 +110,7 @@ export function UsersPage() {
                 create.mutate();
               }}
             >
-              <h2 className="m-0 text-[16px] font-medium">Add local user</h2>
+              <h2 className="m-0 text-lg font-medium">Add local user</h2>
               <Field label="Name" htmlFor="u-name">
                 <input
                   id="u-name"

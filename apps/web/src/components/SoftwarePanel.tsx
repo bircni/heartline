@@ -7,9 +7,9 @@ import { Section } from './ui.tsx';
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="text-[12px] text-muted">{label}</div>
-      <div className="truncate text-[16px] font-semibold">{value}</div>
-      {hint && <div className="text-[12px] text-muted">{hint}</div>}
+      <div className="text-xs text-muted">{label}</div>
+      <div className="truncate text-lg font-semibold">{value}</div>
+      {hint && <div className="text-xs text-muted">{hint}</div>}
     </div>
   );
 }
@@ -43,7 +43,7 @@ export function SoftwarePanel({
         s.urgency ? (
           <UrgencyBadge level={s.urgency} score={s.score} />
         ) : (
-          <span className="text-[12px] text-muted">Sign in to see whether an update is due</span>
+          <span className="text-xs text-muted">Sign in to see whether an update is due</span>
         )
       }
     >
@@ -98,20 +98,20 @@ export function SoftwarePanel({
         {s.vulns && <Stat label="Known vulnerabilities" value={<VulnCounts vulns={s.vulns} />} />}
       </div>
       {detail && detail.reasons.length > 0 && (
-        <ul className="m-0 list-disc border-t border-hair px-3.5 py-3 pl-8 text-[13px]">
+        <ul className="m-0 list-disc border-t border-hair px-3.5 py-3 pl-8 text-base">
           {detail.reasons.map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>
       )}
       {detail?.intelError && (
-        <p className="m-0 border-t border-hair px-3.5 py-2 text-[12px] text-warn-text">
+        <p className="m-0 border-t border-hair px-3.5 py-2 text-xs text-warn-text">
           Some data sources were unavailable: {detail.intelError}
         </p>
       )}
       {detail && <VulnTable vulns={detail.vulnerabilities} />}
       {detail && (
-        <div className="flex flex-wrap items-center gap-4 border-t border-hair px-3.5 py-2 text-[12px] text-muted">
+        <div className="flex flex-wrap items-center gap-4 border-t border-hair px-3.5 py-2 text-xs text-muted">
           <span>
             {detail.intelRefreshedAt
               ? `data refreshed ${relative(detail.intelRefreshedAt)}`

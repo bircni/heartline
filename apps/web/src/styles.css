@@ -92,7 +92,7 @@
 }
 
 @theme inline {
-  /* Fixed, because the 13px root would otherwise make every spacing step 3.25px. */
+  /* Fixed, because the 14px root would otherwise make every spacing step 3.5px. */
   --spacing: 4px;
   --color-bg: var(--bg);
   --color-side: var(--side);
@@ -128,6 +128,15 @@
   --radius-xl: 12px;
   --default-transition-duration: 120ms;
   --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Type scale. Sizes only: line height is inherited, as with the old arbitrary sizes. */
+  --text-*: initial;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 22px;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, 'Cascadia Mono', monospace;
 }
@@ -137,7 +146,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
@@ -186,24 +195,24 @@
 
 /* Group label inside a list. */
 @utility group-head {
-  @apply border-b border-hair bg-fill px-3.5 py-1.5 text-[12px] font-medium text-sec;
+  @apply border-b border-hair bg-fill px-3.5 py-1.5 text-xs font-medium text-sec;
 }
 
 @utility field {
-  @apply block h-8 w-full rounded-md border border-hair bg-bg px-2.5 text-[13px] text-text disabled:bg-fill disabled:text-sec;
+  @apply block h-8 w-full rounded-md border border-hair bg-bg px-2.5 text-base text-text disabled:bg-fill disabled:text-sec;
 }
 
 @utility label {
-  @apply mb-1 block text-[12px] font-medium text-sec;
+  @apply mb-1 block text-xs font-medium text-sec;
 }
 
 @utility btn {
-  @apply inline-flex h-[30px] items-center justify-center gap-[7px] rounded-md border border-hair bg-surface px-[11px] text-[13px] font-medium whitespace-nowrap text-text no-underline transition-colors hover:bg-hover disabled:opacity-40;
+  @apply inline-flex h-[30px] items-center justify-center gap-[7px] rounded-md border border-hair bg-surface px-[11px] text-base font-medium whitespace-nowrap text-text no-underline transition-colors hover:bg-hover disabled:opacity-40;
 }
 
 /* Compact button for row actions. */
 @utility btn-sm {
-  @apply btn h-7 px-3 text-[12px];
+  @apply btn h-7 px-3 text-xs;
 }
 
 @utility btn-primary {

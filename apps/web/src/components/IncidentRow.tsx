@@ -30,10 +30,10 @@ export function IncidentRow({
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2.5">
             <span className="font-semibold">{i.title}</span>
-            <span className="text-[12px] font-medium capitalize" style={{ color: tone.text }}>
+            <span className="text-xs font-medium capitalize" style={{ color: tone.text }}>
               {i.status}
             </span>
-            <span className="text-[12px] text-muted">
+            <span className="text-xs text-muted">
               {serviceNames(i.services)}, updated {relative(i.updates[0]?.createdAt ?? i.createdAt)}
             </span>
           </span>
@@ -50,13 +50,11 @@ export function IncidentRow({
       style={open ? { background: tone.bg } : undefined}
     >
       <span className="min-w-0 flex-[1_1_16rem] font-medium">{i.title}</span>
-      <span className="text-[12px] font-medium" style={{ color: tone.text }}>
+      <span className="text-xs font-medium" style={{ color: tone.text }}>
         {IMPACT_LABEL[i.impact]}
       </span>
-      <span className="min-w-0 flex-[1_1_10rem] truncate text-[12px] text-muted">
-        {serviceNames(i.services)}
-      </span>
-      <span className="text-[12px] text-sec">
+      <span className="min-w-0 flex-[1_1_10rem] truncate text-xs text-muted">{serviceNames(i.services)}</span>
+      <span className="text-xs text-sec">
         {dateTime(i.createdAt)}, {incidentAge(i)}
       </span>
     </Link>

@@ -87,7 +87,7 @@ export function ServicePage() {
         subtitle={
           <>
             {data.external ? 'Provider status' : `${data.kind.toUpperCase()} check`} every {every} from{' '}
-            <span className="font-mono text-[12px] break-all">{data.target}</span>
+            <span className="font-mono text-xs break-all">{data.target}</span>
             {data.lastCheckedAt && `, last checked ${relative(data.lastCheckedAt)}`}
           </>
         }
@@ -174,7 +174,7 @@ export function ServicePage() {
         <Section
           title="Response time"
           actions={
-            <div className="flex gap-4 text-[12px] text-sec" aria-hidden="true">
+            <div className="flex gap-4 text-xs text-sec" aria-hidden="true">
               <span className="flex items-center gap-2">
                 <span className="block h-0.5 w-3.5 bg-accent" />
                 Average

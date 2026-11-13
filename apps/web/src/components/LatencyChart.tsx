@@ -74,7 +74,7 @@ function Chart({
 
   if (data.length === 0)
     return (
-      <div className="flex h-full items-center justify-center text-[13px] text-sec">
+      <div className="flex h-full items-center justify-center text-base text-sec">
         No response times in this period yet
       </div>
     );
@@ -211,7 +211,7 @@ function Chart({
       {active && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute top-0 z-10 rounded-md bg-surface px-3 py-2 text-[12px] shadow-pop"
+          className="pointer-events-none absolute top-0 z-10 rounded-md bg-surface px-3 py-2 text-xs shadow-pop"
           style={{ left: Math.min(width - 170, Math.max(0, MARGIN.left + x(active.at) + 12)) }}
         >
           <div className="font-medium">{label(active.at, bucketMs)}</div>

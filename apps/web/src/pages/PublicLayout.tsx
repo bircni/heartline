@@ -30,7 +30,7 @@ function Visitor() {
         <ThemeMenu />
       </header>
       <Outlet />
-      <footer className="mt-auto flex flex-wrap justify-center gap-x-5 gap-y-1 pt-6 text-[12px] text-muted">
+      <footer className="mt-auto flex flex-wrap justify-center gap-x-5 gap-y-1 pt-6 text-xs text-muted">
         <Link to="/incidents" className="text-muted no-underline hover:text-text">
           Incident history
         </Link>

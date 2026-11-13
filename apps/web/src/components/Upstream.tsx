@@ -16,7 +16,7 @@ export function UpstreamNote({ upstream }: { upstream: UpstreamIssue[] }) {
             <Link to="/services/$id" params={{ id: u.id }} className="font-medium">
               {u.name}
             </Link>{' '}
-            <span className="text-[12px] font-medium" style={{ color: STATUS_TONE[u.status].text }}>
+            <span className="text-xs font-medium" style={{ color: STATUS_TONE[u.status].text }}>
               ({STATUS_LABEL[u.status].toLowerCase()})
             </span>
             {i < upstream.length - 1 ? ', ' : ''}

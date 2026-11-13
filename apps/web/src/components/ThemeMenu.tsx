@@ -34,7 +34,7 @@ export function ThemeMenu({ placement = 'below' }: { placement?: 'below' | 'abov
           aria-label="Theme"
           className={`popover right-0 w-52 p-2 ${placement === 'above' ? 'bottom-10' : 'top-10'}`}
         >
-          <div className="px-2 pb-1 text-[12px] font-medium text-muted">Colour</div>
+          <div className="px-2 pb-1 text-xs font-medium text-muted">Colour</div>
           {THEMES.map((t) => (
             <button
               key={t}

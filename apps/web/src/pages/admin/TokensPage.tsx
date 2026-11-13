@@ -68,7 +68,7 @@ export function TokensPage() {
         subtitle="For scripts, dashboards and headless MCP clients."
         actions={
           isAdmin && (
-            <label className="flex items-center gap-2 text-[13px] text-sec">
+            <label className="flex items-center gap-2 text-base text-sec">
               <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show
               everyone’s tokens
             </label>
@@ -88,13 +88,13 @@ export function TokensPage() {
               >
                 <span className="min-w-0 flex-[1_1_200px]">
                   <span className="block font-medium">{t.name}</span>
-                  <span className="block font-mono text-[12px] text-muted">
+                  <span className="block font-mono text-xs text-muted">
                     {t.prefix}
                     {all && ` · ${t.owner}`}
                   </span>
                 </span>
-                <span className="text-[12px] text-sec">{t.scopes.join(', ')}</span>
-                <span className="text-[12px] text-sec">
+                <span className="text-xs text-sec">{t.scopes.join(', ')}</span>
+                <span className="text-xs text-sec">
                   used {relative(t.lastUsedAt)} ·{' '}
                   {t.expiresAt ? `expires ${dateTime(t.expiresAt)}` : 'never expires'}
                 </span>
@@ -114,17 +114,17 @@ export function TokensPage() {
             ))}
           </Section>
           <Section className="mt-3 p-4">
-            <h2 className="m-0 text-[16px] font-medium">Connect an MCP client</h2>
+            <h2 className="m-0 text-lg font-medium">Connect an MCP client</h2>
             <p className="m-0 mt-1 text-sec">
               Clients sign in through this page with OAuth (Gitea or a local account). No token needed.
             </p>
             <div className="mt-3 flex items-center gap-2 rounded-md bg-fill px-3 py-2">
-              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px]">
+              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs">
                 {command}
               </code>
               <CopyButton text={command} />
             </div>
-            <p className="m-0 mt-3 text-[12px] text-sec">
+            <p className="m-0 mt-3 text-xs text-sec">
               Headless clients can send a token instead:{' '}
               <span className="font-mono">Authorization: Bearer hl_…</span>
             </p>
@@ -137,7 +137,7 @@ export function TokensPage() {
               create.mutate();
             }}
           >
-            <h2 className="m-0 text-[16px] font-medium">New token</h2>
+            <h2 className="m-0 text-lg font-medium">New token</h2>
             <Field label="Name" htmlFor="t-name">
               <input
                 id="t-name"
@@ -161,7 +161,7 @@ export function TokensPage() {
                       onClick={() =>
                         setScopes(on ? scopes.filter((x) => x !== s.value) : [...scopes, s.value])
                       }
-                      className={`h-8 flex-1 rounded-md text-[13px] font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+                      className={`h-8 flex-1 rounded-md text-base font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
                     >
                       {s.value}
                     </button>
@@ -197,11 +197,9 @@ export function TokensPage() {
           </form>
           {created && (
             <div className="mt-3 rounded-md bg-fill p-3" role="status">
-              <div className="text-[12px] font-medium text-warn-text">
-                Copy it now. It won’t be shown again.
-              </div>
+              <div className="text-xs font-medium text-warn-text">Copy it now. It won’t be shown again.</div>
               <div className="mt-2 flex items-center gap-2">
-                <code className="min-w-0 flex-1 break-all font-mono text-[12px]">{created}</code>
+                <code className="min-w-0 flex-1 break-all font-mono text-xs">{created}</code>
                 <CopyButton text={created} />
               </div>
             </div>
