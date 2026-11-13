@@ -4,8 +4,10 @@ import { bootstrap } from './bootstrap.ts';
 import { ConfigError, loadConfig } from './config/load.ts';
 import { readEnv } from './env.ts';
 import { log } from './util/log.ts';
+import { installProxyDispatcher } from './util/proxy.ts';
 
 async function main() {
+  if (installProxyDispatcher()) log.info('using HTTP(S)_PROXY for outbound requests');
   const env = readEnv();
   if (!env.isProduction && !process.env.AUTH_SECRET)
     log.warn('AUTH_SECRET is not set; using an insecure development secret');

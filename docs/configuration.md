@@ -71,18 +71,21 @@ is received_. Use that URL as `webhookUrl`.
 
 ## Environment
 
-| Variable                  | Default                                                                          |
-| ------------------------- | -------------------------------------------------------------------------------- |
-| `BASE_URL`                | `http://localhost:$PORT`. Public URL, used for links, OAuth and the MCP resource |
-| `AUTH_SECRET`             | required in production                                                           |
-| `DATABASE_URL`            | `sqlite:./data/status.db` or `postgres://…`                                      |
-| `CONFIG_PATH`             | `status.yaml`                                                                    |
-| `PLUGINS_DIR`             | `plugins`                                                                        |
-| `PORT`, `HOST`            | `3000`, `0.0.0.0`                                                                |
-| `WEB_DIST`                | `../web/dist`; empty disables serving the UI                                     |
-| `LOG_LEVEL`, `LOG_FORMAT` | `info`, text (`json` in the container)                                           |
-| `NVD_API_KEY`             | unset; raises the NVD rate limit for vulnerability lookups                       |
-| `GITHUB_TOKEN`            | unset; raises the GitHub rate limit for release lookups                          |
-| `HEARTLINE_OFFLINE`       | unset; `1` never contacts the vulnerability and release data sources             |
+| Variable                    | Default                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `BASE_URL`                  | `http://localhost:$PORT`. Public URL, used for links, OAuth and the MCP resource               |
+| `AUTH_SECRET`               | required in production                                                                         |
+| `DATABASE_URL`              | `sqlite:./data/status.db` or `postgres://…`                                                    |
+| `CONFIG_PATH`               | `status.yaml`                                                                                  |
+| `PLUGINS_DIR`               | `plugins`                                                                                      |
+| `PORT`, `HOST`              | `3000`, `0.0.0.0`                                                                              |
+| `WEB_DIST`                  | `../web/dist`; empty disables serving the UI                                                   |
+| `LOG_LEVEL`, `LOG_FORMAT`   | `info`, text (`json` in the container)                                                         |
+| `NVD_API_KEY`               | unset; raises the NVD rate limit for vulnerability lookups                                     |
+| `GITHUB_TOKEN`              | unset; raises the GitHub rate limit for release lookups                                        |
+| `HEARTLINE_OFFLINE`         | unset; `1` never contacts the vulnerability and release data sources                           |
+| `HTTPS_PROXY`, `HTTP_PROXY` | unset; proxy for outbound requests (checks, provider status, software sources, notifiers)      |
+| `NO_PROXY`                  | unset; comma-separated hosts that bypass the proxy (`localhost`, `127.0.0.1`, `::1` always do) |
 
 `AUTH_SECRET` may also be given as `BETTER_AUTH_SECRET`; `site.baseUrl` in the config wins over `BASE_URL`.
+Proxy variables are read in either case; `NODE_USE_ENV_PROXY` is not needed. `ignoreTls` checks go through the proxy too, without verifying the target's certificate.
