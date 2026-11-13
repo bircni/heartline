@@ -195,7 +195,7 @@ function Trace({
         <div
           ref={tip}
           role="tooltip"
-          className="pointer-events-none fixed z-50 w-max max-w-[240px] rounded-md bg-surface px-3 py-2 text-[12px] font-normal text-text shadow-pop"
+          className="pointer-events-none fixed z-50 w-max max-w-[240px] rounded-md bg-surface px-3 py-2 text-xs font-normal text-text shadow-pop"
           style={pos}
         >
           {active.tip()}
@@ -285,7 +285,7 @@ export function TraceAxis({
   className?: string;
 }) {
   return (
-    <div className={`relative h-4 text-[12px] leading-4 text-muted ${className}`} aria-hidden="true">
+    <div className={`relative h-4 text-xs leading-4 text-muted ${className}`} aria-hidden="true">
       {ticks.filter(clearOfEndLabel).map((t) => (
         <span
           key={t.pos}
@@ -370,7 +370,7 @@ export function DayLegend() {
     ['Maintenance', 'maintenance'],
   ];
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted" aria-hidden="true">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted" aria-hidden="true">
       {items.map(([label, state]) => (
         <span key={label} className="flex items-center gap-1.5">
           <span className="block h-2 w-2 rounded-xs" style={{ background: DAY_COLOR[state] }} />

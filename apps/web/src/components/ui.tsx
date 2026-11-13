@@ -6,11 +6,11 @@ export function Stats({ items }: { items: { label: string; value: ReactNode; hin
     <dl className="card m-0 grid grid-cols-2 overflow-hidden md:auto-cols-fr md:grid-flow-col md:grid-cols-none">
       {items.map((i) => (
         <div key={i.label} className="-mr-px -mb-px border-r border-b border-hair px-3.5 py-3">
-          <dt className="text-[12px] text-sec">
+          <dt className="text-xs text-sec">
             {i.label}
             {i.hint && <span className="text-muted"> ({i.hint})</span>}
           </dt>
-          <dd className="m-0 mt-0.5 text-[22px] leading-7 font-semibold tracking-[-0.01em]">{i.value}</dd>
+          <dd className="m-0 mt-0.5 text-3xl leading-7 font-semibold tracking-[-0.01em]">{i.value}</dd>
         </div>
       ))}
     </dl>
@@ -56,7 +56,7 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="m-0 text-[18px] leading-snug font-semibold tracking-[-0.01em]">{title}</h1>
+        <h1 className="m-0 text-xl leading-snug font-semibold tracking-[-0.01em]">{title}</h1>
         {subtitle && <div className="mt-1 text-sec">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -79,7 +79,7 @@ export function Section({
     <section className={`card overflow-hidden ${className}`}>
       {(title || actions) && (
         <div className="panel-head">
-          {title && <h2 className="m-0 flex-1 text-[13px] font-semibold">{title}</h2>}
+          {title && <h2 className="m-0 flex-1 text-base font-semibold">{title}</h2>}
           {actions}
         </div>
       )}
@@ -126,7 +126,7 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint && <div className="mt-1 text-[12px] text-sec">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-sec">{hint}</div>}
     </div>
   );
 }
@@ -139,5 +139,5 @@ const NOTICE = {
 } as const;
 
 export function Notice({ tone = 'neutral', children }: { tone?: keyof typeof NOTICE; children: ReactNode }) {
-  return <div className={`rounded-md px-3 py-2 text-[13px] ${NOTICE[tone]}`}>{children}</div>;
+  return <div className={`rounded-md px-3 py-2 text-base ${NOTICE[tone]}`}>{children}</div>;
 }

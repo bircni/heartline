@@ -77,7 +77,7 @@ export function LoginPage() {
       <div className="w-full max-w-[360px]">
         <div className="flex flex-col items-center text-center">
           <SiteLogo size={40} />
-          <h1 className="m-0 mt-4 text-[20px] font-semibold tracking-[-0.01em]">
+          <h1 className="m-0 mt-4 text-2xl font-semibold tracking-[-0.01em]">
             {oauth ? 'Sign in to connect' : `Sign in to ${title}`}
           </h1>
           <p className="m-0 mt-1 text-sec">
@@ -105,7 +105,7 @@ export function LoginPage() {
             </button>
           ))}
           {providers.length > 0 && local && (
-            <div aria-hidden="true" className="my-4 flex items-center gap-2 text-[12px] text-sec">
+            <div aria-hidden="true" className="my-4 flex items-center gap-2 text-xs text-sec">
               <span className="h-px flex-1 bg-hair" />
               or
               <span className="h-px flex-1 bg-hair" />
@@ -150,7 +150,7 @@ export function LoginPage() {
             <Notice>No sign-in method is configured in status.yaml</Notice>
           )}
         </div>
-        <p className="mt-4 text-center text-[12px] text-sec">Accounts are managed by your administrator</p>
+        <p className="mt-4 text-center text-xs text-sec">Accounts are managed by your administrator</p>
       </div>
     </div>
   );

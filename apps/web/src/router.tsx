@@ -26,7 +26,7 @@ const validateRange = (search: Record<string, unknown>): RangeSearch => {
 function NotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 text-center">
-      <h1 className="m-0 text-[18px] font-semibold">Page not found</h1>
+      <h1 className="m-0 text-xl font-semibold">Page not found</h1>
       <Link to="/" className="text-sec">
         Go to the status page
       </Link>

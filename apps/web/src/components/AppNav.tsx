@@ -40,7 +40,7 @@ function NavItem({
       {leading ?? (icon && <Icon name={icon} size={15} className="shrink-0" />)}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count !== undefined && (
-        <span className={`text-[12px] ${urgent ? 'font-medium text-bad-text' : 'text-muted'}`}>{count}</span>
+        <span className={`text-xs ${urgent ? 'font-medium text-bad-text' : 'text-muted'}`}>{count}</span>
       )}
     </Link>
   );
@@ -49,7 +49,7 @@ function NavItem({
 function NavGroup({ label, children }: { label?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-px">
-      {label && <div className="px-2 pb-1 text-[12px] font-medium text-muted">{label}</div>}
+      {label && <div className="px-2 pb-1 text-xs font-medium text-muted">{label}</div>}
       {children}
     </div>
   );

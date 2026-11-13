@@ -41,10 +41,10 @@ function StatusBanner({ data }: { data: Overview }) {
         style={{ background: tone.bg }}
       >
         <StatusIcon status={data.status} size={18} />
-        <h1 id="overall-status" className="m-0 flex-1 text-[15px] font-semibold">
+        <h1 id="overall-status" className="m-0 flex-1 text-lg font-semibold">
           {data.headline}
         </h1>
-        <span className="text-[12px] text-sec">
+        <span className="text-xs text-sec">
           {data.operational} of {data.total} operational, checked {relative(data.generatedAt)}
         </span>
       </div>
@@ -103,16 +103,14 @@ function ServiceRow({
         <StatusIcon status={s.status} />
         <span className="truncate font-medium">{s.name}</span>
         {s.status !== 'operational' && (
-          <span className="shrink-0 text-[12px] font-medium" style={{ color: STATUS_TONE[s.status].text }}>
+          <span className="shrink-0 text-xs font-medium" style={{ color: STATUS_TONE[s.status].text }}>
             {statusLabel(s.status, s.external)}
           </span>
         )}
         {s.status !== 'operational' && <UpstreamHint upstream={s.upstream} />}
         {/* Running version: shown to visitors when site.showVersions is on, always when signed in. */}
         {s.software?.version && (
-          <span className="shrink-0 font-mono text-[12px] text-muted max-sm:hidden">
-            v{s.software.version}
-          </span>
+          <span className="shrink-0 font-mono text-xs text-muted max-sm:hidden">v{s.software.version}</span>
         )}
         {s.software?.urgency && s.software.urgency !== 'none' && s.software.urgency !== 'unknown' && (
           <UrgencyBadge level={s.software.urgency} score={s.software.score} />
@@ -148,14 +146,14 @@ function ExternalSection({
   return (
     <section aria-labelledby="external-status" className="card">
       <div className="panel-head">
-        <h2 id="external-status" className="m-0 flex-1 text-[13px] font-semibold">
+        <h2 id="external-status" className="m-0 flex-1 text-base font-semibold">
           Third-party services
         </h2>
-        <span className="text-[12px] text-sec">
+        <span className="text-xs text-sec">
           {affected === 0 ? 'No known issues' : `${affected} with issues`}, as reported by the providers
         </span>
       </div>
-      <div className={`${ROW} py-2 text-[12px] text-muted`} aria-hidden="true">
+      <div className={`${ROW} py-2 text-xs text-muted`} aria-hidden="true">
         <span className="max-md:hidden">Provider</span>
         <TraceAxis ticks={dayTicks(days)} end={rangeEndLabel(range)} className="max-md:col-span-2" />
         <span className="text-right max-md:hidden">Uptime</span>
@@ -210,7 +208,7 @@ export function OverviewPage() {
 
       <section aria-labelledby="system-status" className="card">
         <div className="panel-head">
-          <h2 id="system-status" className="m-0 flex-1 text-[13px] font-semibold">
+          <h2 id="system-status" className="m-0 flex-1 text-base font-semibold">
             System status
           </h2>
           <TraceViewToggle />
@@ -222,7 +220,7 @@ export function OverviewPage() {
           </p>
         ) : (
           <>
-            <div className={`${ROW} py-2 text-[12px] text-muted`} aria-hidden="true">
+            <div className={`${ROW} py-2 text-xs text-muted`} aria-hidden="true">
               <span className="max-md:hidden">Service</span>
               <TraceAxis ticks={dayTicks(days)} end={rangeEndLabel(range)} className="max-md:col-span-2" />
               <span className="text-right max-md:hidden">Uptime</span>
@@ -243,7 +241,7 @@ export function OverviewPage() {
               <span className="flex-1" />
               <a
                 href={`/api/v1/report.csv?${rangeQuery(range)}`}
-                className="flex items-center gap-1.5 text-[12px] text-muted no-underline hover:text-text"
+                className="flex items-center gap-1.5 text-xs text-muted no-underline hover:text-text"
               >
                 <Icon name="download" size={13} /> Uptime report (CSV)
               </a>

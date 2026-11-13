@@ -46,7 +46,7 @@ function Expanded({
   const d = detail.data;
   return (
     <div className="border-t border-hair bg-side">
-      <div className="flex flex-wrap items-start gap-x-6 gap-y-2 px-4 py-3 text-[13px]">
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-2 px-4 py-3 text-base">
         <div className="min-w-0 flex-1">
           {row.reasons.length > 0 ? (
             <ul className="m-0 list-disc pl-5">
@@ -59,10 +59,10 @@ function Expanded({
               {row.version ? 'Nothing to do' : 'The version has not been detected yet'}
             </span>
           )}
-          {row.probeError && <p className="m-0 mt-1 text-[12px] text-warn-text">Probe: {row.probeError}</p>}
-          {row.intelError && <p className="m-0 mt-1 text-[12px] text-warn-text">Sources: {row.intelError}</p>}
+          {row.probeError && <p className="m-0 mt-1 text-xs text-warn-text">Probe: {row.probeError}</p>}
+          {row.intelError && <p className="m-0 mt-1 text-xs text-warn-text">Sources: {row.intelError}</p>}
         </div>
-        <div className="flex flex-col items-end gap-2 text-[12px] text-muted">
+        <div className="flex flex-col items-end gap-2 text-xs text-muted">
           <span>
             version via {row.versionSource ?? '–'}
             {row.previousVersion && ` · was ${row.previousVersion} ${relative(row.versionChangedAt)}`}
@@ -91,7 +91,7 @@ function Expanded({
             )}
           </span>
           {message && (
-            <span role="status" className="text-[12px]">
+            <span role="status" className="text-xs">
               {message}
             </span>
           )}
@@ -192,7 +192,7 @@ export function SoftwarePage() {
         />
       </div>
       <Section>
-        <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-muted">
+        <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-xs font-medium text-muted">
           <span className="flex-1 pl-[21px]">Service</span>
           <span className="w-28">Running</span>
           <span className="w-28">Latest</span>
@@ -202,9 +202,9 @@ export function SoftwarePage() {
         </div>
         {inv.services.length === 0 && (
           <Empty>
-            No service tracks its software yet. Add a <span className="font-mono text-[12px]">software</span>{' '}
+            No service tracks its software yet. Add a <span className="font-mono text-xs">software</span>{' '}
             block to a monitor, e.g.{' '}
-            <span className="font-mono text-[12px]">
+            <span className="font-mono text-xs">
               software: {'{'} product: gitea {'}'}
             </span>
             .
@@ -232,14 +232,14 @@ export function SoftwarePage() {
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{s.serviceName}</span>
-                  <span className="block text-[12px] text-muted">
+                  <span className="block text-xs text-muted">
                     {s.productName} · {s.group}
                   </span>
                 </span>
-                <span className="w-28 font-mono text-[12px]">
+                <span className="w-28 font-mono text-xs">
                   {s.version ?? <span className="text-sec">–</span>}
                 </span>
-                <span className="w-28 font-mono text-[12px]">
+                <span className="w-28 font-mono text-xs">
                   {s.latest ? (
                     s.latestUrl ? (
                       <a
@@ -258,22 +258,22 @@ export function SoftwarePage() {
                     <span className="text-sec">–</span>
                   )}
                   {s.latestInCycle && s.latestInCycle !== s.latest && (
-                    <span className="block text-[12px] text-muted">{s.latestInCycle} in cycle</span>
+                    <span className="block text-xs text-muted">{s.latestInCycle} in cycle</span>
                   )}
                 </span>
-                <span className="w-32 text-[12px]">
+                <span className="w-32 text-xs">
                   {s.cycle ?? s.pinnedCycle ?? <span className="text-sec">–</span>}
-                  {s.pinnedCycle && <span className="block text-[12px] text-muted">pinned</span>}
+                  {s.pinnedCycle && <span className="block text-xs text-muted">pinned</span>}
                   {s.eolReached ? (
-                    <span className="block text-[12px] text-bad-text">end-of-life</span>
+                    <span className="block text-xs text-bad-text">end-of-life</span>
                   ) : s.eol ? (
-                    <span className="block text-[12px] text-muted">until {shortDate(s.eol)}</span>
+                    <span className="block text-xs text-muted">until {shortDate(s.eol)}</span>
                   ) : null}
                 </span>
                 <span className="w-36">
                   <UrgencyBadge level={level} score={s.score} />
                 </span>
-                <span className="w-40 text-[12px]">
+                <span className="w-40 text-xs">
                   <VulnCounts vulns={s.vulns} />
                 </span>
               </button>
@@ -282,7 +282,7 @@ export function SoftwarePage() {
           );
         })}
       </Section>
-      <p className="m-0 text-[12px] text-muted">
+      <p className="m-0 text-xs text-muted">
         Urgency: {URGENCY_LEVELS.map((l) => `${l} = ${URGENCY_LABEL[l].toLowerCase()}`).join(', ')}. Scores
         combine CVSS, exploitation (CISA KEV), end-of-life and how far behind the latest release a service is.{' '}
         <a href="/api/v1/software/report.csv" className="text-sec hover:text-text">

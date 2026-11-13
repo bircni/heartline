@@ -159,7 +159,7 @@ function ReleasesFields({
       )}
       {mode !== 'auto' && (
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-[13px]">Count pre-releases</span>
+          <span className="text-base">Count pre-releases</span>
           <Switch
             label="Count pre-releases"
             checked={rel?.prerelease === true}
@@ -207,7 +207,7 @@ function SoftwareFields({
   return (
     <div className="mt-4 rounded-md bg-fill">
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-[13px]">Track version and vulnerabilities</span>
+        <span className="text-base">Track version and vulnerabilities</span>
         <Switch
           label="Track software"
           checked={enabled}
@@ -240,7 +240,7 @@ function SoftwareFields({
               </select>
               <input
                 id="m-product"
-                className="field font-mono text-[13px]"
+                className="field font-mono text-base"
                 value={String(sw?.product ?? '')}
                 disabled={locked}
                 placeholder="slug, e.g. gitea"
@@ -248,7 +248,7 @@ function SoftwareFields({
               />
             </div>
           </Field>
-          {entry?.probe?.note && <p className="m-0 mt-1 text-[12px] text-sec">{entry.probe.note}</p>}
+          {entry?.probe?.note && <p className="m-0 mt-1 text-xs text-sec">{entry.probe.note}</p>}
           <div className="mt-3">
             <div className="label">Version source</div>
             <Segmented
@@ -324,7 +324,7 @@ function SoftwareFields({
             hint="Newer cycles are then not counted as updates."
           />
           <div className="mt-3 flex items-center justify-between">
-            <span className="text-[13px]">Look up vulnerabilities</span>
+            <span className="text-base">Look up vulnerabilities</span>
             <Switch
               label="Look up vulnerabilities"
               checked={sw?.track !== false}
@@ -443,7 +443,7 @@ function ProviderFields({
               id="m-secret"
               type="password"
               autoComplete="off"
-              className="field font-mono text-[13px]"
+              className="field font-mono text-base"
               value={String(m365.clientSecret ?? '')}
               onChange={(e) => set('m365', { ...m365, clientSecret: e.target.value })}
               disabled={locked}
@@ -524,7 +524,7 @@ function TextField({
     <Field label={label} htmlFor={id} hint={hint}>
       <input
         id={id}
-        className={`field ${mono ? 'font-mono text-[13px]' : ''}`}
+        className={`field ${mono ? 'font-mono text-base' : ''}`}
         value={value === undefined || value === null ? '' : String(value)}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
@@ -729,7 +729,7 @@ function Editor({
               ))}
             </select>
           </Field>
-          {plugin?.description && <p className="m-0 mt-1 text-[12px] text-sec">{plugin.description}</p>}
+          {plugin?.description && <p className="m-0 mt-1 text-xs text-sec">{plugin.description}</p>}
           {plugin &&
             Object.entries(plugin.args).map(([name, a]) => (
               <TextField
@@ -793,7 +793,7 @@ function Editor({
                 key={n.id}
                 className={`flex items-center justify-between px-3 py-2 ${i ? 'border-t border-hair' : ''}`}
               >
-                <span className="text-[13px]">Notify {n.id}</span>
+                <span className="text-base">Notify {n.id}</span>
                 <Switch
                   label={`Notify ${n.id}`}
                   checked={list.includes(n.id)}
@@ -803,13 +803,13 @@ function Editor({
               </div>
             );
           })}
-          <p className="m-0 border-t border-hair px-3 py-2 text-[12px] text-sec">
+          <p className="m-0 border-t border-hair px-3 py-2 text-xs text-sec">
             No channel selected means all channels.
           </p>
         </div>
       )}
       <div className="mt-3 flex items-center justify-between rounded-md bg-fill px-3 py-2">
-        <span className="text-[13px]">Open an incident automatically when down</span>
+        <span className="text-base">Open an incident automatically when down</span>
         <Switch
           label="Automatic incidents"
           checked={Boolean(s.autoIncident)}
@@ -902,11 +902,11 @@ function MonitorPanel({
   return (
     <Section className="min-w-0 flex-[1_1_320px] p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="m-0 text-[16px] font-medium">{monitor?.name ?? 'New monitor'}</h2>
+        <h2 className="m-0 text-lg font-medium">{monitor?.name ?? 'New monitor'}</h2>
         {monitor && <StatusPill status={monitor.status} />}
       </div>
       {monitor && (
-        <p className="m-0 mt-1 text-[12px] text-sec">
+        <p className="m-0 mt-1 text-xs text-sec">
           Last check {relative(monitor.lastCheckedAt)}
           {monitor.lastMessage && ` · ${monitor.lastMessage}`}
         </p>
@@ -917,8 +917,8 @@ function MonitorPanel({
             <span className="flex gap-2">
               <Icon name="lock" size={16} className="mt-px shrink-0" />
               <span>
-                Managed in <span className="font-mono text-[12px] text-text">status.yaml</span>. Edit it in
-                git; changes load automatically.
+                Managed in <span className="font-mono text-xs text-text">status.yaml</span>. Edit it in git;
+                changes load automatically.
               </span>
             </span>
           </Notice>
@@ -1004,7 +1004,7 @@ export function MonitorsPage() {
       />
       <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
-          <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-[12px] font-medium text-sec">
+          <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-xs font-medium text-sec">
             <span className="flex-1 pl-6">Name</span>
             <span className="w-14">Type</span>
             <span className="w-16">Every</span>
@@ -1021,11 +1021,11 @@ export function MonitorsPage() {
               <StatusDot status={m.status} />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{m.name}</span>
-                <span className="block truncate font-mono text-[12px] text-muted">{m.target}</span>
+                <span className="block truncate font-mono text-xs text-muted">{m.target}</span>
               </span>
-              <span className="w-14 text-[12px]">{KIND_LABEL[m.kind]}</span>
-              <span className="w-16 text-[12px] text-sec">{formatDuration(m.spec.interval)}</span>
-              <span className="flex w-20 items-center gap-1 text-[12px] text-sec">
+              <span className="w-14 text-xs">{KIND_LABEL[m.kind]}</span>
+              <span className="w-16 text-xs text-sec">{formatDuration(m.spec.interval)}</span>
+              <span className="flex w-20 items-center gap-1 text-xs text-sec">
                 {m.source === 'config' && <Icon name="lock" size={16} />}
                 {m.source === 'config' ? 'yaml' : 'UI'}
               </span>

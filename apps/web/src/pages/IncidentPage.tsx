@@ -85,7 +85,7 @@ export function IncidentPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-2.5">
                   <span className="font-semibold capitalize">{u.status}</span>
-                  <span className="text-[12px] text-muted">
+                  <span className="text-xs text-muted">
                     {dateTime(u.createdAt)}
                     {u.author && `, ${u.author}`}
                   </span>
@@ -125,7 +125,7 @@ export function IncidentHistoryPage() {
           past.map((i) => <IncidentRow key={i.id} incident={i} variant="history" />)
         )}
         {data.length >= HISTORY_LIMIT && (
-          <p className="m-0 border-t border-hair px-3.5 py-2.5 text-[12px] text-muted">
+          <p className="m-0 border-t border-hair px-3.5 py-2.5 text-xs text-muted">
             Showing the {HISTORY_LIMIT} most recent incidents; older ones are not listed.
           </p>
         )}

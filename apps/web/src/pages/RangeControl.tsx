@@ -126,7 +126,7 @@ export function RangeControl({ fallback = 90 }: { fallback?: number }) {
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
-            {!incomplete && invalid && <p className="m-0 text-[12px] text-bad-text">{invalid}</p>}
+            {!incomplete && invalid && <p className="m-0 text-xs text-bad-text">{invalid}</p>}
             <div className="flex gap-2">
               <button type="submit" className="btn-primary flex-1" disabled={incomplete || invalid !== null}>
                 Show range

@@ -69,7 +69,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       }}
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className="m-0 text-[16px] font-medium">
+        <h2 className="m-0 text-lg font-medium">
           {existing ? `Edit “${existing.title}”` : 'Schedule maintenance'}
         </h2>
         {existing && (
@@ -130,7 +130,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           {recurrence && (
             <input
               aria-label="Recurrence rule"
-              className="field font-mono text-[12px]"
+              className="field font-mono text-xs"
               value={recurrence}
               onChange={(e) => setRecurrence(e.target.value)}
             />
@@ -194,21 +194,21 @@ export function MaintenancePage() {
                 className={`flex items-center gap-4 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
                 <span className="w-12 shrink-0 rounded-md bg-fill py-2 text-center">
-                  <span className="block text-[12px] text-muted">
+                  <span className="block text-xs text-muted">
                     {start.toLocaleString(undefined, { month: 'short' })}
                   </span>
-                  <span className="block text-[20px] font-medium leading-6">{start.getDate()}</span>
+                  <span className="block text-2xl font-medium leading-6">{start.getDate()}</span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">
                     {m.title}
                     {m.active && (
-                      <span className="ml-2 rounded-sm bg-fill px-2 py-0.5 text-[12px] text-sec">
+                      <span className="ml-2 rounded-sm bg-fill px-2 py-0.5 text-xs text-sec">
                         in progress
                       </span>
                     )}
                   </span>
-                  <span className="block text-[12px] text-sec">
+                  <span className="block text-xs text-sec">
                     {m.nextStartsAt
                       ? `${dateTime(m.nextStartsAt)} – ${dateTime(m.nextEndsAt ?? m.endsAt)}`
                       : 'finished'}

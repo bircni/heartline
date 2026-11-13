@@ -53,7 +53,7 @@ export function ConsentPage() {
       <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center text-center">
           <SiteLogo size={40} />
-          <h1 className="m-0 mt-4 text-[20px] font-semibold tracking-[-0.01em]">
+          <h1 className="m-0 mt-4 text-2xl font-semibold tracking-[-0.01em]">
             {name ? `Allow ${name}?` : 'Loading…'}
           </h1>
           <p className="m-0 mt-1 text-sec">
@@ -63,7 +63,7 @@ export function ConsentPage() {
           </p>
         </div>
         <div className="card mt-6 overflow-hidden">
-          <div className="px-4 pb-2 pt-4 text-[12px] font-medium text-sec">
+          <div className="px-4 pb-2 pt-4 text-xs font-medium text-sec">
             {name ?? 'The application'} will be able to
           </div>
           {scopes.map((s) => (
@@ -91,7 +91,7 @@ export function ConsentPage() {
           </button>
         </div>
         {client.data?.client_uri && (
-          <p className="mt-4 text-center text-[12px] text-sec">{client.data.client_uri}</p>
+          <p className="mt-4 text-center text-xs text-sec">{client.data.client_uri}</p>
         )}
       </div>
     </div>
