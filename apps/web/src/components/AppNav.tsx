@@ -65,6 +65,7 @@ interface Section {
 const MANAGE: Section[] = [
   { to: '/admin/incidents', label: 'Incidents', icon: 'alert', min: 'viewer' },
   { to: '/admin/monitors', label: 'Monitors', icon: 'pulse', min: 'viewer' },
+  { to: '/admin/groups', label: 'Groups', icon: 'grid', min: 'viewer' },
   { to: '/admin/software', label: 'Software', icon: 'shield', min: 'viewer' },
   { to: '/admin/maintenance', label: 'Maintenance', icon: 'calendar', min: 'viewer' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell', min: 'viewer' },

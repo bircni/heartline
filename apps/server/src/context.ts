@@ -9,6 +9,7 @@ import type { NotifierService } from './notify/index.ts';
 import type { Scheduler } from './scheduler/scheduler.ts';
 import type { IncidentService } from './services/incidents.ts';
 import type { MaintenanceService } from './services/maintenance.ts';
+import type { GroupService } from './services/groups.ts';
 import type { MonitorService } from './services/monitors.ts';
 import type { QueryService } from './services/queries.ts';
 import type { RateLimiter } from './api/rate-limit.ts';
@@ -25,6 +26,7 @@ export interface AppContext {
   tokens: TokenService;
   plugins: PluginRegistry;
   monitors: MonitorService;
+  groups: GroupService;
   maintenance: MaintenanceService;
   incidents: IncidentService;
   notifier: NotifierService;

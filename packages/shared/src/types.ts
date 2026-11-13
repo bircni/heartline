@@ -136,7 +136,11 @@ export interface UpstreamIssue extends ServiceRef {
 }
 
 export interface ServiceSummary extends ServiceRef {
+  /** Name of the group. */
   group: string;
+  groupId: string;
+  /** Shown as a tooltip next to the name. */
+  description: string | null;
   kind: MonitorKind;
   /** Third-party service (provider monitor): shown apart and left out of the overall status. */
   external: boolean;
@@ -149,6 +153,28 @@ export interface ServiceSummary extends ServiceRef {
   software: SoftwareSummary | null;
 }
 
+/** A group of services on the status page. */
+export interface GroupDto {
+  id: string;
+  name: string;
+  description: string | null;
+  /** Shown collapsed (one rolled-up row) until a visitor opens it. */
+  collapsed: boolean;
+  /** Hidden from visitors while every service in it is operational. */
+  hideUnlessDegraded: boolean;
+  source: 'config' | 'db';
+  position: number;
+}
+
+/** A group on the overview: its services, plus a status and history rolled up over them. */
+export interface OverviewGroup extends Omit<GroupDto, 'source' | 'position'> {
+  services: ServiceSummary[];
+  /** Worst status of its services (paused ones aside). */
+  status: ServiceStatus;
+  uptime: number | null;
+  bars: DayBar[];
+}
+
 export interface Overview {
   site: SiteInfo;
   status: ServiceStatus;
@@ -158,9 +184,9 @@ export interface Overview {
   total: number;
   days: number;
   /** Your own services; `operational`, `total` and the headline only cover these. */
-  groups: { name: string; services: ServiceSummary[] }[];
+  groups: OverviewGroup[];
   /** Third-party services (provider monitors) by group. */
-  external: { name: string; services: ServiceSummary[] }[];
+  external: OverviewGroup[];
   activeIncidents: Incident[];
   upcomingMaintenance: Maintenance[];
   /** Services needing urgent updates; null for viewers without read access. */
@@ -187,7 +213,6 @@ export interface LatencyPoint {
 }
 
 export interface ServiceDetail extends ServiceSummary {
-  description: string | null;
   target: string;
   intervalMs: number;
   lastCheckedAt: number | null;
@@ -256,6 +281,7 @@ export interface AdminMonitor {
   id: string;
   name: string;
   group: string;
+  groupId: string;
   kind: MonitorKind;
   source: 'config' | 'db';
   paused: boolean;

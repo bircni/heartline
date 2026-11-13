@@ -2,6 +2,7 @@ import type {
   Impact,
   AdminMonitor,
   AuditEntryDto,
+  GroupDto,
   ApiTokenDto,
   Bootstrap,
   CatalogEntryDto,
@@ -212,6 +213,9 @@ export const useAuditLog = (filter: { entityType?: string }) =>
     // A full page means there may be older entries.
     getNextPageParam: (last) => (last.length === 100 ? last.at(-1)?.at : undefined),
   });
+
+export const useGroups = () =>
+  useQuery({ queryKey: ['admin', 'groups'], queryFn: () => api<GroupDto[]>('/api/v1/admin/groups') });
 
 export const useUsers = () =>
   useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/api/v1/admin/users') });

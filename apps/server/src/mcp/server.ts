@@ -19,7 +19,8 @@ import { mcpResource } from '../auth/auth.ts';
 import { OAUTH_SCOPES, oauthScopesToScopes, scopeAtLeast } from '../auth/roles.ts';
 import { describeTarget, runCheck } from '../checks/index.ts';
 import type { AppContext } from '../context.ts';
-import { restoreSecrets, validateMonitorSpec } from '../services/monitors.ts';
+import { groupFor, groupInputSchema } from '../api/admin.ts';
+import { ConflictError, restoreSecrets, validateMonitorSpec } from '../services/monitors.ts';
 import { URGENCY_RANK } from '../software/urgency.ts';
 import { log } from '../util/log.ts';
 import { APP_VERSION } from '../util/pkg.ts';
@@ -61,11 +62,8 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
   );
 
   /** Records a change made through MCP, marked as such in the actor name. */
-  const audit = (entry: AuditInput) =>
-    app.audit.record(
-      { userId: principal.userId, name: `${principal.name} (MCP)`, via: principal.via },
-      entry,
-    );
+  const actor = { userId: principal.userId, name: `${principal.name} (MCP)`, via: principal.via };
+  const audit = (entry: AuditInput) => app.audit.record(actor, entry);
 
   const guard = async (needed: Scope, fn: () => Promise<ToolResult>): Promise<ToolResult> => {
     if (!scopeAtLeast(principal.scope, needed))
@@ -336,21 +334,25 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
       title: 'Create monitor',
       description:
         'Add a UI-managed monitor (http, tcp, dns, tls, icmp, plugin, or provider for a third-party status page such as github, atlassian-jira, slack, google-workspace or m365).',
-      inputSchema: z.object({ group: z.string(), spec: z.record(z.string(), z.unknown()) }),
+      inputSchema: z.object({
+        group: z.string().describe('Group id or name; a new name creates the group'),
+        spec: z.record(z.string(), z.unknown()),
+      }),
     },
     async ({ group, spec }) =>
       guard('admin', async () => {
         const parsed = monitorSpecSchema.parse(spec);
         validateMonitorSpec(parsed, app);
-        const m = await app.monitors.create(parsed, group);
+        const g = await groupFor(app, { group }, actor);
+        const m = await app.monitors.create(parsed, g.id);
         await audit({
           action: 'monitor.create',
           entityType: 'monitor',
           entityId: m.id,
           summary: `Created monitor ${m.name}`,
-          detail: { group, spec: parsed },
+          detail: { group: g.id, spec: parsed },
         });
-        return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor created.');
+        return ok({ id: m.id, name: m.name, group: m.group, groupId: m.groupId }, 'Monitor created.');
       }),
   );
 
@@ -359,21 +361,94 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     {
       title: 'Update monitor',
       description: 'Replace the spec of a UI-managed monitor (monitors from status.yaml are read-only).',
-      inputSchema: z.object({ id: z.string(), group: z.string(), spec: z.record(z.string(), z.unknown()) }),
+      inputSchema: z.object({
+        id: z.string(),
+        group: z.string().describe('Group id or name; a new name creates the group'),
+        spec: z.record(z.string(), z.unknown()),
+      }),
     },
     async ({ id, group, spec }) =>
       guard('admin', async () => {
         const parsed = restoreSecrets(monitorSpecSchema.parse(spec), app.monitors.get(id)?.spec);
         validateMonitorSpec(parsed, app);
-        const m = await app.monitors.update(id, parsed, group);
+        if (app.monitors.require(id).source === 'config')
+          throw new ConflictError('this service is managed in status.yaml');
+        const g = await groupFor(app, { group }, actor);
+        const m = await app.monitors.update(id, parsed, g.id);
         await audit({
           action: 'monitor.update',
           entityType: 'monitor',
           entityId: m.id,
           summary: `Updated monitor ${m.name}`,
-          detail: { group, spec: parsed },
+          detail: { group: g.id, spec: parsed },
         });
-        return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor updated.');
+        return ok({ id: m.id, name: m.name, group: m.group, groupId: m.groupId }, 'Monitor updated.');
+      }),
+  );
+
+  server.registerTool(
+    'list_groups',
+    {
+      title: 'List groups',
+      description: 'Groups of services in display order; groups from status.yaml are read-only.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async () =>
+      guard('read', async () => {
+        const groups = app.groups.list();
+        return ok(
+          { groups },
+          groups
+            .map((g) => `- ${g.name} [${g.id}]${g.source === 'config' ? ' (status.yaml)' : ''}`)
+            .join('\n'),
+        );
+      }),
+  );
+
+  server.registerTool(
+    'save_group',
+    {
+      title: 'Create or update a group',
+      description:
+        'Create a group, or update a UI-managed one when `id` names an existing group. `collapsed` shows it as one rolled-up row; `hideUnlessDegraded` hides it while all its services are operational.',
+      inputSchema: groupInputSchema,
+    },
+    async (input) =>
+      guard('admin', async () => {
+        const existing = input.id ? app.groups.get(input.id) : undefined;
+        const { id: _id, ...fields } = input;
+        const g = existing ? await app.groups.update(existing.id, fields) : await app.groups.create(input);
+        await audit({
+          action: existing ? 'group.update' : 'group.create',
+          entityType: 'group',
+          entityId: g.id,
+          summary: `${existing ? 'Updated' : 'Created'} group ${g.name}`,
+          detail: input,
+        });
+        return ok(g, existing ? 'Group updated.' : 'Group created.');
+      }),
+  );
+
+  server.registerTool(
+    'delete_group',
+    {
+      title: 'Delete group',
+      description: 'Delete an empty UI-managed group.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ id }) =>
+      guard('admin', async () => {
+        const g = app.groups.require(id);
+        await app.groups.remove(id);
+        await audit({
+          action: 'group.delete',
+          entityType: 'group',
+          entityId: id,
+          summary: `Deleted group ${g.name}`,
+        });
+        return ok({ id, deleted: true }, 'Group deleted.');
       }),
   );
 

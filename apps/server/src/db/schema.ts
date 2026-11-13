@@ -2,7 +2,8 @@ import type { ColumnType, Generated, Selectable } from 'kysely';
 
 export interface MonitorTable {
   id: string;
-  group_name: string;
+  /** Id of the monitor_groups row. */
+  group_id: string;
   name: string;
   type: string;
   spec: string;
@@ -221,6 +222,18 @@ export interface RateLimitTable {
   count: number;
 }
 
+export interface MonitorGroupTable {
+  id: string;
+  name: string;
+  description: string | null;
+  position: number;
+  collapsed: number;
+  hide_unless_degraded: number;
+  source: 'config' | 'db';
+  created_at: number;
+  updated_at: number;
+}
+
 export interface Database {
   monitors: MonitorTable;
   monitor_state: MonitorStateTable;
@@ -239,6 +252,7 @@ export interface Database {
   monitor_vulnerabilities: MonitorVulnerabilityTable;
   intel_cache: IntelCacheTable;
   audit_log: AuditLogTable;
+  monitor_groups: MonitorGroupTable;
   rate_limits: RateLimitTable;
   user: UserTable;
   account: AccountTable;
