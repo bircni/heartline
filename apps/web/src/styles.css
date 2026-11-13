@@ -119,6 +119,7 @@
   --color-bad: var(--bad);
   --color-partial: var(--partial);
   --color-maint: var(--maint);
+  --color-maint-bg: var(--maint-bg);
   --color-ok-text: var(--ok-text);
   --color-warn-text: var(--warn-text);
   --color-bad-text: var(--bad-text);

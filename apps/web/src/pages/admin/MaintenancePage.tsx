@@ -1,7 +1,12 @@
-import type { Maintenance } from '@heartline/shared';
+import type { Maintenance, MaintenanceStatus } from '@heartline/shared';
+import { MAINTENANCE_STATUSES } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
+import { MarkdownField } from '../../components/MarkdownField.tsx';
+import { Segmented } from '../../components/Segmented.tsx';
+import { Switch } from '../../components/Switch.tsx';
+import { UpdateTimeline } from '../../components/UpdateTimeline.tsx';
 import { useConfirm } from '../../components/Dialog.tsx';
 import { toast } from '../../components/Toast.tsx';
 import {
@@ -16,7 +21,14 @@ import {
   fieldErrorsOf,
 } from '../../components/ui.tsx';
 import { api, useMaintenance, useMe, useTemplates } from '../../lib/api.ts';
-import { dateTime, displayDay, fromZonedInput, toZonedInput, zoneShort } from '../../lib/format.ts';
+import {
+  MAINTENANCE_LABEL,
+  dateTime,
+  displayDay,
+  fromZonedInput,
+  toZonedInput,
+  zoneShort,
+} from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 import { ServicePicker } from './IncidentsPage.tsx';
 
@@ -43,6 +55,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
   const [recurrence, setRecurrence] = useState(existing?.recurrence ?? '');
   const [services, setServices] = useState<string[]>(existing?.services.map((s) => s.id) ?? []);
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [notify, setNotify] = useState(true);
   const templates = useTemplates('maintenance');
   const save = useMutation({
     mutationFn: () => {
@@ -53,6 +66,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
         endsAt: new Date(fromZonedInput(endsAt)).toISOString(),
         recurrence: recurrence || (existing ? null : undefined),
         services,
+        ...(existing ? {} : { notify }),
       };
       return existing
         ? api<Maintenance>(`/api/v1/admin/maintenance/${existing.id}`, { method: 'PUT', json: body })
@@ -188,15 +202,15 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           <ServicePicker value={services} onChange={setServices} />
         </div>
         <Field label="Description (public)" htmlFor="mt-desc">
-          <textarea
-            id="mt-desc"
-            rows={2}
-            className="field h-auto resize-y py-2"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+          <MarkdownField id="mt-desc" rows={3} value={description} onChange={setDescription} />
         </Field>
       </FieldErrors>
+      {!existing && (
+        <span className="mt-3 flex items-center gap-2 text-base text-sec">
+          <Switch checked={notify} onChange={setNotify} label="Announce now" /> Announce now (reminder and
+          start follow)
+        </span>
+      )}
       {saveErrors.rest.length > 0 && (
         <div className="mt-3" role="alert">
           <Notice tone="bad">{saveErrors.rest.join(' · ')}</Notice>
@@ -205,7 +219,89 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       <button type="submit" className="btn-primary mt-4 w-full" disabled={save.isPending}>
         {save.isPending ? 'Saving…' : existing ? 'Save changes' : 'Schedule'}
       </button>
+      {existing && <Updates window={existing} />}
     </form>
+  );
+}
+
+/** Status updates of a one-off window; recurring windows move along by themselves. */
+function Updates({ window: m }: { window: Maintenance }) {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<MaintenanceStatus>(
+    m.status === 'scheduled' ? 'in_progress' : m.status === 'in_progress' ? 'verifying' : 'completed',
+  );
+  const [message, setMessage] = useState('');
+  const [notify, setNotify] = useState(true);
+  const post = useMutation({
+    mutationFn: () =>
+      api<Maintenance>(`/api/v1/admin/maintenance/${m.id}/updates`, {
+        method: 'POST',
+        json: { status, message, notify },
+      }),
+    onSuccess: async () => {
+      setMessage('');
+      await qc.invalidateQueries({ queryKey: ['maintenance'] });
+      await qc.invalidateQueries({ queryKey: ['overview'] });
+      toast('Update posted');
+    },
+  });
+  return (
+    <div className="mt-5 border-t border-hair pt-4">
+      <h3 className="m-0 text-base font-semibold">Status: {MAINTENANCE_LABEL[m.status]}</h3>
+      {m.recurrence ? (
+        <p className="m-0 mt-1 text-sec">Recurring windows start and complete on their own.</p>
+      ) : m.status === 'completed' ? (
+        <p className="m-0 mt-1 text-sec">Completed. Move it to a future time to schedule it again.</p>
+      ) : (
+        // A nested form would be invalid HTML; the button submits through its own handler.
+        <div className="mt-2 rounded-xl bg-fill p-3">
+          <div className="rounded-md bg-bg p-0.5">
+            <Segmented
+              size="sm"
+              label="New status"
+              value={status}
+              onChange={setStatus}
+              options={MAINTENANCE_STATUSES.map((st) => ({ value: st, label: MAINTENANCE_LABEL[st] }))}
+            />
+          </div>
+          <MarkdownField
+            id="mt-update"
+            label="Update message"
+            className="mt-2"
+            rows={2}
+            value={message}
+            onChange={setMessage}
+            placeholder="What is happening? Shown publicly."
+          />
+          {post.error && (
+            <p role="alert" className="m-0 mt-2 text-base text-bad-text">
+              {post.error.message}
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-base text-sec">
+              <Switch checked={notify} onChange={setNotify} label="Notify channels" /> Notify channels
+            </span>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={post.isPending || !message.trim()}
+              onClick={() => post.mutate()}
+            >
+              {post.isPending ? 'Posting…' : 'Post update'}
+            </button>
+          </div>
+        </div>
+      )}
+      {m.updates.length > 0 && (
+        <div className="mt-3">
+          <UpdateTimeline
+            updates={m.updates.map((u) => ({ ...u, status: MAINTENANCE_LABEL[u.status] as never }))}
+            accent="var(--maint)"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -256,16 +352,18 @@ export function MaintenancePage() {
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">
                     {m.title}
-                    {m.active && (
-                      <span className="ml-2 rounded-sm bg-fill px-2 py-0.5 text-xs text-sec">
-                        in progress
+                    {m.status !== 'scheduled' && (
+                      <span
+                        className={`ml-2 rounded-sm px-2 py-0.5 text-xs ${m.active ? 'bg-maint-bg font-medium text-maint' : 'bg-fill text-sec'}`}
+                      >
+                        {MAINTENANCE_LABEL[m.status].toLowerCase()}
                       </span>
                     )}
                   </span>
                   <span className="block text-xs text-sec">
-                    {m.nextStartsAt
-                      ? `${dateTime(m.nextStartsAt)} – ${dateTime(m.nextEndsAt ?? m.endsAt)}`
-                      : 'finished'}
+                    {m.status === 'completed' || !m.nextStartsAt
+                      ? `${dateTime(m.startsAt)} – ${dateTime(m.endsAt)}`
+                      : `${dateTime(m.nextStartsAt)} – ${dateTime(m.nextEndsAt ?? m.endsAt)}`}
                     {m.recurrence && ` · repeats ${m.recurrence}`} ·{' '}
                     {m.services.map((s) => s.name).join(', ') || 'all services'}
                   </span>

@@ -127,7 +127,14 @@ export function publicRoutes(app: AppContext) {
 
   r.get('/incidents/:id', async (c) => c.json(await app.incidents.get(c.req.param('id'))));
 
-  r.get('/maintenance', (c) => c.json(app.maintenance.list()));
+  r.get('/maintenance', (c) => {
+    const state = c.req.query('state');
+    return c.json(
+      state === 'active' || state === 'upcoming' || state === 'past'
+        ? app.maintenance.byState(state)
+        : app.maintenance.list(),
+    );
+  });
   r.get('/maintenance/:id', (c) => c.json(app.maintenance.get(c.req.param('id'))));
 
   r.get('/badge/:id{.+\\.svg}', async (c) => {

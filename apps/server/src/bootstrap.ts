@@ -54,12 +54,13 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   const groups = new GroupService(db);
   const templates = new TemplateService(db);
   const notifier = new NotifierService(db, env.baseUrl, opts.fetchImpl);
-  const maintenance = new MaintenanceService(db, monitors);
+  const maintenance = new MaintenanceService(db, monitors, notifier);
   const incidents = new IncidentService(db, monitors, notifier);
   const audit = new AuditService(db);
   const rateLimiter = new RateLimiter(db);
   const engine = new StatusEngine(db, notifier, incidents, maintenance);
   engine.audit = audit;
+  maintenance.audit = audit;
   const scheduler = new Scheduler(db, monitors, plugins, engine);
   const software = new SoftwareService({
     db,
@@ -112,6 +113,8 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     config = next;
     notifier.configure(next.notifiers, next.site.title);
     incidents.notifyIncidents = next.notifications.incidents;
+    maintenance.notifyChannels = next.notifications.maintenance;
+    maintenance.reminderBeforeMs = next.maintenance.reminderBefore;
     engine.settings = {
       timezone: next.site.timezone,
       recoveryNotifications: next.notifications.recovery,
@@ -148,6 +151,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   let watcher: FSWatcher | null = null;
   let reloadTimer: NodeJS.Timeout | null = null;
   let maintenanceTimer: NodeJS.Timeout | null = null;
+  let tickTimer: NodeJS.Timeout | null = null;
 
   const runtime: Runtime = {
     env,
@@ -180,6 +184,12 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
         void templates.reload().catch(() => {});
       }, 60_000);
       maintenanceTimer.unref();
+      // Starts, ends and reminders of maintenance windows; only the leader moves them along.
+      tickTimer = setInterval(() => {
+        if (scheduler.isLeader)
+          void maintenance.tick().catch((error) => log.error('maintenance tick failed', { error }));
+      }, 15_000);
+      tickTimer.unref();
       let lastHash = sha256(await readFile(env.configPath, 'utf8').catch(() => ''));
       try {
         // ConfigMap updates swap a symlink; watching the path catches both edits and swaps.
@@ -215,6 +225,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
       watcher?.close();
       if (reloadTimer) clearTimeout(reloadTimer);
       if (maintenanceTimer) clearInterval(maintenanceTimer);
+      if (tickTimer) clearInterval(tickTimer);
       await software.stop();
       await scheduler.stop();
       await db.close();

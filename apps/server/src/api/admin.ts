@@ -4,6 +4,7 @@ import {
   incidentPatchSchema,
   incidentUpdateCreateSchema,
   maintenanceCreateSchema,
+  maintenanceUpdateCreateSchema,
   maintenanceUpdateSchema,
   monitorSpecSchema,
   postmortemSchema,
@@ -421,6 +422,19 @@ export function adminRoutes(app: AppContext) {
         throw new BadRequestError(`invalid recurrence: ${error.message}`);
       throw error;
     }
+  });
+  r.post('/maintenance/:id/updates', write, async (c) => {
+    const p = principalOf(c);
+    const input = await body(c, maintenanceUpdateCreateSchema);
+    const m = await app.maintenance.addUpdate(c.req.param('id'), input, p.name);
+    await audit(c, {
+      action: 'maintenance.post_update',
+      entityType: 'maintenance',
+      entityId: m.id,
+      summary: `Posted a “${input.status.replace('_', ' ')}” update to maintenance “${m.title}”`,
+      detail: input,
+    });
+    return c.json(m);
   });
   r.delete('/maintenance/:id', write, async (c) => {
     const id = c.req.param('id');

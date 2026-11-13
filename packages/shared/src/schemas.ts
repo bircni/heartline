@@ -361,22 +361,29 @@ export const templateSchema = z.object({
   duration: duration.optional(),
 });
 
+/** Lifecycle of a maintenance window; recurring windows only go scheduled → in progress → completed. */
+export const MAINTENANCE_STATUSES = ['scheduled', 'in_progress', 'verifying', 'completed'] as const;
+export const maintenanceStatusSchema = z.enum(MAINTENANCE_STATUSES);
+
 export const maintenanceCreateSchema = z
   .object({
     title: z.string().min(1).max(200),
-    description: z.string().max(5000).optional(),
+    /** Markdown. */
+    description: z.string().max(10_000).optional(),
     startsAt: z.coerce.date(),
     endsAt: z.coerce.date(),
     /** RFC 5545 RRULE, e.g. `FREQ=WEEKLY;BYDAY=SU`. */
     recurrence: z.string().max(500).optional(),
     services: z.array(z.string()).default([]),
+    /** Announce the window to the channels (and subscribers) now. */
+    notify: z.boolean().default(true),
   })
   .refine((m) => m.endsAt > m.startsAt, { message: 'endsAt must be after startsAt', path: ['endsAt'] });
 
 export const maintenanceUpdateSchema = z
   .object({
     title: z.string().min(1).max(200).optional(),
-    description: z.string().max(5000).nullable().optional(),
+    description: z.string().max(10_000).nullable().optional(),
     startsAt: z.coerce.date().optional(),
     endsAt: z.coerce.date().optional(),
     recurrence: z.string().max(500).nullable().optional(),
@@ -387,6 +394,14 @@ export const maintenanceUpdateSchema = z
     message: 'endsAt must be after startsAt',
     path: ['endsAt'],
   });
+
+/** A status update on a one-off maintenance window. */
+export const maintenanceUpdateCreateSchema = z.object({
+  status: maintenanceStatusSchema,
+  /** Markdown. */
+  message: z.string().min(1).max(10_000),
+  notify: z.boolean().default(true),
+});
 
 export const tokenCreateSchema = z.object({
   name: z.string().min(1).max(80),

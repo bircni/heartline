@@ -114,6 +114,29 @@ export interface MaintenanceTable {
   recurrence: string | null;
   created_at: number;
   created_by: string | null;
+  /** One-off windows: scheduled, in_progress, verifying or completed. Recurring ones use occurrences. */
+  status: string;
+  started_at: number | null;
+  completed_at: number | null;
+}
+
+export interface MaintenanceUpdateTable {
+  id: string;
+  maintenance_id: string;
+  status: string;
+  message: string;
+  created_at: number;
+  author: string | null;
+  notify: number;
+}
+
+/** What happened to one occurrence of a window; each transition is claimed once across replicas. */
+export interface MaintenanceOccurrenceTable {
+  maintenance_id: string;
+  occurrence_start: number;
+  reminded_at: number | null;
+  started_at: number | null;
+  completed_at: number | null;
 }
 
 export interface MaintenanceServiceTable {
@@ -287,6 +310,8 @@ export interface Database {
   monitor_groups: MonitorGroupTable;
   incident_update_components: IncidentUpdateComponentTable;
   templates: TemplateTable;
+  maintenance_updates: MaintenanceUpdateTable;
+  maintenance_occurrences: MaintenanceOccurrenceTable;
   rate_limits: RateLimitTable;
   user: UserTable;
   account: AccountTable;

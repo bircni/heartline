@@ -213,6 +213,9 @@ async function seed(db: Db, ids: string[], timezone: string, now: number) {
       recurrence: null,
       created_at: now,
       created_by: 'Demo Admin',
+      status: 'scheduled',
+      started_at: null,
+      completed_at: null,
     })
     .execute();
   await k
@@ -226,6 +229,9 @@ async function seed(db: Db, ids: string[], timezone: string, now: number) {
       recurrence: 'FREQ=WEEKLY;BYDAY=SU',
       created_at: now,
       created_by: 'Demo Admin',
+      status: 'scheduled',
+      started_at: null,
+      completed_at: null,
     })
     .execute();
   log.info('seeded demo history', { services: ids.length, days: 90 });

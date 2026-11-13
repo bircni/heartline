@@ -74,6 +74,7 @@ describe('status engine', () => {
         startsAt: new Date(now - 60_000).toISOString(),
         endsAt: new Date(now + 3_600_000).toISOString(),
         services: ['web'],
+        notify: false,
       },
     });
     expect(res.status).toBe(201);

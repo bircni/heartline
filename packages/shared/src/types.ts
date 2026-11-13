@@ -3,6 +3,7 @@ import type {
   COMPONENT_STATUSES,
   IMPACTS,
   INCIDENT_STATUSES,
+  MAINTENANCE_STATUSES,
   ROLES,
   SCOPES,
   THEMES,
@@ -312,9 +313,21 @@ export interface TemplateDto {
   source: 'config' | 'db';
 }
 
+export type MaintenanceStatus = (typeof MAINTENANCE_STATUSES)[number];
+
+export interface MaintenanceUpdateDto {
+  id: string;
+  status: MaintenanceStatus;
+  /** Markdown. */
+  message: string;
+  createdAt: number;
+  author: string | null;
+}
+
 export interface Maintenance {
   id: string;
   title: string;
+  /** Markdown. */
   description: string | null;
   startsAt: number;
   endsAt: number;
@@ -323,6 +336,13 @@ export interface Maintenance {
   nextStartsAt: number | null;
   nextEndsAt: number | null;
   active: boolean;
+  /** Of the window, or for a recurring one of its current or next occurrence. */
+  status: MaintenanceStatus;
+  /** When the window (or current occurrence) actually started and was completed. */
+  startedAt: number | null;
+  completedAt: number | null;
+  /** Newest first; recurring windows have automatic updates per occurrence only. */
+  updates: MaintenanceUpdateDto[];
   services: ServiceRef[];
 }
 
