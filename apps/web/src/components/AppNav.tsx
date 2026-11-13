@@ -70,6 +70,7 @@ const MANAGE: Section[] = [
   { to: '/admin/maintenance', label: 'Maintenance', icon: 'calendar', min: 'viewer' },
   { to: '/admin/templates', label: 'Templates', icon: 'list', min: 'viewer' },
   { to: '/admin/notifications', label: 'Notifications', icon: 'bell', min: 'viewer' },
+  { to: '/admin/embed', label: 'Embed & badges', icon: 'external', min: 'viewer' },
 ];
 const ACCESS: Section[] = [
   { to: '/admin/tokens', label: 'API tokens', icon: 'key', min: 'viewer' },

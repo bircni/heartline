@@ -95,6 +95,17 @@ const subscriptionManage = createRoute({
   component: lazyRouteComponent(() => import('./pages/SubscriptionPages.tsx'), 'ManagePage'),
 });
 
+const embed = createRoute({
+  getParentRoute: () => root,
+  path: '/embed',
+  component: lazyRouteComponent(() => import('./pages/EmbedPage.tsx'), 'EmbedPage'),
+});
+const embedAdmin = createRoute({
+  getParentRoute: () => admin,
+  path: 'embed',
+  component: lazyRouteComponent(() => import('./pages/admin/EmbedAdminPage.tsx'), 'EmbedAdminPage'),
+});
+
 const login = createRoute({
   getParentRoute: () => root,
   path: '/login',
@@ -198,6 +209,7 @@ const routeTree = root.addChildren([
   plain.addChildren([subscriptionConfirm, subscriptionManage]),
   login,
   consent,
+  embed,
   admin.addChildren([
     adminIndex,
     monitors,
@@ -206,6 +218,7 @@ const routeTree = root.addChildren([
     incidents,
     templates,
     maintenance,
+    embedAdmin,
     notifications,
     tokens,
     users,

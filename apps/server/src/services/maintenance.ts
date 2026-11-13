@@ -107,7 +107,12 @@ export class MaintenanceService {
     this.#notifier = notifier;
   }
 
+  #reloadStarted = 0;
+  #reloadApplied = 0;
+
   async reload(now = Date.now()): Promise<void> {
+    // A slow reload must not overwrite the result of one that started after it (e.g. right after an update).
+    const seq = ++this.#reloadStarted;
     const db = this.#db.kysely;
     const [rows, links, updates, occurrences] = await Promise.all([
       db.selectFrom('maintenances').selectAll().orderBy('starts_at').execute(),
@@ -119,6 +124,8 @@ export class MaintenanceService {
         .where('occurrence_start', '>=', now - 60 * 86_400_000)
         .execute(),
     ]);
+    if (seq < this.#reloadApplied) return;
+    this.#reloadApplied = seq;
     this.#windows = rows.map((r) => ({
       id: r.id,
       title: r.title,

@@ -42,7 +42,7 @@ test('an incident sets service statuses, renders Markdown and publishes a postmo
   await expect(page.getByRole('status').filter({ hasText: 'Postmortem published' })).toBeVisible();
 
   await page.getByPlaceholder('What changed? This is shown publicly.').fill('Cable replaced.');
-  await page.getByRole('button', { name: 'Resolved' }).click();
+  await page.getByRole('button', { name: 'Resolved', exact: true }).click();
   await page.getByRole('button', { name: 'Post update' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Update posted' })).toBeVisible();
 
