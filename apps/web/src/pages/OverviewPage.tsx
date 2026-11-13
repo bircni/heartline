@@ -25,7 +25,7 @@ import {
   serviceNames,
   weekdayDate,
 } from '../lib/format.ts';
-import { RangeControl, rangeEndLabel, useRange } from './RangeControl.tsx';
+import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeControl.tsx';
 
 /** The current state of everything, with the open incidents underneath. */
 function StatusBanner({ data }: { data: Overview }) {
@@ -82,20 +82,19 @@ function MaintenanceRow({ window: m }: { window: Maintenance }) {
 
 function ServiceRow({
   s,
-  range,
   view,
   floor,
 }: {
   s: ServiceSummary;
-  range: ReturnType<typeof useRange>;
   view: ReturnType<typeof useTraceView>[0];
   floor: number;
 }) {
+  const linkSearch = useRangeSearch();
   return (
     <Link
       to="/services/$id"
       params={{ id: s.id }}
-      search={range}
+      search={linkSearch}
       className={`${ROW} items-center border-b border-hair py-2 text-text no-underline transition-colors last:border-b-0 hover:bg-hover`}
       aria-label={`${s.name}: ${statusLabel(s.status, s.external)}, ${pct(s.uptime)} uptime. Open details.`}
     >
@@ -162,7 +161,7 @@ function ExternalSection({
         <div key={g.name}>
           <h3 className="group-head m-0 border-t">{g.name}</h3>
           {g.services.map((s) => (
-            <ServiceRow key={s.id} s={s} range={range} view={view} floor={floor} />
+            <ServiceRow key={s.id} s={s} view={view} floor={floor} />
           ))}
         </div>
       ))}
@@ -231,7 +230,7 @@ export function OverviewPage() {
                   <div key={g.name}>
                     <h3 className="group-head m-0 border-t">{g.name}</h3>
                     {g.services.map((s) => (
-                      <ServiceRow key={s.id} s={s} range={range} view={view} floor={floor} />
+                      <ServiceRow key={s.id} s={s} view={view} floor={floor} />
                     ))}
                   </div>
                 ),

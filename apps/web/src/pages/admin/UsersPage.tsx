@@ -56,7 +56,7 @@ export function UsersPage() {
               key={u.id}
               className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
             >
-              <Avatar name={u.name} size={32} />
+              <Avatar name={u.name} image={u.image} size={32} />
               <span className="min-w-0 flex-[1_1_180px]">
                 <span className="block font-medium">
                   {u.name}

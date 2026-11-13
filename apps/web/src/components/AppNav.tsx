@@ -3,7 +3,7 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useNavOverview, useOverview, useSoftwareInventory } from '../lib/api.ts';
 import { can } from '../lib/roles.ts';
-import { useRange } from '../pages/RangeControl.tsx';
+import { useRange, useRangeSearch } from '../pages/RangeControl.tsx';
 import { Icon, type IconName } from './Icon.tsx';
 import { StatusDot } from './Status.tsx';
 
@@ -80,6 +80,7 @@ const ACCESS: Section[] = [
  */
 export function AppNav({ me }: { me: Me }) {
   const range = useRange();
+  const linkSearch = useRangeSearch();
   const path = useRouterState({ select: (s) => s.location.pathname });
   // On the overview the page's own query serves the sidebar too; elsewhere a lighter one does.
   const page = useOverview(range, path === '/');
@@ -88,9 +89,10 @@ export function AppNav({ me }: { me: Me }) {
   const software = useSoftwareInventory();
   const open = overview.data?.activeIncidents.length ?? 0;
   const urgent = software.data ? software.data.totals.critical + software.data.totals.high : 0;
-  const counts: Record<string, string | undefined> = {
-    '/admin/incidents': open ? `${open} open` : undefined,
-    '/admin/software': urgent ? `${urgent} urgent` : undefined,
+  // Only counts that need attention are shown, and each says whether it is urgent.
+  const counts: Record<string, { label: string; urgent: boolean } | undefined> = {
+    '/admin/incidents': open ? { label: `${open} open`, urgent: true } : undefined,
+    '/admin/software': urgent ? { label: `${urgent} urgent`, urgent: true } : undefined,
   };
   const items = (sections: Section[]) =>
     sections
@@ -102,15 +104,15 @@ export function AppNav({ me }: { me: Me }) {
           icon={s.icon}
           label={s.label}
           current={path.startsWith(s.to)}
-          count={counts[s.to]}
-          urgent
+          count={counts[s.to]?.label}
+          urgent={counts[s.to]?.urgent}
         />
       ));
 
   return (
     <>
       <NavGroup>
-        <NavItem to="/" search={range} icon="grid" label="Overview" current={path === '/'} />
+        <NavItem to="/" search={linkSearch} icon="grid" label="Overview" current={path === '/'} />
         {items(MANAGE)}
       </NavGroup>
       <NavGroup label="Access">{items(ACCESS)}</NavGroup>
@@ -121,7 +123,7 @@ export function AppNav({ me }: { me: Me }) {
               key={s.id}
               to="/services/$id"
               params={{ id: s.id }}
-              search={range}
+              search={linkSearch}
               leading={
                 <span className="flex w-[15px] justify-center">
                   <StatusDot status={s.status} />

@@ -18,7 +18,7 @@ import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
 import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
 import { DAY_BG, DAY_MS, dayTicks, incidentTone, ms, pct, relative, time } from '../lib/format.ts';
-import { RangeControl, rangeEndLabel, useRange } from './RangeControl.tsx';
+import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeControl.tsx';
 
 const CHECK_TONE = {
   up: 'var(--ok)',
@@ -51,6 +51,7 @@ function troubleBands(data: ServiceDetail): ChartBand[] {
 export function ServicePage() {
   const { id } = useParams({ from: '/public/services/$id' });
   const range = useRange(30);
+  const linkSearch = useRangeSearch();
   const [view] = useTraceView();
   const { data, error, isPending } = useService(id, range);
   const me = useMe();
@@ -77,7 +78,7 @@ export function ServicePage() {
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <Link to="/" search={range} className="font-normal text-muted no-underline hover:text-text">
+            <Link to="/" search={linkSearch} className="font-normal text-muted no-underline hover:text-text">
               Overview /
             </Link>
             {data.name}

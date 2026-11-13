@@ -202,7 +202,7 @@ export function adminRoutes(app: AppContext) {
     const db = app.db.kysely;
     const users = await db
       .selectFrom('user')
-      .select(['id', 'name', 'email', 'role', 'createdAt'])
+      .select(['id', 'name', 'email', 'image', 'role', 'createdAt'])
       .orderBy('createdAt')
       .execute();
     const accounts = await db.selectFrom('account').select(['userId', 'providerId']).execute();
@@ -210,6 +210,7 @@ export function adminRoutes(app: AppContext) {
       id: u.id,
       name: u.name,
       email: u.email,
+      image: u.image ?? null,
       role: isRole(u.role) ? u.role : 'viewer',
       providers: accounts.filter((a) => a.userId === u.id).map((a) => a.providerId),
       createdAt: new Date(u.createdAt as string | number | Date).getTime(),

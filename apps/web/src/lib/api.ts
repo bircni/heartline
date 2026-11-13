@@ -68,13 +68,13 @@ export const useBootstrap = () =>
 /** The site title from status.yaml, "Status" until it has loaded. */
 export const useSiteTitle = () => useBootstrap().data?.site.title ?? 'Status';
 
-export const useMe = () =>
-  useQuery({
-    queryKey: ['me'],
-    // 204 when signed out, so anonymous visitors do not see 401s in the console.
-    queryFn: async () => (await api<Me | undefined>('/api/v1/me')) ?? null,
-    refetchInterval: false,
-  });
+export const meQueryOptions = {
+  queryKey: ['me'],
+  // 204 when signed out, so anonymous visitors do not see 401s in the console.
+  queryFn: async () => (await api<Me | undefined>('/api/v1/me')) ?? null,
+  refetchInterval: false as const,
+};
+export const useMe = () => useQuery(meQueryOptions);
 /** History range of the overview and service pages: `days` ending with the day `to` (today when unset). */
 export type Range = {
   days: number;

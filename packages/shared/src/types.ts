@@ -289,6 +289,8 @@ export interface UserDto {
   id: string;
   name: string;
   email: string;
+  /** Profile picture from single sign-on, if any. */
+  image: string | null;
   role: Role;
   providers: string[];
   createdAt: number;

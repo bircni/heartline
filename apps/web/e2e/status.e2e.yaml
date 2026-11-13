@@ -17,3 +17,4 @@ groups:
 auth:
   users:
     - { email: admin@e2e.local, name: E2E Admin, password: e2e-admin-password, role: admin }
+    - { email: editor@e2e.local, name: E2E Editor, password: e2e-editor-password, role: editor }

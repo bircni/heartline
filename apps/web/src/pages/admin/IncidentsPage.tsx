@@ -1,6 +1,6 @@
 import type { Impact, Incident, IncidentStatus } from '@heartline/shared';
 import { IMPACTS, INCIDENT_STATUSES } from '@heartline/shared';
-import { useSearch } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
@@ -8,7 +8,7 @@ import { Segmented } from '../../components/Segmented.tsx';
 import { Switch } from '../../components/Switch.tsx';
 import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { api, useAdminMonitors, useIncidents, useMe } from '../../lib/api.ts';
-import { IMPACT_LABEL, dateTime, duration } from '../../lib/format.ts';
+import { IMPACT_LABEL, dateTime, duration, incidentTone } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -119,10 +119,12 @@ function Detail({
   incident,
   canWrite,
   canDelete,
+  onDeleted,
 }: {
   incident: Incident;
   canWrite: boolean;
   canDelete: boolean;
+  onDeleted: () => void;
 }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<IncidentStatus>(incident.status);
@@ -145,7 +147,10 @@ function Detail({
   });
   const remove = useMutation({
     mutationFn: () => api(`/api/v1/admin/incidents/${incident.id}`, { method: 'DELETE' }),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      onDeleted();
+      await refresh();
+    },
   });
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(incident.title);
@@ -167,7 +172,10 @@ function Detail({
     <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs font-medium" style={{ color: open ? 'var(--warn-text)' : 'var(--sec)' }}>
+          <div
+            className="text-xs font-medium"
+            style={{ color: open ? incidentTone(incident).text : 'var(--sec)' }}
+          >
             {cap(incident.status)} · {IMPACT_LABEL[incident.impact]} ·{' '}
             {incident.services.map((s) => s.name).join(', ') || 'no services'}
           </div>
@@ -301,6 +309,7 @@ export function IncidentsPage() {
   const me = useMe();
   // A link from the public incident page opens that incident directly.
   const { incident: linked } = useSearch({ strict: false }) as { incident?: string };
+  const navigate = useNavigate();
   const [picked, setSelected] = useState<string | null>(linked ?? null);
   const canWrite = can(me.data?.role, 'editor');
   if (incidents.isPending) return <Spinner />;
@@ -331,13 +340,13 @@ export function IncidentsPage() {
               key={i.id}
               type="button"
               onClick={() => setSelected(i.id)}
-              aria-current={selected === i.id}
+              aria-current={selected === i.id ? 'true' : undefined}
               className={`row-btn ${idx === 0 ? 'border-t-0' : ''} ${selected === i.id ? 'bg-sel' : ''}`}
             >
               <span
                 aria-hidden="true"
                 className="block h-2 w-2 shrink-0 rounded-full"
-                style={{ background: i.resolvedAt ? 'var(--fill-2)' : 'var(--warn)' }}
+                style={{ background: i.resolvedAt ? 'var(--fill-2)' : incidentTone(i).dot }}
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{i.title}</span>
@@ -358,6 +367,11 @@ export function IncidentsPage() {
               incident={current}
               canWrite={canWrite}
               canDelete={can(me.data?.role, 'admin')}
+              onDeleted={() => {
+                setSelected(null);
+                // Drop a stale ?incident= link so the list falls back to the newest incident.
+                if (linked) void navigate({ to: '/admin/incidents', search: {}, replace: true });
+              }}
             />
           ) : (
             <Empty>Select an incident</Empty>
