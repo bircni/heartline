@@ -14,7 +14,7 @@ const NAMES: Record<Theme, string> = {
 
 /** Theme button with a popover for the colour and dark or light appearance. */
 export function ThemeMenu({ placement = 'below' }: { placement?: 'below' | 'above' }) {
-  const { dark, accent, setDark, setAccent } = useTheme();
+  const { appearance, accent, setAppearance, setAccent } = useTheme();
   const { ref: popRef, ...pop } = usePopover();
   return (
     <div ref={popRef} className="relative">
@@ -56,9 +56,10 @@ export function ThemeMenu({ placement = 'below' }: { placement?: 'below' | 'abov
           <div className="mt-2 border-t border-hair pt-2">
             <Segmented
               label="Appearance"
-              value={dark ? 'dark' : 'light'}
-              onChange={(v) => setDark(v === 'dark')}
+              value={appearance}
+              onChange={setAppearance}
               options={[
+                { value: 'system', label: 'System' },
                 { value: 'dark', label: 'Dark' },
                 { value: 'light', label: 'Light' },
               ]}

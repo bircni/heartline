@@ -16,9 +16,14 @@ import {
   fieldErrorsOf,
 } from '../../components/ui.tsx';
 import { api, useMaintenance, useMe } from '../../lib/api.ts';
-import { dateTime } from '../../lib/format.ts';
+import { dateTime, displayDay, fromZonedInput, toZonedInput, zoneShort } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 import { ServicePicker } from './IncidentsPage.tsx';
+
+const monthShort = (day: string) =>
+  new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' }).format(
+    Date.parse(`${day}T00:00:00Z`),
+  );
 
 const PRESETS: { label: string; value: string }[] = [
   { label: 'Once', value: '' },
@@ -27,25 +32,14 @@ const PRESETS: { label: string; value: string }[] = [
   { label: 'Monthly', value: 'FREQ=MONTHLY' },
 ];
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
-function localInput(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: () => void }) {
   const qc = useQueryClient();
-  const [start] = useState(() => {
-    const d = new Date(Date.now() + 86_400_000);
-    d.setMinutes(0, 0, 0);
-    return d;
-  });
+  // Tomorrow at this hour by default; times are entered in the site's time zone, like they are shown.
+  const [start] = useState(() => Math.floor((Date.now() + 86_400_000) / 3_600_000) * 3_600_000);
   const [title, setTitle] = useState(existing?.title ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
-  const [startsAt, setStartsAt] = useState(localInput(existing ? new Date(existing.startsAt) : start));
-  const [endsAt, setEndsAt] = useState(
-    localInput(existing ? new Date(existing.endsAt) : new Date(start.getTime() + 30 * 60_000)),
-  );
+  const [startsAt, setStartsAt] = useState(toZonedInput(existing ? existing.startsAt : start));
+  const [endsAt, setEndsAt] = useState(toZonedInput(existing ? existing.endsAt : start + 30 * 60_000));
   const [recurrence, setRecurrence] = useState(existing?.recurrence ?? '');
   const [services, setServices] = useState<string[]>(existing?.services.map((s) => s.id) ?? []);
   const [orderError, setOrderError] = useState<string | null>(null);
@@ -54,8 +48,8 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       const body = {
         title,
         description: description || (existing ? null : undefined),
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: new Date(endsAt).toISOString(),
+        startsAt: new Date(fromZonedInput(startsAt)).toISOString(),
+        endsAt: new Date(fromZonedInput(endsAt)).toISOString(),
         recurrence: recurrence || (existing ? null : undefined),
         services,
       };
@@ -87,7 +81,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       className="p-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (Date.parse(endsAt) <= Date.parse(startsAt)) {
+        if (fromZonedInput(endsAt) <= fromZonedInput(startsAt)) {
           setOrderError('The window must end after it starts.');
           return;
         }
@@ -117,7 +111,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           />
         </Field>
         <div className="grid grid-cols-2 gap-x-3">
-          <Field label="Starts" htmlFor="mt-start">
+          <Field label={`Starts (${zoneShort(fromZonedInput(startsAt) || start)})`} htmlFor="mt-start">
             <input
               id="mt-start"
               type="datetime-local"
@@ -127,7 +121,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
               onChange={(e) => setStartsAt(e.target.value)}
             />
           </Field>
-          <Field label="Ends" htmlFor="mt-end">
+          <Field label={`Ends (${zoneShort(fromZonedInput(endsAt) || start)})`} htmlFor="mt-end">
             <input
               id="mt-end"
               type="datetime-local"
@@ -225,17 +219,16 @@ export function MaintenancePage() {
             </EmptyState>
           )}
           {list.data.map((m, i) => {
-            const start = new Date(m.nextStartsAt ?? m.startsAt);
+            const start = m.nextStartsAt ?? m.startsAt;
+            const day = displayDay(start);
             return (
               <div
                 key={m.id}
                 className={`flex items-center gap-4 px-4 py-3 ${i ? 'border-t border-hair' : ''}`}
               >
                 <span className="w-12 shrink-0 rounded-md bg-fill py-2 text-center">
-                  <span className="block text-xs text-muted">
-                    {start.toLocaleString(undefined, { month: 'short' })}
-                  </span>
-                  <span className="block text-2xl font-medium leading-6">{start.getDate()}</span>
+                  <span className="block text-xs text-muted">{monthShort(day)}</span>
+                  <span className="block text-2xl font-medium leading-6">{Number(day.slice(8))}</span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">

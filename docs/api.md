@@ -9,7 +9,9 @@ Public (or for any signed-in user when `site.public: false`):
 - `GET /api/v1/site`, `GET /api/v1/me`, `GET /api/v1/version`
 - `GET /api/v1/overview?days=90`, `GET /api/v1/services/:id?days=30`; add `&to=YYYY-MM-DD` to end the
   range on an earlier day (site time zone)
-- `GET /api/v1/incidents?active=true&limit=50`, `GET /api/v1/incidents/:id`, `GET /api/v1/maintenance`, `GET /api/v1/maintenance/:id`
+- `GET /api/v1/incidents?limit=50` with optional `state=open|resolved`, `q` (title text), `impact`, `service`;
+  a full page sends `X-Next-Cursor`, pass it as `before` for the next one. `GET /api/v1/incidents/:id`,
+  `GET /api/v1/maintenance`, `GET /api/v1/maintenance/:id`
 - `GET /api/v1/report.csv?days=90`, `GET /api/v1/services/:id/report.csv` (both also take `to`)
 - `GET /api/v1/badge/:id.svg` (`?kind=version` for a version badge), `GET /api/v1/incidents.rss`
 

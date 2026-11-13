@@ -481,9 +481,27 @@ const paths: Record<string, Record<string, Op>> = {
       tags: ['Public'],
       parameters: [
         { name: 'active', in: 'query', schema: bool() },
+        { name: 'state', in: 'query', schema: en(['open', 'resolved']) },
         { name: 'limit', in: 'query', schema: int({ minimum: 1, maximum: 200, default: 50 }) },
+        {
+          name: 'before',
+          in: 'query',
+          schema: str(),
+          description: 'Page cursor: the X-Next-Cursor header of the previous page',
+        },
+        { name: 'q', in: 'query', schema: str(), description: 'Text in the title' },
+        { name: 'impact', in: 'query', schema: en(IMPACTS) },
+        { name: 'service', in: 'query', schema: str(), description: 'Service id' },
       ],
-      responses: { 200: json(arr(ref('Incident'))) },
+      responses: {
+        200: {
+          description: 'Incidents',
+          headers: {
+            'X-Next-Cursor': { schema: str(), description: 'Present when more incidents may follow' },
+          },
+          content: { 'application/json': { schema: arr(ref('Incident')) } },
+        },
+      },
     },
   },
   '/api/v1/incidents/{id}': {

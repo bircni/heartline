@@ -36,6 +36,15 @@ export function save(key: string, value: string): void {
   notify();
 }
 
+export function forget(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* private mode */
+  }
+  notify();
+}
+
 /** A stored choice among `options`, `fallback` when unset or unknown. */
 export function useStoredChoice<T extends string>(
   key: string,

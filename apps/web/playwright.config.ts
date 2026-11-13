@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const port = 3100;
+/** A second instance with `site.public: false`. */
+const privatePort = 3101;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -18,20 +20,23 @@ export default defineConfig({
       : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    // Serves the production build from the API server, like the container does.
+  // Serves the production build from the API server, like the container does: one public, one private site.
+  webServer: [
+    { port, config: 'e2e/status.e2e.yaml' },
+    { port: privatePort, config: 'e2e/status.private.e2e.yaml' },
+  ].map((s) => ({
     command: 'node ../server/src/index.ts',
-    url: `http://127.0.0.1:${port}/readyz`,
+    url: `http://127.0.0.1:${s.port}/readyz`,
     reuseExistingServer: false,
     timeout: 30_000,
     env: {
-      PORT: String(port),
-      BASE_URL: `http://127.0.0.1:${port}`,
-      CONFIG_PATH: 'e2e/status.e2e.yaml',
+      PORT: String(s.port),
+      BASE_URL: `http://127.0.0.1:${s.port}`,
+      CONFIG_PATH: s.config,
       DATABASE_URL: 'sqlite::memory:',
       PLUGINS_DIR: '../../plugins',
       WEB_DIST: 'dist',
       LOG_LEVEL: 'warn',
     },
-  },
+  })),
 });

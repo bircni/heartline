@@ -10,7 +10,7 @@ updates. [`status.example.yaml`](../status.example.yaml) is a complete starting 
 site:
   title: Homelab status
   description: Availability of self-hosted services
-  timezone: Europe/Berlin # days, ranges and reports follow this zone
+  timezone: Europe/Berlin # days, ranges, reports and every time shown on the page follow this zone
   # baseUrl: https://status.example.com   # defaults to BASE_URL
   # logoUrl: https://example.com/logo.svg
   public: true # false: the status page and public API need a signed-in user or a token

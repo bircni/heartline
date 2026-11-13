@@ -1,0 +1,11 @@
+site:
+  title: Private E2E status
+  timezone: Pacific/Auckland
+  public: false
+groups:
+  - name: Core
+    monitors:
+      - { id: self-tcp, name: Status port, type: tcp, host: 127.0.0.1, port: 3101, interval: 5s }
+auth:
+  users:
+    - { email: admin@e2e.local, name: E2E Admin, password: e2e-admin-password, role: admin }

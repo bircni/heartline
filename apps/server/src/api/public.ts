@@ -1,4 +1,13 @@
-import type { AppVersion, AuthProviders, Bootstrap, DayState, Me, UrgencyLevel } from '@heartline/shared';
+import type {
+  AppVersion,
+  AuthProviders,
+  Bootstrap,
+  DayState,
+  Impact,
+  Me,
+  UrgencyLevel,
+} from '@heartline/shared';
+import { IMPACTS } from '@heartline/shared';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { type Vars, requireScope } from '../auth/principal.ts';
 import type { AppContext } from '../context.ts';
@@ -98,7 +107,22 @@ export function publicRoutes(app: AppContext) {
 
   r.get('/incidents', async (c) => {
     const limit = Math.min(Number(c.req.query('limit') ?? 50) || 50, 200);
-    return c.json(await app.incidents.list({ activeOnly: c.req.query('active') === 'true', limit }));
+    const cursor = c.req.query('before')?.match(/^(\d+):(.+)$/);
+    const impact = c.req.query('impact');
+    const state = c.req.query('state');
+    const list = await app.incidents.list({
+      activeOnly: c.req.query('active') === 'true' || state === 'open',
+      resolvedOnly: state === 'resolved',
+      limit,
+      before: cursor ? { createdAt: Number(cursor[1]), id: cursor[2]! } : undefined,
+      search: c.req.query('q')?.trim().slice(0, 200) || undefined,
+      impact: impact && (IMPACTS as readonly string[]).includes(impact) ? (impact as Impact) : undefined,
+      monitorId: c.req.query('service') || undefined,
+    });
+    // A full page may have more behind it; the cursor names the last incident returned.
+    const last = list.at(-1);
+    if (list.length === limit && last) c.header('x-next-cursor', `${last.createdAt}:${last.id}`);
+    return c.json(list);
   });
 
   r.get('/incidents/:id', async (c) => c.json(await app.incidents.get(c.req.param('id'))));
