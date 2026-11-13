@@ -100,7 +100,7 @@ export function LoginPage() {
               onClick={() => void social(p.id)}
               className={`h-9 w-full ${i === 0 ? 'btn-primary' : 'btn mt-2'}`}
             >
-              <Icon name="gitea" size={16} />
+              <Icon name={/gitea/i.test(p.id) ? 'gitea' : 'key'} size={16} />
               Continue with {p.name}
             </button>
           ))}

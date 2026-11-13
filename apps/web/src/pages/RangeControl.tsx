@@ -19,6 +19,19 @@ export function useRange(fallback = 90): Range {
   };
 }
 
+/**
+ * The range params as they appear in the URL, for links to other range-aware pages. Unlike `useRange` it leaves
+ * out the fallback, so each page applies its own default (90 days on the overview, 30 on a service).
+ */
+export function useRangeSearch(): Partial<Range> {
+  const { days, to } = useSearch({ strict: false }) as { days?: unknown; to?: unknown };
+  const n = Number(days);
+  return {
+    ...(Number.isInteger(n) && n >= 1 && n <= MAX_RANGE_DAYS ? { days: n } : {}),
+    ...(typeof to === 'string' && isDayKey(to) ? { to } : {}),
+  };
+}
+
 /** Label at the right end of a time axis: the range's last day, or "Today". */
 export function rangeEndLabel({ to }: Range): string {
   return to ? shortDay(to) : 'Today';

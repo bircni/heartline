@@ -8,6 +8,8 @@ import {
   lazyRouteComponent,
   redirect,
 } from '@tanstack/react-router';
+import { meQueryOptions, queryClient } from './lib/api.ts';
+import { can } from './lib/roles.ts';
 import { IncidentHistoryPage, IncidentPage } from './pages/IncidentPage.tsx';
 import { OverviewPage } from './pages/OverviewPage.tsx';
 import { PublicLayout } from './pages/PublicLayout.tsx';
@@ -119,6 +121,11 @@ const tokens = createRoute({
 const users = createRoute({
   getParentRoute: () => admin,
   path: 'users',
+  // The nav hides Users from non-admins; a typed or bookmarked URL is redirected as well.
+  beforeLoad: async () => {
+    const me = await queryClient.ensureQueryData(meQueryOptions);
+    if (me && !can(me.role, 'admin')) throw redirect({ to: '/admin/monitors' });
+  },
   component: lazyRouteComponent(() => import('./pages/admin/UsersPage.tsx'), 'UsersPage'),
 });
 

@@ -36,6 +36,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
   );
   const [recurrence, setRecurrence] = useState(existing?.recurrence ?? '');
   const [services, setServices] = useState<string[]>(existing?.services.map((s) => s.id) ?? []);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: () => {
       const body = {
@@ -65,6 +66,11 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       className="p-4"
       onSubmit={(e) => {
         e.preventDefault();
+        if (Date.parse(endsAt) <= Date.parse(startsAt)) {
+          setOrderError('The window must end after it starts.');
+          return;
+        }
+        setOrderError(null);
         save.mutate();
       }}
     >
@@ -105,6 +111,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
             type="datetime-local"
             className="field"
             required
+            min={startsAt}
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
           />
@@ -150,9 +157,9 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>
-      {save.error && (
+      {(orderError ?? save.error) && (
         <div className="mt-3">
-          <Notice tone="bad">{save.error.message}</Notice>
+          <Notice tone="bad">{orderError ?? save.error?.message}</Notice>
         </div>
       )}
       <button type="submit" className="btn-primary mt-4 w-full" disabled={save.isPending}>

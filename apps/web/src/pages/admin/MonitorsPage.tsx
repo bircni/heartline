@@ -1015,7 +1015,7 @@ export function MonitorsPage() {
               key={m.id}
               type="button"
               className={`row-btn ${selectedId === m.id ? 'bg-sel' : ''}`}
-              aria-current={selectedId === m.id}
+              aria-current={selectedId === m.id ? 'true' : undefined}
               onClick={() => setSelected(m.id)}
             >
               <StatusDot status={m.status} />
