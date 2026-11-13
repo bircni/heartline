@@ -55,6 +55,7 @@ groups:
 | `icmp`     | `host`                                                                                                                                                                 |
 | `plugin`   | `plugin`, `args`, see [plugins](../plugins/README.md)                                                                                                                  |
 | `provider` | `provider`, `url`, `components`, `window`, `m365`, see [third-party services](#third-party-services)                                                                   |
+| `push`     | `interval` (expected heartbeat), `grace`, `heartbeat`, `token`, see [push monitors](#push-monitors)                                                                    |
 
 Add a `software` block to track the running version and its vulnerabilities, see
 [software.md](software.md).
@@ -64,6 +65,29 @@ groups under _Groups_ (or `POST /api/v1/admin/groups`), and a monitor created in
 name creates that group. A collapsed group shows its worst status, uptime and a history summed over its
 services; each visitor's open or closed choice is remembered in their browser. A group removed from
 `status.yaml` that UI-created monitors still use stays, as a UI-managed group.
+
+## Push monitors
+
+```yaml
+- { id: nightly, name: Nightly backup, type: push, interval: 1d, grace: 30m }
+- { id: alerts, name: Alertmanager, type: push, heartbeat: false }
+- { id: etl, name: ETL, type: push, interval: 1h, token: '${ETL_PUSH_TOKEN}' } # fixed URL from status.yaml
+```
+
+The service reports in instead of being checked, through a secret URL: `GET` or `POST
+/api/v1/push/<token>`. A monitor created in the UI shows its URL once; _New URL_ replaces it. Monitors from
+`status.yaml` get a URL there, or use a fixed `token` (24+ characters, best from an environment variable).
+
+- **Heartbeat** (default): every push counts as a successful check; when none arrives within `interval`
+  plus `grace` (default 1m), the service is down until the next one. For cron jobs and backups:
+  `curl -fsS -m 10 --retry 3 https://status.example.com/api/v1/push/<token>`.
+- **Webhook** (`heartbeat: false`): the status stays what the last push said. Alertmanager and Grafana
+  payloads work as they are (`status: firing|resolved`, `state: alerting|ok`).
+
+Pushes take `status` or `state` (up, ok, resolved, degraded, warning, down, firing, alerting, error,
+maintenance; default up), `msg` or `message`, `latencyMs` and `version`, as query parameters or JSON.
+The URL is the credential, so it works on private status pages too. Pushes are limited per address
+(`rateLimit.push`, default 120 per minute).
 
 ## Incident templates
 
@@ -201,6 +225,7 @@ rateLimit:
   enabled: true
   public: { max: 300, window: 1m } # anonymous API, feed and badge reads per IP and replica
   auth: { max: 10, window: 1m } # sign-in and OAuth client registration per IP, all replicas together
+  push: { max: 120, window: 1m } # push monitor reports per IP, all replicas together
   trustProxy: false # true behind a reverse proxy or ingress: the client IP comes from X-Forwarded-For
 ```
 

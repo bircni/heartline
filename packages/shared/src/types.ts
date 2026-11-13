@@ -367,6 +367,10 @@ export interface AdminMonitor {
   lastCheckedAt: number | null;
   lastMessage: string | null;
   spec: MonitorSpec;
+  /** Push monitors: the URL's recognisable start and the last push. */
+  push: { prefix: string; lastPushAt: number | null; lastPushStatus: string | null } | null;
+  /** Only in the response that created a push monitor: its URL, shown this once. */
+  pushUrl?: string;
 }
 
 export interface ApiTokenDto {

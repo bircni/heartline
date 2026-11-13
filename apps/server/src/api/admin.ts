@@ -95,6 +95,12 @@ export function adminRoutes(app: AppContext) {
 
   const adminMonitors = async (): Promise<AdminMonitor[]> => {
     const states = await app.db.kysely.selectFrom('monitor_state').selectAll().execute();
+    const pushes = await app.push.info(
+      app.monitors
+        .list()
+        .filter((m) => m.spec.type === 'push')
+        .map((m) => m.id),
+    );
     return app.monitors.list().map((m) => {
       const st = states.find((s) => s.monitor_id === m.id);
       return {
@@ -110,6 +116,7 @@ export function adminRoutes(app: AppContext) {
         lastCheckedAt: st?.last_checked_at ?? null,
         lastMessage: st?.last_message ?? null,
         spec: redactSpec(m.spec),
+        push: m.spec.type === 'push' ? (pushes.get(m.id) ?? null) : null,
       };
     });
   };
@@ -126,6 +133,8 @@ export function adminRoutes(app: AppContext) {
     validateMonitorSpec(input.spec, app);
     const group = await groupFor(app, input, principalOf(c));
     const m = await app.monitors.create(input.spec, group.id);
+    // A new push monitor gets its URL right away; it is shown this once.
+    const pushToken = m.spec.type === 'push' && !m.spec.token ? await app.push.rotate(m.id) : null;
     await audit(c, {
       action: 'monitor.create',
       entityType: 'monitor',
@@ -133,8 +142,9 @@ export function adminRoutes(app: AppContext) {
       summary: `Created monitor ${m.name}`,
       detail: { group: group.id, spec: input.spec },
     });
+    const created = (await adminMonitors()).find((x) => x.id === m.id);
     return c.json(
-      (await adminMonitors()).find((x) => x.id === m.id),
+      pushToken ? { ...created, pushUrl: `${app.env.baseUrl}/api/v1/push/${pushToken}` } : created,
       201,
     );
   });
@@ -155,6 +165,19 @@ export function adminRoutes(app: AppContext) {
       detail: { group: group.id, spec },
     });
     return c.json((await adminMonitors()).find((x) => x.id === c.req.param('id')));
+  });
+  r.post('/monitors/:id/push-token', admin, async (c) => {
+    const m = app.monitors.require(c.req.param('id'));
+    if (m.spec.type === 'push' && m.spec.token)
+      throw new ConflictError('this monitor has a fixed token in status.yaml');
+    const token = await app.push.rotate(m.id);
+    await audit(c, {
+      action: 'monitor.push_token',
+      entityType: 'monitor',
+      entityId: m.id,
+      summary: `Created a new push URL for ${m.name}`,
+    });
+    return c.json({ token, url: `${app.env.baseUrl}/api/v1/push/${token}` });
   });
   r.delete('/monitors/:id', admin, async (c) => {
     const id = c.req.param('id');

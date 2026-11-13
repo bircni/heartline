@@ -191,6 +191,24 @@ export const pluginMonitorSchema = z.object({
   args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
 });
 
+/**
+ * The service reports in instead of being checked: a cron job pinging after each run (heartbeat), or an
+ * alerting tool sending its state (webhook, `heartbeat: false`).
+ */
+export const pushMonitorSchema = z.object({
+  ...base,
+  type: z.literal('push'),
+  /** How often a heartbeat is expected. */
+  interval: duration.default(300_000),
+  /** Extra time after `interval` before a missing heartbeat counts as down. */
+  grace: duration.default(60_000),
+  /** false: no heartbeat is expected; the last pushed status stays until the next push. */
+  heartbeat: z.boolean().default(true),
+  failureThreshold: z.number().int().min(1).max(20).default(1),
+  /** Fixed secret for the push URL (24+ characters), for monitors defined in status.yaml. */
+  token: z.string().min(24).max(200).optional(),
+});
+
 /** Status of a third-party service, read from its public status page or API. */
 export const providerMonitorSchema = z.object({
   ...base,
@@ -225,6 +243,7 @@ export const monitorSpecSchema = z
     icmpMonitorSchema,
     pluginMonitorSchema,
     providerMonitorSchema,
+    pushMonitorSchema,
   ])
   .superRefine((m, ctx) => {
     if (m.dependsOn.includes(m.id))
@@ -252,7 +271,15 @@ export const monitorSpecSchema = z
     }
     // Without an HTTP response (or a plugin result) there is nothing to read a version from.
     const probe = m.software?.version;
-    if (m.software && m.type !== 'http' && m.type !== 'plugin' && !probe?.url && !probe?.static) {
+    // Push monitors can send their version with each push.
+    if (
+      m.software &&
+      m.type !== 'http' &&
+      m.type !== 'plugin' &&
+      m.type !== 'push' &&
+      !probe?.url &&
+      !probe?.static
+    ) {
       ctx.addIssue({
         code: 'custom',
         message: `${m.type} monitors need software.version.url or software.version.static`,
@@ -271,6 +298,7 @@ export const MONITOR_KINDS = [
   'icmp',
   'plugin',
   'provider',
+  'push',
 ] as const satisfies MonitorKind[];
 
 export const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'] as const;

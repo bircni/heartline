@@ -9,6 +9,7 @@ import { onError } from './api/errors.ts';
 import { rateLimit } from './api/rate-limit.ts';
 import { docsHtml, openApiDocument } from './api/openapi.ts';
 import { bootstrapRoutes, publicRoutes } from './api/public.ts';
+import { pushRoutes } from './api/push.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
 import { mcpHandler } from './mcp/server.ts';
@@ -64,7 +65,16 @@ export function createApp(app: AppContext) {
 
   h.use('/api/v1/*', principalMiddleware(app));
   // Anonymous reads are limited per replica; signed-in users and API tokens are not.
-  h.use('/api/v1/*', rateLimit(app, 'public', { shared: false, skip: (c) => c.get('principal') !== null }));
+  h.use(
+    '/api/v1/*',
+    rateLimit(app, 'public', {
+      shared: false,
+      // Pushes have their own limit.
+      skip: (c) => c.get('principal') !== null || c.req.path.startsWith('/api/v1/push/'),
+    }),
+  );
+  // Before the public routes: the push secret is the credential, also on private sites.
+  h.route('/api/v1', pushRoutes(app));
   h.route('/api/v1', bootstrapRoutes(app));
   h.route('/api/v1/admin', adminRoutes(app));
   h.route('/api/v1', publicRoutes(app));

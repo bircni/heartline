@@ -3,12 +3,18 @@ import { runCheck } from '../checks/index.ts';
 import type { PluginRegistry } from '../checks/plugins.ts';
 import type { CheckOutcome } from '../checks/types.ts';
 import type { Db } from '../db/index.ts';
+import type { PushService } from '../services/push.ts';
 import type { LoadedMonitor, MonitorService } from '../services/monitors.ts';
 import type { StatusEngine } from '../status/engine.ts';
 import { log } from '../util/log.ts';
 import { dayKey } from '@heartline/shared';
 
 const LOCK_KEY = 7_271_337;
+
+/** How often a monitor runs: its interval, but push monitors are watched at least every minute. */
+function periodOf(m: LoadedMonitor): number {
+  return m.spec.type === 'push' ? Math.min(m.spec.interval, 60_000) : m.spec.interval;
+}
 
 /**
  * Runs every active monitor on its interval. With Postgres, only the replica holding an advisory
@@ -32,6 +38,8 @@ export class Scheduler {
   retentionDays = 30;
   /** Extra leader-only cleanup run with housekeeping, e.g. pruning the audit log. */
   housekeepingTasks: { name: string; run: (now: number) => Promise<void> }[] = [];
+  /** Watches push monitors for missing heartbeats. */
+  push: PushService | null = null;
   /** Called after every recorded check (version tracking). Errors are logged, never propagated. */
   onOutcome: ((monitor: LoadedMonitor, outcome: CheckOutcome) => Promise<void>) | null = null;
 
@@ -128,7 +136,8 @@ export class Scheduler {
     const active = new Map(
       this.#monitors
         .list()
-        .filter((m) => !m.paused)
+        // Webhook-style push monitors keep their last pushed status; nothing to watch.
+        .filter((m) => !m.paused && !(m.spec.type === 'push' && !m.spec.heartbeat))
         .map((m) => [m.id, m]),
     );
     for (const [id, timer] of this.#timers) {
@@ -152,7 +161,7 @@ export class Scheduler {
       const current = this.#monitors.get(monitor.id);
       if (!current || current.paused || !this.#leader) return;
       await this.runNow(current);
-      if (this.#timers.get(monitor.id) === timer) this.#schedule(current, current.spec.interval);
+      if (this.#timers.get(monitor.id) === timer) this.#schedule(current, periodOf(current));
     }, delay);
     timer.unref();
     this.#timers.set(monitor.id, timer);
@@ -173,16 +182,15 @@ export class Scheduler {
     if (this.#running.has(monitor.id)) return null;
     this.#running.add(monitor.id);
     try {
+      if (monitor.spec.type === 'push') {
+        if (!this.push) return null;
+        const { outcome, record } = await this.push.watchdog(monitor);
+        if (record) await this.#engine.record(monitor, outcome);
+        return outcome;
+      }
       const outcome = await runCheck(monitor.spec, this.#plugins, this.#abort.signal);
       if (this.#abort.signal.aborted) return outcome;
-      await this.#engine.record(monitor, outcome);
-      if (this.onOutcome) {
-        try {
-          await this.onOutcome(monitor, outcome);
-        } catch (error) {
-          log.error('post-check hook failed', { service: monitor.id, error });
-        }
-      }
+      await this.#record(monitor, outcome);
       return outcome;
     } catch (error) {
       log.error('check failed unexpectedly', { service: monitor.id, error });
@@ -190,6 +198,22 @@ export class Scheduler {
     } finally {
       this.#running.delete(monitor.id);
     }
+  }
+
+  async #record(monitor: LoadedMonitor, outcome: CheckOutcome, at?: number): Promise<void> {
+    await this.#engine.record(monitor, outcome, at);
+    if (this.onOutcome) {
+      try {
+        await this.onOutcome(monitor, outcome);
+      } catch (error) {
+        log.error('post-check hook failed', { service: monitor.id, error });
+      }
+    }
+  }
+
+  /** Records a result the service pushed itself; works on every replica, not only the leader. */
+  ingest(monitor: LoadedMonitor, outcome: CheckOutcome, at = Date.now()): Promise<void> {
+    return this.#track(this.#record(monitor, outcome, at));
   }
 
   housekeeping(now = Date.now()): Promise<void> {

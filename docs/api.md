@@ -4,6 +4,9 @@ The full description is served by the instance: `GET /api/v1/openapi.json` (Open
 `/api/docs`. Timestamps are Unix milliseconds. Admin routes take the browser session or
 `Authorization: Bearer hl_…` with an API token whose scopes are `read` ⊂ `write` ⊂ `admin`.
 
+Push monitors report to `GET|POST /api/v1/push/:token` (no sign-in, also on private sites); see
+[push monitors](configuration.md#push-monitors).
+
 Public (or for any signed-in user when `site.public: false`):
 
 - `GET /api/v1/site`, `GET /api/v1/me`, `GET /api/v1/version`
@@ -32,6 +35,7 @@ Admin (`/api/v1/admin/…`):
 | `POST maintenance`, `PUT maintenance/:id`, `DELETE maintenance/:id`, `POST maintenance/:id/updates`                                | write |
 | `POST tokens`, `DELETE tokens/:id` (own; `GET tokens?all=true` needs admin)                                                        | read  |
 | `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |
+| `POST monitors/:id/push-token` (new push URL)                                                                                      | admin |
 | `GET users`, `POST users`, `PATCH users/:id`, `DELETE users/:id`                                                                   | admin |
 | `GET audit?limit&before&entityType&entityId&actor` (newest first; page with `before` = the last `at`)                              | admin |
 
