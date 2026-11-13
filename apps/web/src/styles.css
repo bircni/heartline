@@ -25,6 +25,10 @@
   --ok: #1fa35c;
   --warn: #e0900a;
   --bad: #d93a2b;
+  /* Partial outage: between degraded (amber) and down (red). */
+  --partial: #e8590c;
+  --partial-text: #b34407;
+  --partial-bg: rgb(232 89 12 / 0.1);
   --maint: #2f6fdb;
   --ok-text: #12733f;
   --warn-text: #8f5600;
@@ -62,6 +66,9 @@
   --ok: #30c074;
   --warn: #f5a524;
   --bad: #f0503f;
+  --partial: #fb7a2e;
+  --partial-text: #ff9b5c;
+  --partial-bg: rgb(251 122 46 / 0.16);
   --maint: #4c8df6;
   --ok-text: #4fd58d;
   --warn-text: #f5b041;
@@ -110,6 +117,7 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  --color-partial: var(--partial);
   --color-maint: var(--maint);
   --color-ok-text: var(--ok-text);
   --color-warn-text: var(--warn-text);
@@ -249,4 +257,72 @@
 /* A field whose value the server rejected. */
 .field-invalid :is(input, select, textarea) {
   border-color: var(--bad);
+}
+
+/* Rendered Markdown of incident updates, postmortems and maintenance descriptions. */
+.markdown {
+  overflow-wrap: anywhere;
+  & > :first-child {
+    margin-top: 0;
+  }
+  & > :last-child {
+    margin-bottom: 0;
+  }
+  & p,
+  & ul,
+  & ol,
+  & pre,
+  & blockquote {
+    margin: 0.4em 0;
+  }
+  & ul,
+  & ol {
+    padding-left: 1.4em;
+  }
+  & h1,
+  & h2,
+  & h3,
+  & h4 {
+    margin: 0.8em 0 0.3em;
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text);
+  }
+  & a {
+    color: var(--text);
+  }
+  & code {
+    border-radius: 4px;
+    background: var(--fill);
+    padding: 0 0.3em;
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+  & pre {
+    overflow-x: auto;
+    border-radius: 6px;
+    background: var(--fill);
+    padding: 0.6em 0.8em;
+  }
+  & pre code {
+    background: none;
+    padding: 0;
+  }
+  & blockquote {
+    border-left: 3px solid var(--hair);
+    padding-left: 0.8em;
+    color: var(--sec);
+  }
+  & hr {
+    border: 0;
+    border-top: 1px solid var(--hair);
+  }
+  & table {
+    border-collapse: collapse;
+  }
+  & th,
+  & td {
+    border: 1px solid var(--hair);
+    padding: 0.2em 0.5em;
+  }
 }

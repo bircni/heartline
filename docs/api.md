@@ -27,6 +27,8 @@ Admin (`/api/v1/admin/…`):
 | `GET monitors`, `GET monitors/:id`, `GET plugins`, `GET notifiers`, `GET software/catalog`, `GET tokens`                           | read  |
 | `POST monitors/:id/run`, `POST monitors/:id/pause`, `POST monitors/:id/software/refresh`, `POST software/refresh`                  | write |
 | `POST incidents`, `PATCH incidents/:id`, `POST incidents/:id/updates`                                                              | write |
+| `GET incidents/:id` (with draft postmortem), `PUT incidents/:id/postmortem`, `DELETE incidents/:id/postmortem`                     | write |
+| `GET templates?kind=`, `POST templates`, `PUT templates/:id`, `DELETE templates/:id` (`GET` needs read)                            | write |
 | `POST maintenance`, `PUT maintenance/:id`, `DELETE maintenance/:id`                                                                | write |
 | `POST tokens`, `DELETE tokens/:id` (own; `GET tokens?all=true` needs admin)                                                        | read  |
 | `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |

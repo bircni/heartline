@@ -57,11 +57,18 @@ export interface IncidentTable {
   created_at: number;
   resolved_at: number | null;
   created_by: string | null;
+  /** Impact set by hand; null when it follows the services' statuses. */
+  impact_override: string | null;
+  updated_at: number;
+  postmortem: string | null;
+  postmortem_published_at: number | null;
 }
 
 export interface IncidentServiceTable {
   incident_id: string;
   monitor_id: string;
+  /** operational, degraded, partial or down. */
+  status: string;
 }
 
 export interface IncidentUpdateTable {
@@ -71,6 +78,31 @@ export interface IncidentUpdateTable {
   message: string;
   created_at: number;
   author: string | null;
+  notify: number;
+}
+
+export interface IncidentUpdateComponentTable {
+  update_id: string;
+  monitor_id: string;
+  old_status: string | null;
+  new_status: string;
+}
+
+export interface TemplateTable {
+  id: string;
+  kind: 'incident' | 'maintenance';
+  name: string;
+  title: string;
+  body: string;
+  status: string | null;
+  impact: string | null;
+  /** JSON: [{ id, status }]. */
+  services: string;
+  duration_ms: number | null;
+  source: 'config' | 'db';
+  position: number;
+  created_at: number;
+  updated_at: number;
 }
 
 export interface MaintenanceTable {
@@ -253,6 +285,8 @@ export interface Database {
   intel_cache: IntelCacheTable;
   audit_log: AuditLogTable;
   monitor_groups: MonitorGroupTable;
+  incident_update_components: IncidentUpdateComponentTable;
+  templates: TemplateTable;
   rate_limits: RateLimitTable;
   user: UserTable;
   account: AccountTable;

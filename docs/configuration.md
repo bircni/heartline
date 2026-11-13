@@ -65,6 +65,40 @@ name creates that group. A collapsed group shows its worst status, uptime and a 
 services; each visitor's open or closed choice is remembered in their browser. A group removed from
 `status.yaml` that UI-created monitors still use stays, as a UI-managed group.
 
+## Incident templates
+
+```yaml
+templates:
+  - id: db-failover # optional; derived from the name
+    kind: incident
+    name: Database failover # shown in the template picker
+    title: Database failover in progress
+    body: We are switching to the standby database. **Writes may fail** for a few minutes. # Markdown
+    status: identified
+    impact: major # optional; without it the impact follows the services
+    services: [{ id: api, status: down }, web] # a bare id takes its status from the impact
+  - kind: maintenance
+    name: Patch day
+    title: Monthly OS patches
+    body: Hosts reboot one at a time.
+    duration: 2h
+    services: [web, api]
+```
+
+Templates from `status.yaml` are read-only in the UI; more can be added under _Templates_.
+
+## Incidents
+
+An incident lists the services it affects, each with a status: operational, degraded performance,
+partial outage or major outage. While the incident is open, the status page shows that status instead
+of what the checks report (the checks keep running and uptime is still measured from them). Each update
+can change these statuses. The incident's impact follows its worst service unless set by hand, and keeps
+the worst it reached. An incident without services counts with its impact (`none` changes nothing).
+
+Updates, postmortems and maintenance descriptions are Markdown. An incident or update dated in the past
+(`createdAt`) is a write-up after the fact: it lands at its own time and never notifies anyone.
+Postmortems stay drafts until published; then they appear on the incident page.
+
 ## Third-party services
 
 `provider` monitors follow the status the provider itself publishes: Atlassian, GitHub,

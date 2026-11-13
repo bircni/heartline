@@ -72,4 +72,10 @@ test('signed-in users get one sidebar with the status page, management and servi
   await page.getByRole('link', { name: 'Manage incident' }).click();
   await expect(page).toHaveURL(/\/admin\/incidents\?incident=/);
   await expect(page.getByRole('heading', { name: 'Disk filling up' })).toBeVisible();
+
+  // While it is open the incident sets the service's status; resolving gives it back to the check.
+  await page.getByPlaceholder('What changed? This is shown publicly.').fill('Space freed.');
+  await page.getByRole('button', { name: 'Resolved', exact: true }).click();
+  await page.getByRole('button', { name: 'Post update' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Update posted' })).toBeVisible();
 });

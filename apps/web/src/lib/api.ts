@@ -15,6 +15,7 @@ import type {
   ServiceDetail,
   SoftwareDetail,
   SoftwareInventory,
+  TemplateDto,
   UserDto,
 } from '@heartline/shared';
 import { MutationCache, QueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -148,6 +149,18 @@ export const useIncident = (id: string) =>
   useQuery({
     queryKey: ['incident', id],
     queryFn: () => api<Incident>(`/api/v1/incidents/${encodeURIComponent(id)}`),
+  });
+/** An incident as admins see it, with an unpublished postmortem. */
+export const useAdminIncident = (id: string | null) =>
+  useQuery({
+    enabled: Boolean(id),
+    queryKey: ['incidents', 'admin', id],
+    queryFn: () => api<Incident>(`/api/v1/admin/incidents/${encodeURIComponent(id as string)}`),
+  });
+export const useTemplates = (kind?: 'incident' | 'maintenance') =>
+  useQuery({
+    queryKey: ['admin', 'templates', kind ?? 'all'],
+    queryFn: () => api<TemplateDto[]>(`/api/v1/admin/templates${kind ? `?kind=${kind}` : ''}`),
   });
 export const useIncidents = (active = false, limit = 100) =>
   useQuery({

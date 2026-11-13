@@ -18,7 +18,17 @@ import { UpstreamNote } from '../components/Upstream.tsx';
 import { StatusPill } from '../components/Status.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner, Stats } from '../components/ui.tsx';
 import { rangeQuery, useMe, useService, useServiceSoftware } from '../lib/api.ts';
-import { DAY_BG, DAY_MS, dayTicks, incidentTone, ms, pct, relative, time } from '../lib/format.ts';
+import {
+  DAY_BG,
+  DAY_MS,
+  STATUS_LABEL,
+  dayTicks,
+  incidentTone,
+  ms,
+  pct,
+  relative,
+  time,
+} from '../lib/format.ts';
 import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeControl.tsx';
 
 const CHECK_TONE = {
@@ -110,6 +120,15 @@ export function ServicePage() {
       {data.description && <p className="m-0 max-w-[75ch] text-sec">{data.description}</p>}
 
       <UpstreamNote upstream={data.upstream} />
+      {data.incident && data.checkStatus !== data.status && (
+        <p className="m-0 text-xs text-sec">
+          Shown as {STATUS_LABEL[data.status].toLowerCase()} by the incident{' '}
+          <Link to="/incidents/$id" params={{ id: data.incident.id }} className="text-text">
+            {data.incident.title}
+          </Link>
+          ; the checks report {STATUS_LABEL[data.checkStatus].toLowerCase()}.
+        </p>
+      )}
 
       {active && (
         <div

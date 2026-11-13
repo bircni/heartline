@@ -15,7 +15,7 @@ import {
   Spinner,
   fieldErrorsOf,
 } from '../../components/ui.tsx';
-import { api, useMaintenance, useMe } from '../../lib/api.ts';
+import { api, useMaintenance, useMe, useTemplates } from '../../lib/api.ts';
 import { dateTime, displayDay, fromZonedInput, toZonedInput, zoneShort } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 import { ServicePicker } from './IncidentsPage.tsx';
@@ -43,6 +43,7 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
   const [recurrence, setRecurrence] = useState(existing?.recurrence ?? '');
   const [services, setServices] = useState<string[]>(existing?.services.map((s) => s.id) ?? []);
   const [orderError, setOrderError] = useState<string | null>(null);
+  const templates = useTemplates('maintenance');
   const save = useMutation({
     mutationFn: () => {
       const body = {
@@ -97,6 +98,28 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           <button type="button" className="btn-sm" onClick={onDone}>
             Cancel
           </button>
+        )}
+        {!existing && (templates.data?.length ?? 0) > 0 && (
+          <select
+            aria-label="Start from a template"
+            className="field h-7 w-auto py-0 text-xs"
+            value=""
+            onChange={(e) => {
+              const t = templates.data?.find((x) => x.id === e.target.value);
+              if (!t) return;
+              setTitle(t.title);
+              setDescription(t.body);
+              setServices(t.services.map((s) => s.id));
+              if (t.durationMs) setEndsAt(toZonedInput(fromZonedInput(startsAt) + t.durationMs));
+            }}
+          >
+            <option value="">From a template…</option>
+            {templates.data?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         )}
       </div>
       <FieldErrors errors={errors}>

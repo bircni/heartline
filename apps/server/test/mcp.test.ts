@@ -69,6 +69,13 @@ describe('MCP with API tokens', () => {
         'get_vulnerabilities',
         'refresh_software',
         'list_audit_log',
+        'list_groups',
+        'save_group',
+        'delete_group',
+        'set_postmortem',
+        'list_templates',
+        'save_template',
+        'delete_template',
       ]),
     );
 

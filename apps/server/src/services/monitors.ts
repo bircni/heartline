@@ -82,6 +82,7 @@ export async function purgeMonitorRows(
   await trx.deleteFrom('check_results').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('daily_rollups').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('incident_services').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('incident_update_components').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('maintenance_services').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('monitor_software').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('monitor_software_history').where('monitor_id', '=', id).execute();

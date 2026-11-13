@@ -316,6 +316,63 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('monitors').dropColumn('group_name').execute();
     },
   },
+  '0006_incident_components': {
+    async up(db: Kysely<any>) {
+      await db.schema.alterTable('incidents').addColumn('impact_override', 'text').execute();
+      await db.schema
+        .alterTable('incidents')
+        .addColumn('updated_at', ts, (c) => c.notNull().defaultTo(0))
+        .execute();
+      await db.schema.alterTable('incidents').addColumn('postmortem', 'text').execute();
+      await db.schema.alterTable('incidents').addColumn('postmortem_published_at', ts).execute();
+      await sql`update incidents set updated_at = coalesce((select max(u.created_at) from incident_updates u where u.incident_id = incidents.id), created_at)`.execute(
+        db,
+      );
+
+      // Affected services take the status the incident's impact stood for.
+      await db.schema
+        .alterTable('incident_services')
+        .addColumn('status', 'text', (c) => c.notNull().defaultTo('degraded'))
+        .execute();
+      for (const [impact, status] of [
+        ['major', 'down'],
+        ['partial', 'partial'],
+      ] as const)
+        await sql`update incident_services set status = ${status} where incident_id in (select id from incidents where impact = ${impact})`.execute(
+          db,
+        );
+
+      await db.schema
+        .alterTable('incident_updates')
+        .addColumn('notify', 'integer', (c) => c.notNull().defaultTo(0))
+        .execute();
+      await db.schema
+        .createTable('incident_update_components')
+        .addColumn('update_id', 'text', (c) => c.notNull())
+        .addColumn('monitor_id', 'text', (c) => c.notNull())
+        .addColumn('old_status', 'text')
+        .addColumn('new_status', 'text', (c) => c.notNull())
+        .addPrimaryKeyConstraint('incident_update_components_pk', ['update_id', 'monitor_id'])
+        .execute();
+
+      await db.schema
+        .createTable('templates')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('kind', 'text', (c) => c.notNull())
+        .addColumn('name', 'text', (c) => c.notNull())
+        .addColumn('title', 'text', (c) => c.notNull())
+        .addColumn('body', 'text', (c) => c.notNull())
+        .addColumn('status', 'text')
+        .addColumn('impact', 'text')
+        .addColumn('services', 'text', (c) => c.notNull())
+        .addColumn('duration_ms', ts)
+        .addColumn('source', 'text', (c) => c.notNull())
+        .addColumn('position', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .addColumn('updated_at', ts, (c) => c.notNull())
+        .execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

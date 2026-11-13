@@ -58,6 +58,7 @@ const SERVICE_STATUS: Record<CheckStatus, ServiceStatus> = {
 const LABEL: Record<ServiceStatus, string> = {
   operational: 'operational',
   degraded: 'degraded',
+  partial: 'partly down',
   down: 'down',
   maintenance: 'in maintenance',
   paused: 'paused',
@@ -244,13 +245,13 @@ export class StatusEngine {
     try {
       const open = await this.#incidents.openAutomatic(monitor.id);
       if (to === 'down' && !open) {
+        // No impact given: it follows the service, major while down.
         const incident = await this.#incidents.create(
           {
             title: `${monitor.name} is unavailable`,
-            impact: 'major',
             status: 'investigating',
             message: `Automatic checks are failing: ${message ?? 'no details'}.`,
-            services: [monitor.id],
+            services: [{ id: monitor.id, status: 'down' }],
             notify: false,
           },
           null,
@@ -263,6 +264,9 @@ export class StatusEngine {
           summary: `Opened “${incident.title}” because ${monitor.name} is down`,
           detail: { monitor: monitor.id },
         });
+      } else if (open && (to === 'down' || to === 'degraded')) {
+        // The open automatic incident follows the service between down and degraded.
+        await this.#incidents.setComponentStatus(open.id, monitor.id, to);
       } else if (recovery && open) {
         await this.#incidents.addUpdate(
           open.id,

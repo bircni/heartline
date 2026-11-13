@@ -3,12 +3,15 @@ import { Link, useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
+import { Markdown } from '../components/Markdown.tsx';
+import { UpdateTimeline } from '../components/UpdateTimeline.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
 import { useIncident, useIncidentHistory, useIncidents, useMe, useNavOverview } from '../lib/api.ts';
 import { can } from '../lib/roles.ts';
 import {
+  COMPONENT_LABEL,
+  COMPONENT_TONE,
   IMPACT_LABEL,
-  dateTime,
   displayDay,
   duration,
   fullDateTime,
@@ -53,11 +56,19 @@ export function IncidentPage() {
         {data.services.length > 0 && (
           <>
             <dt className="text-muted">Affected</dt>
-            <dd className="m-0 flex flex-wrap gap-x-3">
+            <dd className="m-0 flex flex-wrap gap-x-4 gap-y-0.5">
               {data.services.map((s) => (
-                <Link key={s.id} to="/services/$id" params={{ id: s.id }} className="text-text">
-                  {s.name}
-                </Link>
+                <span key={s.id}>
+                  <Link to="/services/$id" params={{ id: s.id }} className="text-text">
+                    {s.name}
+                  </Link>{' '}
+                  {/* While it is open, the status the incident gives the service. */}
+                  {open && (
+                    <span className="text-xs font-medium" style={{ color: COMPONENT_TONE[s.status].text }}>
+                      {COMPONENT_LABEL[s.status]}
+                    </span>
+                  )}
+                </span>
               ))}
             </dd>
           </>
@@ -75,35 +86,23 @@ export function IncidentPage() {
         )}
       </dl>
 
+      {data.postmortem && (
+        <Section title="Postmortem">
+          <div className="px-3.5 py-3">
+            <Markdown text={data.postmortem.body} />
+            {data.postmortem.publishedAt && (
+              <p className="m-0 mt-3 text-xs text-muted">
+                Published {fullDateTime(data.postmortem.publishedAt)} {zoneShort(data.postmortem.publishedAt)}
+              </p>
+            )}
+          </div>
+        </Section>
+      )}
+
       <Section title="Updates">
-        {/* Newest first; the rail ties the updates into one timeline. */}
-        <ol className="m-0 list-none px-3.5 py-3">
-          {data.updates.map((u, i) => (
-            <li key={u.id} className="relative flex gap-3.5 pb-5 last:pb-0">
-              {i < data.updates.length - 1 && (
-                <span aria-hidden="true" className="absolute top-3 bottom-0 left-[4.5px] w-px bg-fill-2" />
-              )}
-              <span
-                aria-hidden="true"
-                className="relative mt-[4px] block h-2.5 w-2.5 shrink-0 rounded-full border-2"
-                style={{
-                  background: i === 0 ? incidentTone(data).text : 'var(--surface)',
-                  borderColor: i === 0 ? incidentTone(data).text : 'var(--fill-2)',
-                }}
-              />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-baseline gap-x-2.5">
-                  <span className="font-semibold capitalize">{u.status}</span>
-                  <span className="text-xs text-muted">
-                    {dateTime(u.createdAt)} {zoneShort(u.createdAt)}
-                    {u.author && `, ${u.author}`}
-                  </span>
-                </div>
-                <p className="m-0 mt-0.5 whitespace-pre-line text-sec">{u.message}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="px-3.5 py-3">
+          <UpdateTimeline updates={data.updates} accent={incidentTone(data).text} />
+        </div>
       </Section>
     </article>
   );

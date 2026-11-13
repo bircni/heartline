@@ -18,6 +18,7 @@ import { AuditService, SYSTEM } from './services/audit.ts';
 import { IncidentService } from './services/incidents.ts';
 import { MaintenanceService } from './services/maintenance.ts';
 import { GroupService } from './services/groups.ts';
+import { TemplateService } from './services/templates.ts';
 import { MonitorService } from './services/monitors.ts';
 import { QueryService } from './services/queries.ts';
 import { SoftwareService } from './software/service.ts';
@@ -51,6 +52,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   await plugins.load();
   const monitors = new MonitorService(db);
   const groups = new GroupService(db);
+  const templates = new TemplateService(db);
   const notifier = new NotifierService(db, env.baseUrl, opts.fetchImpl);
   const maintenance = new MaintenanceService(db, monitors);
   const incidents = new IncidentService(db, monitors, notifier);
@@ -138,6 +140,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     await groups.reconcile(next);
     await monitors.reconcile(next);
     await groups.prune(next);
+    await templates.reconcile(next);
     await seedUsers(auth, next, db);
   };
   await applyConfig(config);
@@ -156,6 +159,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     plugins,
     monitors,
     groups,
+    templates,
     maintenance,
     incidents,
     notifier,
@@ -173,6 +177,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
       maintenanceTimer = setInterval(() => {
         void maintenance.reload().catch(() => {});
         void groups.reload().catch(() => {});
+        void templates.reload().catch(() => {});
       }, 60_000);
       maintenanceTimer.unref();
       let lastHash = sha256(await readFile(env.configPath, 'utf8').catch(() => ''));

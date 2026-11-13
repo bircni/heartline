@@ -19,7 +19,8 @@ import type { Db } from '../db/index.ts';
 import type { DailyRollupTable } from '../db/schema.ts';
 import { dayRange, lastDays } from '../util/time.ts';
 import type { GroupService } from './groups.ts';
-import type { IncidentService } from './incidents.ts';
+import { impactStatus } from '@heartline/shared';
+import type { IncidentOverride, IncidentService } from './incidents.ts';
 import type { MaintenanceService } from './maintenance.ts';
 import type { LoadedMonitor, MonitorService } from './monitors.ts';
 
@@ -61,7 +62,8 @@ function bar(day: string, r: Rollup | undefined): DayBar {
 }
 
 const SEVERITY: Record<ServiceStatus, number> = {
-  down: 5,
+  down: 6,
+  partial: 5,
   degraded: 4,
   maintenance: 3,
   unknown: 1,
@@ -123,9 +125,26 @@ export class QueryService {
     return new Map(rows.map((r) => [r.monitor_id, r]));
   }
 
-  #statusOf(m: LoadedMonitor, stored: string | undefined, now: number): ServiceStatus {
+  /**
+   * What the status page shows for a service: paused, else the status an open incident gives it, else
+   * maintenance, else the check's. Incidents only change what is shown; uptime always comes from checks.
+   */
+  #statusOf(
+    m: LoadedMonitor,
+    stored: string | undefined,
+    now: number,
+    overrides: Map<string, IncidentOverride>,
+  ): ServiceStatus {
     if (m.paused) return 'paused';
+    const o = overrides.get(m.id);
+    if (o) return o.status;
     if (this.#d.maintenance.isActive(m.id, now)) return 'maintenance';
+    return (stored as ServiceStatus | undefined) ?? 'unknown';
+  }
+
+  /** The check's own status, before incidents and maintenance. */
+  #checkStatusOf(m: LoadedMonitor, stored: string | undefined): ServiceStatus {
+    if (m.paused) return 'paused';
     return (stored as ServiceStatus | undefined) ?? 'unknown';
   }
 
@@ -141,8 +160,11 @@ export class QueryService {
   /** Current upstream issues of one monitor (used for notifications). */
   async upstream(m: LoadedMonitor, now = Date.now()): Promise<UpstreamIssue[]> {
     if (!m.spec.dependsOn.length) return [];
-    const states = await this.#states(m.spec.dependsOn);
-    return this.#upstreamFrom(m, (dep) => this.#statusOf(dep, states.get(dep.id)?.status, now));
+    const [states, overrides] = await Promise.all([
+      this.#states(m.spec.dependsOn),
+      this.#d.incidents.openOverrides(),
+    ]);
+    return this.#upstreamFrom(m, (dep) => this.#statusOf(dep, states.get(dep.id)?.status, now, overrides));
   }
 
   /** Services with their bars for the `daysCount` days ending with the day of `end`. */
@@ -154,12 +176,15 @@ export class QueryService {
     const monitors = this.#d.monitors.list();
     const ids = monitors.map((m) => m.id);
     const days = lastDays(daysCount, end, this.#d.site().timezone);
-    const [rollups, states, software] = await Promise.all([
+    const [rollups, states, software, overrides] = await Promise.all([
       this.#rollups(ids, days),
       this.#states(ids),
       this.#d.software(),
+      this.#d.incidents.openOverrides(),
     ]);
-    const status = new Map(monitors.map((m) => [m.id, this.#statusOf(m, states.get(m.id)?.status, now)]));
+    const status = new Map(
+      monitors.map((m) => [m.id, this.#statusOf(m, states.get(m.id)?.status, now, overrides)]),
+    );
     const services = monitors.map((m): ServiceSummary => {
       const byDay = rollups.get(m.id) ?? new Map<string, Rollup>();
       return {
@@ -171,6 +196,8 @@ export class QueryService {
         kind: m.spec.type,
         external: m.spec.type === 'provider',
         status: status.get(m.id) as ServiceStatus,
+        checkStatus: this.#checkStatusOf(m, states.get(m.id)?.status),
+        incident: overrides.get(m.id)?.incident ?? null,
         upstream: this.#upstreamFrom(m, (dep) => status.get(dep.id) ?? 'unknown'),
         uptime: uptimeOf([...byDay.values()]),
         bars: days.map((d) => bar(d, byDay.get(d))),
@@ -239,9 +266,16 @@ export class QueryService {
       'operational',
     );
     const operational = relevant.filter((s) => s.status === 'operational').length;
-    const affected = relevant.filter((s) => s.status === 'down' || s.status === 'degraded');
+    const affected = relevant.filter(
+      (s) => s.status === 'down' || s.status === 'partial' || s.status === 'degraded',
+    );
+    // An open incident's impact counts too, so an incident naming no services still shows (impact none never does).
+    const status: ServiceStatus = activeIncidents.reduce<ServiceStatus>((acc, i) => {
+      const s = impactStatus(i.impact);
+      return SEVERITY[s] > SEVERITY[acc] ? s : acc;
+    }, worst);
     const majorIncident = activeIncidents.some((i) => i.impact === 'major');
-    const status: ServiceStatus = majorIncident && SEVERITY[worst] < SEVERITY.down ? 'down' : worst;
+    const down = relevant.filter((s) => s.status === 'down').length;
 
     const headline =
       relevant.length === 0
@@ -249,14 +283,16 @@ export class QueryService {
         : status === 'operational'
           ? 'All systems operational'
           : status === 'down'
-            ? affected.length > 1 || majorIncident
+            ? down > 1 || majorIncident
               ? 'Major outage'
               : 'Partial outage'
-            : status === 'degraded'
-              ? 'Partially degraded'
-              : status === 'maintenance'
-                ? 'Scheduled maintenance in progress'
-                : 'Checking services';
+            : status === 'partial'
+              ? 'Partial outage'
+              : status === 'degraded'
+                ? 'Partially degraded'
+                : status === 'maintenance'
+                  ? 'Scheduled maintenance in progress'
+                  : 'Checking services';
     const names = affected.map((s) => s.name);
     const summary =
       names.length === 0
@@ -309,6 +345,7 @@ export class QueryService {
     // Incidents cover the same whole days as the bars.
     const rangeStart = dayRange(days[0] as string, this.#d.site().timezone)[0];
     const state = states.get(id);
+    const overrides = await this.#d.incidents.openOverrides();
     const bars = days.map((d) => bar(d, byDay.get(d)));
     const upstream = await this.upstream(m, now);
     const [incidents, series] = await Promise.all([
@@ -324,7 +361,9 @@ export class QueryService {
       external: m.spec.type === 'provider',
       upstream,
       description: m.spec.description ?? null,
-      status: this.#statusOf(m, state?.status, now),
+      status: this.#statusOf(m, state?.status, now, overrides),
+      checkStatus: this.#checkStatusOf(m, state?.status),
+      incident: overrides.get(m.id)?.incident ?? null,
       target: describeTarget(m.spec),
       intervalMs: m.spec.interval,
       lastCheckedAt: state?.last_checked_at ?? null,

@@ -1,10 +1,19 @@
 import type { MonitorKind, MonitorSpec } from './schemas.ts';
-import type { IMPACTS, INCIDENT_STATUSES, ROLES, SCOPES, THEMES, URGENCY_LEVELS } from './schemas.ts';
+import type {
+  COMPONENT_STATUSES,
+  IMPACTS,
+  INCIDENT_STATUSES,
+  ROLES,
+  SCOPES,
+  THEMES,
+  URGENCY_LEVELS,
+} from './schemas.ts';
 
 export type Role = (typeof ROLES)[number];
 export type Scope = (typeof SCOPES)[number];
 export type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
 export type Impact = (typeof IMPACTS)[number];
+export type ComponentStatus = (typeof COMPONENT_STATUSES)[number];
 export type UrgencyLevel = (typeof URGENCY_LEVELS)[number];
 export type VulnSeverity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
 export type VersionSource = 'check' | 'probe' | 'plugin' | 'static';
@@ -102,7 +111,14 @@ export interface AppVersion {
  */
 export type CheckStatus = 'up' | 'degraded' | 'down' | 'maintenance' | 'unknown';
 /** Current status of a service as shown to users. */
-export type ServiceStatus = 'operational' | 'degraded' | 'down' | 'maintenance' | 'paused' | 'unknown';
+export type ServiceStatus =
+  | 'operational'
+  | 'degraded'
+  | 'partial'
+  | 'down'
+  | 'maintenance'
+  | 'paused'
+  | 'unknown';
 export type DayState = 'operational' | 'degraded' | 'down' | 'maintenance' | 'nodata';
 
 export type Theme = (typeof THEMES)[number];
@@ -144,7 +160,12 @@ export interface ServiceSummary extends ServiceRef {
   kind: MonitorKind;
   /** Third-party service (provider monitor): shown apart and left out of the overall status. */
   external: boolean;
+  /** What the page shows: the check's status, unless maintenance or an open incident says otherwise. */
   status: ServiceStatus;
+  /** The check's own status. */
+  checkStatus: ServiceStatus;
+  /** The open incident that sets `status`, if one does. */
+  incident: { id: string; title: string } | null;
   /** Dependencies (`dependsOn`) that are degraded, down or in maintenance: a likely cause. */
   upstream: UpstreamIssue[];
   uptime: number | null;
@@ -235,24 +256,60 @@ export interface ServiceDetail extends ServiceSummary {
   generatedAt: number;
 }
 
+/** A service's status changing with an incident update. */
+export interface ComponentChange extends ServiceRef {
+  oldStatus: ComponentStatus | null;
+  newStatus: ComponentStatus;
+}
+
 export interface IncidentUpdateDto {
   id: string;
   status: IncidentStatus;
+  /** Markdown. */
   message: string;
   createdAt: number;
   author: string | null;
+  /** Whether subscribers and channels were told about it. */
+  notify: boolean;
+  /** Services whose status this update changed. */
+  components: ComponentChange[];
+}
+
+/** An affected service with the status the incident gives it. */
+export interface AffectedService extends ServiceRef {
+  status: ComponentStatus;
 }
 
 export interface Incident {
   id: string;
   title: string;
   status: IncidentStatus;
+  /** The worst the incident got, from its services' statuses unless set by hand (`impactOverride`). */
   impact: Impact;
-  services: ServiceRef[];
+  impactOverride: boolean;
+  services: AffectedService[];
   createdAt: number;
+  updatedAt: number;
   resolvedAt: number | null;
   automatic: boolean;
+  /** Newest first. */
   updates: IncidentUpdateDto[];
+  /** Null until published; the admin API also returns drafts (`publishedAt` null). */
+  postmortem: { body: string; publishedAt: number | null } | null;
+}
+
+export interface TemplateDto {
+  id: string;
+  kind: 'incident' | 'maintenance';
+  name: string;
+  title: string;
+  body: string;
+  status: IncidentStatus | null;
+  impact: Impact | null;
+  services: { id: string; status: ComponentStatus | null }[];
+  /** Length of a maintenance window in ms. */
+  durationMs: number | null;
+  source: 'config' | 'db';
 }
 
 export interface Maintenance {

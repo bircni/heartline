@@ -6,6 +6,7 @@ import {
   zonedToInstant as zonedInstant,
 } from '@heartline/shared';
 import type {
+  ComponentStatus,
   DayState,
   Impact,
   Incident,
@@ -183,6 +184,7 @@ export function duration(from: number, to: number | null): string {
 export const STATUS_LABEL: Record<ServiceStatus, string> = {
   operational: 'Operational',
   degraded: 'Degraded',
+  partial: 'Partial outage',
   down: 'Down',
   maintenance: 'Maintenance',
   paused: 'Paused',
@@ -216,9 +218,17 @@ const BAD: Tone = {
   line: 'var(--bad-line)',
 };
 
+const PARTIAL: Tone = {
+  dot: 'var(--partial)',
+  text: 'var(--partial-text)',
+  bg: 'var(--partial-bg)',
+  line: 'var(--partial)',
+};
+
 export const STATUS_TONE: Record<ServiceStatus, Tone> = {
   operational: { dot: 'var(--ok)', text: 'var(--ok-text)', bg: 'var(--ok-bg)', line: 'var(--hair)' },
   degraded: WARN,
+  partial: PARTIAL,
   down: BAD,
   maintenance: { dot: 'var(--maint)', text: 'var(--maint)', bg: 'var(--maint-bg)', line: 'var(--hair)' },
   paused: NEUTRAL,
@@ -233,15 +243,31 @@ export const DAY_BG: Partial<Record<DayState, string>> = {
 };
 
 export const IMPACT_LABEL: Record<Impact, string> = {
+  none: 'No impact',
   degraded: 'Degraded performance',
   partial: 'Partial outage',
   major: 'Major outage',
 };
 
-/** Colours of an incident: red or amber while open, neutral once resolved. */
+/** What an incident says about one affected service. */
+export const COMPONENT_LABEL: Record<ComponentStatus, string> = {
+  operational: 'Operational',
+  degraded: 'Degraded performance',
+  partial: 'Partial outage',
+  down: 'Major outage',
+};
+
+export const COMPONENT_TONE: Record<ComponentStatus, Tone> = {
+  operational: STATUS_TONE.operational,
+  degraded: WARN,
+  partial: PARTIAL,
+  down: BAD,
+};
+
+/** Colours of an incident by impact while open (amber, orange, red), neutral once resolved or without impact. */
 export function incidentTone(i: Pick<Incident, 'impact' | 'resolvedAt'>): Tone {
-  if (i.resolvedAt !== null) return NEUTRAL;
-  return i.impact === 'degraded' ? WARN : BAD;
+  if (i.resolvedAt !== null || i.impact === 'none') return NEUTRAL;
+  return i.impact === 'degraded' ? WARN : i.impact === 'partial' ? PARTIAL : BAD;
 }
 
 /** "lasted 1 h 5 min" or "ongoing for 20 min". */
