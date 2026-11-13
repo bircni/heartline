@@ -1,4 +1,4 @@
-import type { Maintenance, Overview, ServiceSummary } from '@heartline/shared';
+import type { Maintenance, Overview, OverviewGroup, ServiceSummary } from '@heartline/shared';
 import { Link } from '@tanstack/react-router';
 import {
   DayBars,
@@ -9,14 +9,17 @@ import {
   useTraceView,
 } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
+import { InfoTip } from '../components/Tooltip.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
 import { StatusIcon } from '../components/Status.tsx';
 import { UpstreamHint } from '../components/Upstream.tsx';
 import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
-import { rangeQuery, useOverview } from '../lib/api.ts';
+import { useStoredChoice } from '../lib/store.ts';
+import { rangeQuery, useMe, useOverview } from '../lib/api.ts';
 import {
   statusLabel,
+  STATUS_LABEL,
   STATUS_TONE,
   clock,
   dayTicks,
@@ -125,6 +128,83 @@ function ServiceRow({
   );
 }
 
+/**
+ * A group of services. Collapsed it is one row with the group's rolled-up status and history; each visitor's
+ * open or closed choice is remembered, starting from the group's `collapsed` setting.
+ */
+function GroupSection({
+  g,
+  view,
+  floor,
+  signedIn,
+}: {
+  g: OverviewGroup;
+  view: ReturnType<typeof useTraceView>[0];
+  floor: number;
+  signedIn: boolean;
+}) {
+  const [state, setState] = useStoredChoice(
+    `group:${g.id}`,
+    ['open', 'closed'] as const,
+    g.collapsed ? 'closed' : 'open',
+  );
+  const open = state === 'open';
+  // Visitors only see a hide-unless-degraded group while something in it is wrong.
+  if (g.hideUnlessDegraded && g.status === 'operational' && !signedIn) return null;
+  const bodyId = `group-${g.id}`;
+  return (
+    <div className="border-t border-hair">
+      <div className={`${ROW} items-center bg-fill py-1.5`}>
+        <span className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            className="flex min-w-0 items-center gap-1.5 text-left text-xs font-medium text-sec hover:text-text"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => setState(open ? 'closed' : 'open')}
+          >
+            <Icon
+              name="chevron"
+              size={13}
+              className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
+            />
+            <span className="truncate">{g.name}</span>
+          </button>
+          {g.description && <InfoTip text={g.description} label={`About ${g.name}`} />}
+          {!open && g.status !== 'operational' && (
+            <span className="shrink-0 text-xs font-medium" style={{ color: STATUS_TONE[g.status].text }}>
+              {STATUS_LABEL[g.status]}
+            </span>
+          )}
+          {!open && <span className="shrink-0 text-xs text-muted">{g.services.length} services</span>}
+          {g.hideUnlessDegraded && signedIn && (
+            <span className="shrink-0 text-xs text-muted max-sm:hidden">
+              hidden from visitors while operational
+            </span>
+          )}
+        </span>
+        {!open && (
+          <>
+            <span className="min-w-0 max-md:order-last max-md:col-span-2">
+              <DayBars bars={g.bars} view={view} floor={floor} />
+            </span>
+            <span className="text-right text-sec" aria-hidden="true">
+              {pct(g.uptime)}
+            </span>
+          </>
+        )}
+      </div>
+      {open && (
+        <div id={bodyId}>
+          {g.services.map((s) => (
+            <ServiceRow key={s.id} s={s} view={view} floor={floor} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Third-party services: their state as their status pages report it, apart from your own. */
 function ExternalSection({
   data,
@@ -132,8 +212,10 @@ function ExternalSection({
   range,
   view,
   floor,
+  signedIn,
 }: {
   data: Overview;
+  signedIn: boolean;
   days: string[];
   range: ReturnType<typeof useRange>;
   view: ReturnType<typeof useTraceView>[0];
@@ -158,12 +240,7 @@ function ExternalSection({
         <span className="text-right max-md:hidden">Uptime</span>
       </div>
       {data.external.map((g) => (
-        <div key={g.name}>
-          <h3 className="group-head m-0 border-t">{g.name}</h3>
-          {g.services.map((s) => (
-            <ServiceRow key={s.id} s={s} view={view} floor={floor} />
-          ))}
-        </div>
+        <GroupSection key={g.id} g={g} view={view} floor={floor} signedIn={signedIn} />
       ))}
     </section>
   );
@@ -173,6 +250,7 @@ export function OverviewPage() {
   const range = useRange();
   const [view] = useTraceView();
   const { data, error, isPending } = useOverview(range);
+  const signedIn = Boolean(useMe().data);
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
 
@@ -224,17 +302,9 @@ export function OverviewPage() {
               <TraceAxis ticks={dayTicks(days)} end={rangeEndLabel(range)} className="max-md:col-span-2" />
               <span className="text-right max-md:hidden">Uptime</span>
             </div>
-            {data.groups.map(
-              (g) =>
-                g.services.length > 0 && (
-                  <div key={g.name}>
-                    <h3 className="group-head m-0 border-t">{g.name}</h3>
-                    {g.services.map((s) => (
-                      <ServiceRow key={s.id} s={s} view={view} floor={floor} />
-                    ))}
-                  </div>
-                ),
-            )}
+            {data.groups.map((g) => (
+              <GroupSection key={g.id} g={g} view={view} floor={floor} signedIn={signedIn} />
+            ))}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-hair px-3.5 py-2">
               <DayLegend />
               <span className="flex-1" />
@@ -249,7 +319,7 @@ export function OverviewPage() {
         )}
       </section>
 
-      <ExternalSection data={data} days={days} range={range} view={view} floor={floor} />
+      <ExternalSection data={data} days={days} range={range} view={view} floor={floor} signedIn={signedIn} />
 
       {data.upcomingMaintenance.length > 0 && (
         <Section title="Scheduled maintenance">

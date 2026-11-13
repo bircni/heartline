@@ -89,6 +89,11 @@ const monitors = createRoute({
   path: 'monitors',
   component: lazyRouteComponent(() => import('./pages/admin/MonitorsPage.tsx'), 'MonitorsPage'),
 });
+const groups = createRoute({
+  getParentRoute: () => admin,
+  path: 'groups',
+  component: lazyRouteComponent(() => import('./pages/admin/GroupsPage.tsx'), 'GroupsPage'),
+});
 const software = createRoute({
   getParentRoute: () => admin,
   path: 'software',
@@ -147,6 +152,7 @@ const routeTree = root.addChildren([
   admin.addChildren([
     adminIndex,
     monitors,
+    groups,
     software,
     incidents,
     maintenance,

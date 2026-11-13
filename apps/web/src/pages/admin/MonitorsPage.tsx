@@ -20,7 +20,15 @@ import {
   Spinner,
   fieldErrorsOf,
 } from '../../components/ui.tsx';
-import { api, useAdminMonitors, useCatalog, useMe, useNotifiers, usePlugins } from '../../lib/api.ts';
+import {
+  api,
+  useAdminMonitors,
+  useCatalog,
+  useGroups,
+  useMe,
+  useNotifiers,
+  usePlugins,
+} from '../../lib/api.ts';
 import { ms, relative } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 
@@ -523,6 +531,7 @@ function TextField({
   placeholder,
   mono = true,
   hint,
+  list,
 }: {
   id: string;
   label: string;
@@ -532,6 +541,8 @@ function TextField({
   placeholder?: string;
   mono?: boolean;
   hint?: string;
+  /** Id of a <datalist> with suggestions. */
+  list?: string;
 }) {
   return (
     <Field label={label} htmlFor={id} hint={hint}>
@@ -542,6 +553,7 @@ function TextField({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         placeholder={placeholder}
+        list={list}
       />
     </Field>
   );
@@ -587,6 +599,7 @@ function Editor({
 }) {
   const plugins = usePlugins();
   const notifiers = useNotifiers();
+  const groups = useGroups();
   const s = draft.spec;
   const set = (key: string, value: unknown) => setDraft({ ...draft, spec: { ...s, [key]: value } });
   const kind = s.type as MonitorKind;
@@ -638,7 +651,16 @@ function Editor({
         value={draft.group}
         onChange={(v) => setDraft({ ...draft, group: v })}
         disabled={locked}
+        list="m-group-options"
+        hint={locked ? undefined : 'Pick a group or type a new name to create one'}
       />
+      <datalist id="m-group-options">
+        {groups.data?.map((g) => (
+          <option key={g.id} value={g.name}>
+            {g.name}
+          </option>
+        ))}
+      </datalist>
       {kind === 'http' && (
         <>
           <TextField
@@ -847,6 +869,7 @@ function Editor({
 /** Request paths of the monitor form, mapped to the inputs that show them. */
 const MONITOR_FIELDS: Record<string, string> = {
   group: 'm-group',
+  groupId: 'm-group',
   'spec.name': 'm-name',
   'spec.id': 'm-id',
   'spec.url': 'm-url',
@@ -888,6 +911,8 @@ function MonitorPanel({
   const refresh = () =>
     qc
       .invalidateQueries({ queryKey: ['admin', 'monitors'] })
+      // A new group name creates the group.
+      .then(() => qc.invalidateQueries({ queryKey: ['admin', 'groups'] }))
       .then(() => qc.invalidateQueries({ queryKey: ['overview'] }));
   const onError = (e: Error) => setMessage({ tone: 'bad', text: e.message });
   const path = monitor ? `/api/v1/admin/monitors/${encodeURIComponent(monitor.id)}` : '';

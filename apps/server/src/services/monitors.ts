@@ -5,11 +5,14 @@ import type { AppConfig } from '../config/schema.ts';
 import type { Db } from '../db/index.ts';
 import type { Database } from '../db/schema.ts';
 import { log } from '../util/log.ts';
+import { configGroupId } from '../util/slug.ts';
 
 export interface LoadedMonitor {
   id: string;
   name: string;
+  /** Name of the group, for display. */
   group: string;
+  groupId: string;
   spec: MonitorSpec;
   source: 'config' | 'db';
   paused: boolean;
@@ -88,7 +91,6 @@ export async function purgeMonitorRows(
 export class MonitorService {
   #db: Db;
   #monitors: LoadedMonitor[] = [];
-  #groupOrder: string[] = [];
   #listeners = new Set<() => void>();
 
   constructor(db: Db) {
@@ -114,20 +116,12 @@ export class MonitorService {
     return m;
   }
 
-  /** Group names in display order: config order first, then groups only used by UI-created monitors. */
-  groups(): string[] {
-    const extra = [...new Set(this.#monitors.map((m) => m.group))].filter(
-      (g) => !this.#groupOrder.includes(g),
-    );
-    return [...this.#groupOrder, ...extra].filter((g) => this.#monitors.some((m) => m.group === g));
-  }
-
   /** Makes config-defined monitors match status.yaml; UI-created monitors are left alone. */
   async reconcile(config: AppConfig): Promise<void> {
     const db = this.#db.kysely;
     const now = Date.now();
-    const wanted = config.groups.flatMap((g, gi) =>
-      g.monitors.map((m, mi) => ({ spec: m, group: g.name, position: gi * 1000 + mi })),
+    const wanted = config.groups.flatMap((g) =>
+      g.monitors.map((m, mi) => ({ spec: m, group: configGroupId(g), position: mi })),
     );
     const existing = await db.selectFrom('monitors').select(['id', 'source']).execute();
     const bySource = new Map(existing.map((r) => [r.id, r.source]));
@@ -138,7 +132,7 @@ export class MonitorService {
           log.warn('status.yaml monitor replaces a UI-created monitor with the same id', { id: w.spec.id });
         }
         const row = {
-          group_name: w.group,
+          group_id: w.group,
           name: w.spec.name,
           type: w.spec.type,
           spec: JSON.stringify(w.spec),
@@ -156,7 +150,6 @@ export class MonitorService {
       const dropped = existing.filter((r) => r.source === 'config' && !keep.has(r.id)).map((r) => r.id);
       for (const id of dropped) await purgeMonitorRows(trx, id);
     });
-    this.#groupOrder = config.groups.map((g) => g.name);
     await this.reload();
     for (const m of this.#monitors) {
       const missing = m.spec.dependsOn.filter((id) => !this.get(id));
@@ -165,11 +158,16 @@ export class MonitorService {
   }
 
   async reload(): Promise<void> {
+    // Group order first, then each monitor's place in its group.
     const rows = await this.#db.kysely
       .selectFrom('monitors')
-      .selectAll()
-      .orderBy('position')
-      .orderBy('name')
+      .leftJoin('monitor_groups', 'monitor_groups.id', 'monitors.group_id')
+      .selectAll('monitors')
+      .select(['monitor_groups.name as group_name', 'monitor_groups.position as group_position'])
+      .orderBy('group_position')
+      .orderBy('monitors.group_id')
+      .orderBy('monitors.position')
+      .orderBy('monitors.name')
       .execute();
     const next: LoadedMonitor[] = [];
     for (const r of rows) {
@@ -181,7 +179,8 @@ export class MonitorService {
       next.push({
         id: r.id,
         name: r.name,
-        group: r.group_name,
+        group: r.group_name ?? r.group_id,
+        groupId: r.group_id,
         spec: parsed.data,
         source: r.source,
         paused: Boolean(r.paused),
@@ -192,14 +191,15 @@ export class MonitorService {
     for (const fn of this.#listeners) fn();
   }
 
-  async create(spec: MonitorSpec, group: string): Promise<LoadedMonitor> {
+  /** Adds a UI-managed monitor to the group `groupId` (resolve names with GroupService first). */
+  async create(spec: MonitorSpec, groupId: string): Promise<LoadedMonitor> {
     if (this.get(spec.id)) throw new ConflictError(`a service with id "${spec.id}" already exists`);
     const now = Date.now();
     await this.#db.kysely
       .insertInto('monitors')
       .values({
         id: spec.id,
-        group_name: group,
+        group_id: groupId,
         name: spec.name,
         type: spec.type,
         spec: JSON.stringify(spec),
@@ -214,14 +214,14 @@ export class MonitorService {
     return this.require(spec.id);
   }
 
-  async update(id: string, spec: MonitorSpec, group: string): Promise<LoadedMonitor> {
+  async update(id: string, spec: MonitorSpec, groupId: string): Promise<LoadedMonitor> {
     const current = this.require(id);
     if (current.source === 'config') throw new ConflictError('this service is managed in status.yaml');
     if (spec.id !== id) throw new ConflictError('the id of a service cannot be changed');
     await this.#db.kysely
       .updateTable('monitors')
       .set({
-        group_name: group,
+        group_id: groupId,
         name: spec.name,
         type: spec.type,
         spec: JSON.stringify(spec),

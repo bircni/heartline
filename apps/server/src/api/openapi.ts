@@ -19,7 +19,7 @@ import {
 } from '@heartline/shared';
 import { z } from 'zod';
 import { APP_VERSION } from '../util/pkg.ts';
-import { monitorInputSchema } from './admin.ts';
+import { groupInputSchema, monitorInputSchema } from './admin.ts';
 
 type Schema = Record<string, unknown>;
 
@@ -107,7 +107,9 @@ const schemas: Record<string, Schema> = {
   ServiceSummary: obj({
     id: str(),
     name: str(),
-    group: str(),
+    group: str({ description: 'Group name' }),
+    groupId: str(),
+    description: nullable(str()),
     kind: en(MONITOR_KINDS),
     external: bool(),
     status: en(SERVICE_STATUS),
@@ -154,8 +156,8 @@ const schemas: Record<string, Schema> = {
     operational: int(),
     total: int(),
     days: int(),
-    groups: arr(obj({ name: str(), services: arr(ref('ServiceSummary')) })),
-    external: arr(obj({ name: str(), services: arr(ref('ServiceSummary')) })),
+    groups: arr(ref('OverviewGroup')),
+    external: arr(ref('OverviewGroup')),
     activeIncidents: arr(ref('Incident')),
     upcomingMaintenance: arr(ref('Maintenance')),
     security: nullable(obj({ critical: int(), high: int() })),
@@ -179,7 +181,6 @@ const schemas: Record<string, Schema> = {
     allOf: [
       ref('ServiceSummary'),
       obj({
-        description: nullable(str()),
         target: str(),
         intervalMs: int(),
         lastCheckedAt: nullable(ts()),
@@ -265,10 +266,32 @@ const schemas: Record<string, Schema> = {
   }),
   MonitorSpec: jsonSchema(monitorSpecSchema),
   MonitorInput: jsonSchema(monitorInputSchema),
+  Group: obj({
+    id: str(),
+    name: str(),
+    description: nullable(str()),
+    collapsed: bool(),
+    hideUnlessDegraded: bool(),
+    source: en(['config', 'db']),
+    position: int(),
+  }),
+  GroupInput: jsonSchema(groupInputSchema),
+  OverviewGroup: obj({
+    id: str(),
+    name: str(),
+    description: nullable(str()),
+    collapsed: bool(),
+    hideUnlessDegraded: bool(),
+    services: arr(ref('ServiceSummary')),
+    status: en(SERVICE_STATUS),
+    uptime: nullable(num()),
+    bars: arr(ref('DayBar')),
+  }),
   AdminMonitor: obj({
     id: str(),
     name: str(),
     group: str(),
+    groupId: str(),
     kind: en(MONITOR_KINDS),
     source: en(['config', 'db']),
     paused: bool(),
@@ -600,6 +623,47 @@ const paths: Record<string, Record<string, Op>> = {
       tags: ['Software'],
       parameters: [pathId()],
       responses: { 200: json(ref('SoftwareDetail')), 400: E400, 404: E404 },
+    },
+  },
+  '/api/v1/admin/groups': {
+    get: {
+      ...scope('read'),
+      summary: 'Groups in display order',
+      tags: ['Monitors'],
+      responses: { 200: json(arr(ref('Group'))) },
+    },
+    post: {
+      ...scope('admin'),
+      summary: 'Create a group',
+      tags: ['Monitors'],
+      requestBody: body(ref('GroupInput')),
+      responses: { 201: json(ref('Group')), 400: E400, 409: { description: 'Id already exists' } },
+    },
+  },
+  '/api/v1/admin/groups/order': {
+    put: {
+      ...scope('admin'),
+      summary: 'Reorder the groups created in the UI',
+      tags: ['Monitors'],
+      requestBody: body(obj({ ids: arr(str()) })),
+      responses: { 200: json(arr(ref('Group'))), 409: { description: 'A group is managed in status.yaml' } },
+    },
+  },
+  '/api/v1/admin/groups/{id}': {
+    put: {
+      ...scope('admin'),
+      summary: 'Update a group',
+      tags: ['Monitors'],
+      parameters: [pathId('id', 'Group id')],
+      requestBody: body(ref('GroupInput')),
+      responses: { 200: json(ref('Group')), 404: E404, 409: { description: 'Managed in status.yaml' } },
+    },
+    delete: {
+      ...scope('admin'),
+      summary: 'Delete an empty group',
+      tags: ['Monitors'],
+      parameters: [pathId('id', 'Group id')],
+      responses: { 204: E204, 404: E404, 409: { description: 'Managed in status.yaml or not empty' } },
     },
   },
   '/api/v1/admin/monitors': {

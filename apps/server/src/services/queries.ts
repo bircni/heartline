@@ -5,6 +5,7 @@ import type {
   DayState,
   LatencyPoint,
   Overview,
+  OverviewGroup,
   ServiceDetail,
   ServiceStatus,
   ServiceSummary,
@@ -17,6 +18,7 @@ import { describeTarget } from '../checks/index.ts';
 import type { Db } from '../db/index.ts';
 import type { DailyRollupTable } from '../db/schema.ts';
 import { dayRange, lastDays } from '../util/time.ts';
+import type { GroupService } from './groups.ts';
 import type { IncidentService } from './incidents.ts';
 import type { MaintenanceService } from './maintenance.ts';
 import type { LoadedMonitor, MonitorService } from './monitors.ts';
@@ -67,9 +69,17 @@ const SEVERITY: Record<ServiceStatus, number> = {
   operational: 0,
 };
 
+/** The most severe status; paused services count only when nothing else is there. */
+function worstOf(statuses: ServiceStatus[]): ServiceStatus {
+  const active = statuses.filter((s) => s !== 'paused');
+  if (active.length === 0) return statuses.length ? 'paused' : 'operational';
+  return active.reduce((acc, s) => (SEVERITY[s] > SEVERITY[acc] ? s : acc), 'operational');
+}
+
 export interface QueryDeps {
   db: Db;
   monitors: MonitorService;
+  groups: GroupService;
   incidents: IncidentService;
   maintenance: MaintenanceService;
   site: () => SiteInfo;
@@ -137,6 +147,10 @@ export class QueryService {
 
   /** Services with their bars for the `daysCount` days ending with the day of `end`. */
   async summaries(daysCount: number, end = Date.now(), now = Date.now()): Promise<ServiceSummary[]> {
+    return (await this.#collect(daysCount, end, now)).services;
+  }
+
+  async #collect(daysCount: number, end: number, now: number) {
     const monitors = this.#d.monitors.list();
     const ids = monitors.map((m) => m.id);
     const days = lastDays(daysCount, end, this.#d.site().timezone);
@@ -146,12 +160,14 @@ export class QueryService {
       this.#d.software(),
     ]);
     const status = new Map(monitors.map((m) => [m.id, this.#statusOf(m, states.get(m.id)?.status, now)]));
-    return monitors.map((m) => {
+    const services = monitors.map((m): ServiceSummary => {
       const byDay = rollups.get(m.id) ?? new Map<string, Rollup>();
       return {
         id: m.id,
         name: m.name,
         group: m.group,
+        groupId: m.groupId,
+        description: m.spec.description ?? null,
         kind: m.spec.type,
         external: m.spec.type === 'provider',
         status: status.get(m.id) as ServiceStatus,
@@ -161,11 +177,59 @@ export class QueryService {
         software: software.get(m.id) ?? null,
       };
     });
+    return { services, rollups, days };
+  }
+
+  /** Groups with their services, in display order; status and history are rolled up over the services. */
+  #grouped(
+    services: ServiceSummary[],
+    rollups: Map<string, Map<string, Rollup>>,
+    days: string[],
+  ): OverviewGroup[] {
+    return this.#d.groups
+      .list()
+      .map((g): OverviewGroup | null => {
+        const members = services.filter((s) => s.groupId === g.id);
+        if (members.length === 0) return null;
+        // A day of the group sums its services' checks, so one outage shows however many services there are.
+        const sum = (day: string): Rollup | undefined => {
+          const rows = members.flatMap((s) => {
+            const r = rollups.get(s.id)?.get(day);
+            return r ? [r] : [];
+          });
+          if (rows.length === 0) return undefined;
+          return rows.reduce((a, r) => ({
+            day,
+            checks: a.checks + r.checks,
+            up: a.up + r.up,
+            degraded: a.degraded + r.degraded,
+            down: a.down + r.down,
+            maintenance: a.maintenance + r.maintenance,
+            latency_sum: a.latency_sum + r.latency_sum,
+            latency_count: a.latency_count + r.latency_count,
+            latency_max: Math.max(a.latency_max, r.latency_max),
+            latency_p95: Math.max(a.latency_p95 ?? 0, r.latency_p95 ?? 0) || null,
+          }));
+        };
+        const daily = days.map((d) => [d, sum(d)] as const);
+        return {
+          id: g.id,
+          name: g.name,
+          description: g.description,
+          collapsed: g.collapsed,
+          hideUnlessDegraded: g.hideUnlessDegraded,
+          services: members,
+          status: worstOf(members.map((s) => s.status)),
+          uptime: uptimeOf(daily.flatMap(([, r]) => (r ? [r] : []))),
+          bars: daily.map(([d, r]) => bar(d, r)),
+        };
+      })
+      .filter((g): g is OverviewGroup => g !== null);
   }
 
   /** The current state of every service, with history for the `daysCount` days ending with the day of `end`. */
   async overview(daysCount: number, end = Date.now(), now = Date.now()): Promise<Overview> {
-    const all = await this.summaries(daysCount, end, now);
+    const { services: all, rollups, days } = await this.#collect(daysCount, end, now);
     const services = all.filter((s) => !s.external);
     const activeIncidents = await this.#d.incidents.list({ activeOnly: true });
     // Third-party services are shown apart and never decide your own overall status.
@@ -199,13 +263,12 @@ export class QueryService {
         ? `${operational} of ${relevant.length} services are operational.`
         : `${names.length > 2 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(' and ')} ${names.length === 1 ? 'is' : 'are'} affected. ${operational} of ${relevant.length} services are operational.`;
 
-    const byGroup = (list: ServiceSummary[]) =>
-      this.#d.monitors
-        .groups()
-        .map((name) => ({ name, services: list.filter((s) => s.group === name) }))
-        .filter((g) => g.services.length > 0);
-    const groups = byGroup(services);
-    const external = byGroup(all.filter((s) => s.external));
+    const groups = this.#grouped(services, rollups, days);
+    const external = this.#grouped(
+      all.filter((s) => s.external),
+      rollups,
+      days,
+    );
     return {
       site: this.#d.site(),
       status,
@@ -256,6 +319,7 @@ export class QueryService {
       id: m.id,
       name: m.name,
       group: m.group,
+      groupId: m.groupId,
       kind: m.spec.type,
       external: m.spec.type === 'provider',
       upstream,

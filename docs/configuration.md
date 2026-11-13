@@ -27,6 +27,10 @@ retention:
 ```yaml
 groups:
   - name: Code
+    id: code # optional; derived from the name (`Core services` → `core-services`)
+    description: Git hosting and CI # optional tooltip next to the group name
+    collapsed: false # true: one rolled-up row until a visitor opens it
+    hideUnlessDegraded: false # true: hidden from visitors while every service in it is operational
     monitors:
       - id: gitea
         name: Gitea
@@ -54,6 +58,12 @@ groups:
 
 Add a `software` block to track the running version and its vulnerabilities, see
 [software.md](software.md).
+
+Groups from `status.yaml` come first, in file order, and are read-only in the UI. Admins can add more
+groups under _Groups_ (or `POST /api/v1/admin/groups`), and a monitor created in the UI with a new group
+name creates that group. A collapsed group shows its worst status, uptime and a history summed over its
+services; each visitor's open or closed choice is remembered in their browser. A group removed from
+`status.yaml` that UI-created monitors still use stays, as a UI-managed group.
 
 ## Third-party services
 

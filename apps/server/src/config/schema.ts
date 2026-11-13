@@ -1,5 +1,6 @@
 import { THEMES, duration, monitorSpecSchema, roleSchema } from '@heartline/shared';
 import { z } from 'zod';
+import { slugify } from '../util/slug.ts';
 
 const notifierBase = { id: z.string().min(1), name: z.string().optional() };
 
@@ -47,8 +48,20 @@ const rateBucketSchema = z.object({
   window: duration,
 });
 
+export const groupIdSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,59}$/, 'lowercase letters, digits and dashes');
+
 const groupSchema = z.object({
+  /** Stable id for links and the API; derived from the name when left out. */
+  id: groupIdSchema.optional(),
   name: z.string().min(1),
+  /** Shown as a tooltip next to the group name. */
+  description: z.string().max(1000).optional(),
+  /** Show the group as one rolled-up row until a visitor opens it. */
+  collapsed: z.boolean().default(false),
+  /** Hide the group from visitors while all its services are operational. */
+  hideUnlessDegraded: z.boolean().default(false),
   monitors: z.array(monitorSpecSchema).default([]),
 });
 
@@ -152,6 +165,17 @@ export const configSchema = z
       .default({ local: true, users: [], oidc: [] }),
   })
   .superRefine((cfg, ctx) => {
+    const groupIds = new Set<string>();
+    cfg.groups.forEach((g, gi) => {
+      const id = g.id ?? slugify(g.name);
+      if (groupIds.has(id))
+        ctx.addIssue({
+          code: 'custom',
+          message: `two groups share the id "${id}"; give one of them its own \`id\``,
+          path: ['groups', gi, g.id ? 'id' : 'name'],
+        });
+      groupIds.add(id);
+    });
     const ids = new Set<string>();
     cfg.groups.forEach((g, gi) =>
       g.monitors.forEach((m, mi) => {

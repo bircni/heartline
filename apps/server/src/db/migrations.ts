@@ -1,5 +1,6 @@
 import { type Kysely, sql } from 'kysely';
 import { type Migration, type MigrationProvider, Migrator } from 'kysely/migration';
+import { slugify } from '../util/slug.ts';
 
 const ts = 'bigint' as const;
 
@@ -262,9 +263,74 @@ const migrations: Record<string, Migration> = {
         .execute();
     },
   },
+  '0005_groups': {
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('monitor_groups')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('name', 'text', (c) => c.notNull())
+        .addColumn('description', 'text')
+        .addColumn('position', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('collapsed', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('hide_unless_degraded', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('source', 'text', (c) => c.notNull())
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .addColumn('updated_at', ts, (c) => c.notNull())
+        .execute();
+      await db.schema.alterTable('monitors').addColumn('group_id', 'text').execute();
+
+      // One group per distinct group name, in the order the monitors were shown. Config groups keep the id
+      // status.yaml derives from the name, so the next config load adopts them.
+      const monitors: { id: string; group_name: string; source: string; position: number }[] = await db
+        .selectFrom('monitors')
+        .select(['id', 'group_name', 'source', 'position'])
+        .orderBy('position')
+        .orderBy('name')
+        .execute();
+      const now = Date.now();
+      const ids = new Map<string, string>();
+      for (const m of monitors) {
+        if (ids.has(m.group_name)) continue;
+        const base = slugify(m.group_name);
+        let id = base;
+        for (let n = 2; [...ids.values()].includes(id); n++) id = `${base}-${n}`;
+        ids.set(m.group_name, id);
+        const members = monitors.filter((x) => x.group_name === m.group_name);
+        await db
+          .insertInto('monitor_groups')
+          .values({
+            id,
+            name: m.group_name,
+            description: null,
+            position: members.some((x) => x.source === 'config') ? ids.size - 1 : 100_000 + ids.size,
+            collapsed: 0,
+            hide_unless_degraded: 0,
+            source: members.some((x) => x.source === 'config') ? 'config' : 'db',
+            created_at: now,
+            updated_at: now,
+          })
+          .execute();
+      }
+      for (const [name, id] of ids)
+        await db.updateTable('monitors').set({ group_id: id }).where('group_name', '=', name).execute();
+      await db.schema.alterTable('monitors').dropColumn('group_name').execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };
+
+/** Migrates to (and including) one migration; for tests that seed data an upgrade must carry over. */
+export async function migrateTo(db: Kysely<any>, name: string): Promise<void> {
+  const migrator = new Migrator({
+    db,
+    provider,
+    migrationTableName: 'hl_migrations',
+    migrationLockTableName: 'hl_migrations_lock',
+  });
+  const { error } = await migrator.migrateTo(name);
+  if (error) throw error;
+}
 
 export async function migrate(db: Kysely<any>): Promise<void> {
   const migrator = new Migrator({

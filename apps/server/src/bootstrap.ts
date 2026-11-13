@@ -17,6 +17,7 @@ import { RateLimiter } from './api/rate-limit.ts';
 import { AuditService, SYSTEM } from './services/audit.ts';
 import { IncidentService } from './services/incidents.ts';
 import { MaintenanceService } from './services/maintenance.ts';
+import { GroupService } from './services/groups.ts';
 import { MonitorService } from './services/monitors.ts';
 import { QueryService } from './services/queries.ts';
 import { SoftwareService } from './software/service.ts';
@@ -49,6 +50,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   const plugins = new PluginRegistry(env.pluginsDir);
   await plugins.load();
   const monitors = new MonitorService(db);
+  const groups = new GroupService(db);
   const notifier = new NotifierService(db, env.baseUrl, opts.fetchImpl);
   const maintenance = new MaintenanceService(db, monitors);
   const incidents = new IncidentService(db, monitors, notifier);
@@ -93,6 +95,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   const queries = new QueryService({
     db,
     monitors,
+    groups,
     incidents,
     maintenance,
     site,
@@ -132,7 +135,9 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     });
     await plugins.load();
     await maintenance.reload();
+    await groups.reconcile(next);
     await monitors.reconcile(next);
+    await groups.prune(next);
     await seedUsers(auth, next, db);
   };
   await applyConfig(config);
@@ -150,6 +155,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     tokens,
     plugins,
     monitors,
+    groups,
     maintenance,
     incidents,
     notifier,
@@ -164,7 +170,10 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
       await scheduler.start();
       software.start();
       // Maintenance windows can be edited by another replica; refresh the cache regularly.
-      maintenanceTimer = setInterval(() => void maintenance.reload().catch(() => {}), 60_000);
+      maintenanceTimer = setInterval(() => {
+        void maintenance.reload().catch(() => {});
+        void groups.reload().catch(() => {});
+      }, 60_000);
       maintenanceTimer.unref();
       let lastHash = sha256(await readFile(env.configPath, 'utf8').catch(() => ''));
       try {

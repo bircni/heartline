@@ -23,6 +23,7 @@ Admin (`/api/v1/admin/…`):
 
 | Route                                                                                                                              | Scope |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `GET groups`; `POST groups`, `PUT groups/:id`, `DELETE groups/:id`, `PUT groups/order` need admin                                  | read  |
 | `GET monitors`, `GET monitors/:id`, `GET plugins`, `GET notifiers`, `GET software/catalog`, `GET tokens`                           | read  |
 | `POST monitors/:id/run`, `POST monitors/:id/pause`, `POST monitors/:id/software/refresh`, `POST software/refresh`                  | write |
 | `POST incidents`, `PATCH incidents/:id`, `POST incidents/:id/updates`                                                              | write |
@@ -31,6 +32,9 @@ Admin (`/api/v1/admin/…`):
 | `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |
 | `GET users`, `POST users`, `PATCH users/:id`, `DELETE users/:id`                                                                   | admin |
 | `GET audit?limit&before&entityType&entityId&actor` (newest first; page with `before` = the last `at`)                              | admin |
+
+Monitor bodies are `{ groupId, spec }` or `{ group, spec }`, where `group` is a group id or name and a new
+name creates the group.
 
 Validation errors answer `400` with `{ error, issues: [{ path, message }] }`, one issue per field. Anonymous
 reads and sign-in attempts are rate limited and answer `429` with `Retry-After` (see `rateLimit` in the

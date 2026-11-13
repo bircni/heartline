@@ -21,6 +21,9 @@ retention:
 
 groups:
   - name: Code
+    description: Git hosting and CI # tooltip next to the group name
+    # collapsed: true            # one rolled-up row until opened
+    # hideUnlessDegraded: true   # hidden from visitors while everything is operational
     monitors:
       - id: gitea
         name: Gitea

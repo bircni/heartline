@@ -1,4 +1,4 @@
-import type { AdminMonitor, UserDto } from '@heartline/shared';
+import type { AdminMonitor, GroupDto, UserDto } from '@heartline/shared';
 import {
   incidentCreateSchema,
   incidentPatchSchema,
@@ -17,14 +17,65 @@ import { type Vars, principalOf, requireScope } from '../auth/principal.ts';
 import { isRole, maxScopeFor, roleAtLeast, scopeAtLeast } from '../auth/roles.ts';
 import { describeTarget, runCheck } from '../checks/index.ts';
 import type { AppContext } from '../context.ts';
-import { NotFoundError, redactSpec, restoreSecrets, validateMonitorSpec } from '../services/monitors.ts';
+import { groupIdSchema } from '../config/schema.ts';
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+  redactSpec,
+  restoreSecrets,
+  validateMonitorSpec,
+} from '../services/monitors.ts';
 import { listCatalog } from '../software/catalog.ts';
 import { log } from '../util/log.ts';
-import type { AuditInput } from '../services/audit.ts';
+import type { Actor, AuditInput } from '../services/audit.ts';
 import { BadRequestError, ForbiddenError, body } from './errors.ts';
 import { clientIp } from './rate-limit.ts';
 
-export const monitorInputSchema = z.object({ group: z.string().min(1).max(80), spec: monitorSpecSchema });
+export const monitorInputSchema = z
+  .object({
+    /** Group id. */
+    groupId: groupIdSchema.optional(),
+    /** Group id or name; a name no group has creates a new group. Ignored when `groupId` is given. */
+    group: z.string().trim().min(1).max(80).optional(),
+    spec: monitorSpecSchema,
+  })
+  .refine((m) => m.groupId || m.group, { message: 'groupId or group is required', path: ['groupId'] });
+
+export const groupInputSchema = z.object({
+  id: groupIdSchema.optional(),
+  name: z.string().trim().min(1).max(80),
+  description: z.string().max(1000).nullable().optional(),
+  collapsed: z.boolean().optional(),
+  hideUnlessDegraded: z.boolean().optional(),
+});
+
+/**
+ * The group a monitor input names; a new name creates a UI-managed group, recorded in the audit log under
+ * the same actor as the monitor change.
+ */
+export async function groupFor(
+  app: Pick<AppContext, 'groups' | 'audit'>,
+  input: { groupId?: string; group?: string },
+  actor: Actor,
+): Promise<GroupDto> {
+  if (input.groupId) {
+    const g = app.groups.get(input.groupId);
+    if (!g) throw new ValidationError(`unknown group "${input.groupId}"`);
+    return g;
+  }
+  const name = input.group as string;
+  const existing = app.groups.find(name);
+  if (existing) return existing;
+  const g = await app.groups.create({ name: name.trim() });
+  await app.audit.record(actor, {
+    action: 'group.create',
+    entityType: 'group',
+    entityId: g.id,
+    summary: `Created group ${g.name} for a new monitor`,
+  });
+  return g;
+}
 const pluginTestSchema = z.object({
   plugin: z.string().min(1),
   args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
@@ -47,6 +98,7 @@ export function adminRoutes(app: AppContext) {
         id: m.id,
         name: m.name,
         group: m.group,
+        groupId: m.groupId,
         kind: m.spec.type,
         source: m.source,
         paused: m.paused,
@@ -69,13 +121,14 @@ export function adminRoutes(app: AppContext) {
   r.post('/monitors', admin, async (c) => {
     const input = await body(c, monitorInputSchema);
     validateMonitorSpec(input.spec, app);
-    const m = await app.monitors.create(input.spec, input.group);
+    const group = await groupFor(app, input, principalOf(c));
+    const m = await app.monitors.create(input.spec, group.id);
     await audit(c, {
       action: 'monitor.create',
       entityType: 'monitor',
       entityId: m.id,
       summary: `Created monitor ${m.name}`,
-      detail: { group: input.group, spec: input.spec },
+      detail: { group: group.id, spec: input.spec },
     });
     return c.json(
       (await adminMonitors()).find((x) => x.id === m.id),
@@ -86,13 +139,17 @@ export function adminRoutes(app: AppContext) {
     const input = await body(c, monitorInputSchema);
     const spec = restoreSecrets(input.spec, app.monitors.get(c.req.param('id'))?.spec);
     validateMonitorSpec(spec, app);
-    const m = await app.monitors.update(c.req.param('id'), spec, input.group);
+    // Checked before a new group is created for the update, so a refused update leaves no group behind.
+    if (app.monitors.require(c.req.param('id')).source === 'config')
+      throw new ConflictError('this service is managed in status.yaml');
+    const group = await groupFor(app, input, principalOf(c));
+    const m = await app.monitors.update(c.req.param('id'), spec, group.id);
     await audit(c, {
       action: 'monitor.update',
       entityType: 'monitor',
       entityId: m.id,
       summary: `Updated monitor ${m.name}`,
-      detail: { group: input.group, spec },
+      detail: { group: group.id, spec },
     });
     return c.json((await adminMonitors()).find((x) => x.id === c.req.param('id')));
   });
@@ -130,6 +187,55 @@ export function adminRoutes(app: AppContext) {
     if (!m.spec.software) throw new BadRequestError('this service has no software block');
     await app.software.probeNow(m);
     return c.json(await app.software.refreshMonitor(m.id, true));
+  });
+
+  // Groups
+  r.get('/groups', read, (c) => c.json(app.groups.list()));
+  r.post('/groups', admin, async (c) => {
+    const input = await body(c, groupInputSchema);
+    const g = await app.groups.create(input);
+    await audit(c, {
+      action: 'group.create',
+      entityType: 'group',
+      entityId: g.id,
+      summary: `Created group ${g.name}`,
+      detail: input,
+    });
+    return c.json(g, 201);
+  });
+  r.put('/groups/order', admin, async (c) => {
+    const { ids } = await body(c, z.object({ ids: z.array(z.string()).min(1) }));
+    const list = await app.groups.reorder(ids);
+    await audit(c, {
+      action: 'group.reorder',
+      entityType: 'group',
+      summary: 'Reordered groups',
+      detail: { ids },
+    });
+    return c.json(list);
+  });
+  r.put('/groups/:id', admin, async (c) => {
+    const { id: _ignored, ...input } = await body(c, groupInputSchema);
+    const g = await app.groups.update(c.req.param('id'), input);
+    await audit(c, {
+      action: 'group.update',
+      entityType: 'group',
+      entityId: g.id,
+      summary: `Updated group ${g.name}`,
+      detail: input,
+    });
+    return c.json(g);
+  });
+  r.delete('/groups/:id', admin, async (c) => {
+    const g = app.groups.require(c.req.param('id'));
+    await app.groups.remove(g.id);
+    await audit(c, {
+      action: 'group.delete',
+      entityType: 'group',
+      entityId: g.id,
+      summary: `Deleted group ${g.name}`,
+    });
+    return c.body(null, 204);
   });
 
   // Software inventory

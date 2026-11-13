@@ -64,6 +64,8 @@ describe('audit log', () => {
       'incident.create',
       'monitor.pause',
       'monitor.create',
+      // The monitor named a group that did not exist yet.
+      'group.create',
     ]);
     expect(entries.every((e) => e.actor.name === 'Admin' && e.actor.via === 'session')).toBe(true);
     const all = JSON.stringify(entries);
