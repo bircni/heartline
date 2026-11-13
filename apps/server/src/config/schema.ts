@@ -147,8 +147,16 @@ export const configSchema = z
         reminderEvery: duration.default(0),
         /** New vulnerabilities, urgency rising to high/critical, version changes. */
         security: z.boolean().default(true),
+        /** Maintenance scheduled, starting soon, started, completed and its updates. */
+        maintenance: z.boolean().default(true),
       })
-      .default({ recovery: true, incidents: true, reminderEvery: 0, security: true }),
+      .default({ recovery: true, incidents: true, reminderEvery: 0, security: true, maintenance: true }),
+    maintenance: z
+      .object({
+        /** Reminder this long before a window starts; 0 sends none. */
+        reminderBefore: duration.default(3_600_000),
+      })
+      .default({ reminderBefore: 3_600_000 }),
     auth: z
       .object({
         local: z.boolean().default(true),

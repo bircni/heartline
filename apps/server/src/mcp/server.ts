@@ -9,7 +9,9 @@ import {
   incidentCreateSchema,
   incidentPatchSchema,
   incidentUpdateCreateSchema,
+  MAINTENANCE_STATUSES,
   maintenanceCreateSchema,
+  maintenanceUpdateCreateSchema,
   maintenanceUpdateSchema,
   monitorSpecSchema,
   postmortemSchema,
@@ -284,6 +286,7 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
         endsAt: z.string(),
         recurrence: z.string().optional(),
         services: z.array(z.string()).default([]),
+        notify: z.boolean().default(true),
       }),
     },
     async (input) =>
@@ -647,6 +650,34 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
           entries.map((e) => `- ${new Date(e.at).toISOString()} ${e.actor.name}: ${e.summary}`).join('\n') ||
             'No entries.',
         );
+      }),
+  );
+
+  server.registerTool(
+    'add_maintenance_update',
+    {
+      title: 'Post a maintenance update',
+      description:
+        'Post a status update (Markdown) on a one-off maintenance window: scheduled, in_progress, verifying or completed. Recurring windows start and complete on their own.',
+      inputSchema: z.object({
+        id: z.string(),
+        status: z.enum(MAINTENANCE_STATUSES),
+        message: z.string(),
+        notify: z.boolean().default(true),
+      }),
+    },
+    async ({ id, ...rest }) =>
+      guard('write', async () => {
+        const input = maintenanceUpdateCreateSchema.parse(rest);
+        const m = await app.maintenance.addUpdate(id, input, `${principal.name} (MCP)`);
+        await audit({
+          action: 'maintenance.post_update',
+          entityType: 'maintenance',
+          entityId: id,
+          summary: `Posted a “${input.status.replace('_', ' ')}” update to maintenance “${m.title}”`,
+          detail: input,
+        });
+        return ok(m, 'Maintenance update posted.');
       }),
   );
 

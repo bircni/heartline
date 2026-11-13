@@ -55,6 +55,11 @@ const incidentHistory = createRoute({
   path: 'incidents',
   component: IncidentHistoryPage,
 });
+const maintenanceWindow = createRoute({
+  getParentRoute: () => publicLayout,
+  path: 'maintenance/$id',
+  component: lazyRouteComponent(() => import('./pages/MaintenancePage.tsx'), 'MaintenanceWindowPage'),
+});
 const incident = createRoute({
   getParentRoute: () => publicLayout,
   path: 'incidents/$id',
@@ -151,7 +156,7 @@ const audit = createRoute({
 
 // Sign-in and admin code (auth client, schemas) loads on demand; the public page stays small.
 const routeTree = root.addChildren([
-  publicLayout.addChildren([overview, service, incidentHistory, incident]),
+  publicLayout.addChildren([overview, service, incidentHistory, incident, maintenanceWindow]),
   login,
   consent,
   admin.addChildren([

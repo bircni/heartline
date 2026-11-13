@@ -192,6 +192,11 @@ export const useIncidentHistory = (filter: IncidentFilter) =>
       return last.length === HISTORY_PAGE && end ? `${end.createdAt}:${end.id}` : undefined;
     },
   });
+export const useMaintenanceWindow = (id: string) =>
+  useQuery({
+    queryKey: ['maintenance', id],
+    queryFn: () => api<Maintenance>(`/api/v1/maintenance/${encodeURIComponent(id)}`),
+  });
 export const useMaintenance = () =>
   useQuery({ queryKey: ['maintenance'], queryFn: () => api<Maintenance[]>('/api/v1/maintenance') });
 

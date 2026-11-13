@@ -373,6 +373,56 @@ const migrations: Record<string, Migration> = {
         .execute();
     },
   },
+  '0007_maintenance_lifecycle': {
+    async up(db: Kysely<any>) {
+      await db.schema
+        .alterTable('maintenances')
+        .addColumn('status', 'text', (c) => c.notNull().defaultTo('scheduled'))
+        .execute();
+      await db.schema.alterTable('maintenances').addColumn('started_at', ts).execute();
+      await db.schema.alterTable('maintenances').addColumn('completed_at', ts).execute();
+      // One-off windows take the status their times say; recurring ones are tracked per occurrence.
+      const now = Date.now();
+      await db
+        .updateTable('maintenances')
+        .set({ status: 'completed', started_at: sql`starts_at`, completed_at: sql`ends_at` })
+        .where('recurrence', 'is', null)
+        .where('ends_at', '<=', now)
+        .execute();
+      await db
+        .updateTable('maintenances')
+        .set({ status: 'in_progress', started_at: sql`starts_at` })
+        .where('recurrence', 'is', null)
+        .where('starts_at', '<=', now)
+        .where('ends_at', '>', now)
+        .execute();
+
+      await db.schema
+        .createTable('maintenance_updates')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('maintenance_id', 'text', (c) => c.notNull())
+        .addColumn('status', 'text', (c) => c.notNull())
+        .addColumn('message', 'text', (c) => c.notNull())
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .addColumn('author', 'text')
+        .addColumn('notify', 'integer', (c) => c.notNull().defaultTo(0))
+        .execute();
+      await db.schema
+        .createIndex('maintenance_updates_window')
+        .on('maintenance_updates')
+        .column('maintenance_id')
+        .execute();
+      await db.schema
+        .createTable('maintenance_occurrences')
+        .addColumn('maintenance_id', 'text', (c) => c.notNull())
+        .addColumn('occurrence_start', ts, (c) => c.notNull())
+        .addColumn('reminded_at', ts)
+        .addColumn('started_at', ts)
+        .addColumn('completed_at', ts)
+        .addPrimaryKeyConstraint('maintenance_occurrences_pk', ['maintenance_id', 'occurrence_start'])
+        .execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

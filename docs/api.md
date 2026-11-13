@@ -11,7 +11,7 @@ Public (or for any signed-in user when `site.public: false`):
   range on an earlier day (site time zone)
 - `GET /api/v1/incidents?limit=50` with optional `state=open|resolved`, `q` (title text), `impact`, `service`;
   a full page sends `X-Next-Cursor`, pass it as `before` for the next one. `GET /api/v1/incidents/:id`,
-  `GET /api/v1/maintenance`, `GET /api/v1/maintenance/:id`
+  `GET /api/v1/maintenance?state=active|upcoming|past`, `GET /api/v1/maintenance/:id`
 - `GET /api/v1/report.csv?days=90`, `GET /api/v1/services/:id/report.csv` (both also take `to`)
 - `GET /api/v1/badge/:id.svg` (`?kind=version` for a version badge), `GET /api/v1/incidents.rss`
 
@@ -29,7 +29,7 @@ Admin (`/api/v1/admin/…`):
 | `POST incidents`, `PATCH incidents/:id`, `POST incidents/:id/updates`                                                              | write |
 | `GET incidents/:id` (with draft postmortem), `PUT incidents/:id/postmortem`, `DELETE incidents/:id/postmortem`                     | write |
 | `GET templates?kind=`, `POST templates`, `PUT templates/:id`, `DELETE templates/:id` (`GET` needs read)                            | write |
-| `POST maintenance`, `PUT maintenance/:id`, `DELETE maintenance/:id`                                                                | write |
+| `POST maintenance`, `PUT maintenance/:id`, `DELETE maintenance/:id`, `POST maintenance/:id/updates`                                | write |
 | `POST tokens`, `DELETE tokens/:id` (own; `GET tokens?all=true` needs admin)                                                        | read  |
 | `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |
 | `GET users`, `POST users`, `PATCH users/:id`, `DELETE users/:id`                                                                   | admin |

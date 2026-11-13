@@ -3,6 +3,7 @@ import type {
   ComponentStatus,
   Incident,
   IncidentUpdateDto,
+  Maintenance,
   NotifierDto,
   ServiceRef,
   ServiceStatus,
@@ -24,6 +25,14 @@ export type NotificationEvent =
       reminder?: boolean;
     }
   | { kind: 'incident'; incident: Incident; update: IncidentUpdateDto }
+  | {
+      kind: 'maintenance';
+      maintenance: Maintenance;
+      event: 'scheduled' | 'reminder' | 'started' | 'completed' | 'update';
+      /** Markdown. */
+      message: string;
+      at: number;
+    }
   | {
       kind: 'vulnerability';
       service: ServiceRef;
@@ -126,6 +135,29 @@ export function render(event: NotificationEvent, baseUrl: string, siteTitle: str
             ? 'Warning'
             : 'Accent',
       url: `${baseUrl}/services/${encodeURIComponent(service.id)}`,
+    };
+  }
+  if (event.kind === 'maintenance') {
+    const m = event.maintenance;
+    const start = m.nextStartsAt ?? m.startsAt;
+    const end = m.nextEndsAt ?? m.endsAt;
+    const title = {
+      scheduled: `Maintenance scheduled: ${m.title}`,
+      reminder: `Maintenance starts soon: ${m.title}`,
+      started: `Maintenance started: ${m.title}`,
+      completed: `Maintenance completed: ${m.title}`,
+      update: `Maintenance update: ${m.title}`,
+    }[event.event];
+    return {
+      title,
+      text: markdownToText(event.event === 'scheduled' && m.description ? m.description : event.message),
+      facts: [
+        ['When', `${new Date(start).toISOString()} – ${new Date(end).toISOString()}`],
+        ['Status', m.status.replace('_', ' ')],
+        ['Affected', m.services.map((s) => s.name).join(', ') || 'all services'],
+      ],
+      tone: event.event === 'completed' ? 'Good' : 'Accent',
+      url: `${baseUrl}/maintenance/${m.id}`,
     };
   }
   const { incident, update } = event;

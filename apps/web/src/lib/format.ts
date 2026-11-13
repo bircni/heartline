@@ -8,6 +8,7 @@ import {
 import type {
   ComponentStatus,
   DayState,
+  MaintenanceStatus,
   Impact,
   Incident,
   ServiceRef,
@@ -247,6 +248,13 @@ export const IMPACT_LABEL: Record<Impact, string> = {
   degraded: 'Degraded performance',
   partial: 'Partial outage',
   major: 'Major outage',
+};
+
+export const MAINTENANCE_LABEL: Record<MaintenanceStatus, string> = {
+  scheduled: 'Scheduled',
+  in_progress: 'In progress',
+  verifying: 'Verifying',
+  completed: 'Completed',
 };
 
 /** What an incident says about one affected service. */

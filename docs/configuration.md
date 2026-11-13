@@ -99,6 +99,21 @@ Updates, postmortems and maintenance descriptions are Markdown. An incident or u
 (`createdAt`) is a write-up after the fact: it lands at its own time and never notifies anyone.
 Postmortems stay drafts until published; then they appear on the incident page.
 
+## Maintenance
+
+```yaml
+maintenance:
+  reminderBefore: 1h # reminder before a window starts; 0 sends none
+```
+
+A window goes _scheduled_ → _in progress_ → _verifying_ → _completed_. It starts and completes on its own
+at the planned times (also from verifying); editors can post updates in between, for example to verify or
+to finish early. Recurring windows start and complete each occurrence on their own and take no manual
+updates. The channels hear about scheduling (when asked to), the reminder, the start, the end and posted
+updates; set `notifications.maintenance: false` to turn that off. A start or end noticed more than 15
+minutes late, e.g. after downtime, is recorded without notifying. Each window has a public page at
+`/maintenance/<id>`; its description is Markdown.
+
 ## Third-party services
 
 `provider` monitors follow the status the provider itself publishes: Atlassian, GitHub,
@@ -166,7 +181,7 @@ notifiers:
     smtp: { host: smtp.example.com, port: 587, user: '${SMTP_USER}', password: '${SMTP_PASSWORD}' }
   - { id: hook, type: webhook, url: https://example.com/hook }
 
-notifications: { recovery: true, incidents: true, reminderEvery: 1h }
+notifications: { recovery: true, incidents: true, reminderEvery: 1h, maintenance: true }
 ```
 
 **Microsoft Teams**: in the channel, open _Workflows_ and pick _Post to a channel when a webhook request

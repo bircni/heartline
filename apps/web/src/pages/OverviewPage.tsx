@@ -69,17 +69,23 @@ function MaintenanceRow({ window: m }: { window: Maintenance }) {
   const start = m.nextStartsAt ?? m.startsAt;
   const end = m.nextEndsAt ?? m.endsAt;
   return (
-    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 first:border-t-0">
+    <Link
+      to="/maintenance/$id"
+      params={{ id: m.id }}
+      className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5 border-t border-hair px-3.5 py-2.5 text-text no-underline transition-colors first:border-t-0 hover:bg-hover"
+    >
       <span className="min-w-0 flex-[1_1_14rem] font-medium">{m.title}</span>
       <span className="min-w-0 flex-[1_1_10rem] truncate text-sec">{serviceNames(m.services)}</span>
       <span className="text-sec">
         {m.active ? (
-          <span className="font-medium text-maint">In progress until {clock(end)}</span>
+          <span className="font-medium text-maint">
+            {m.status === 'verifying' ? 'Verifying' : 'In progress'} until {clock(end)}
+          </span>
         ) : (
           `${weekdayDate(start)}, ${clock(start)} – ${clock(end)}`
         )}
       </span>
-    </div>
+    </Link>
   );
 }
 
