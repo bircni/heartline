@@ -10,6 +10,7 @@ import { rateLimit } from './api/rate-limit.ts';
 import { docsHtml, openApiDocument } from './api/openapi.ts';
 import { bootstrapRoutes, publicRoutes } from './api/public.ts';
 import { pushRoutes } from './api/push.ts';
+import { v2Routes } from './api/v2.ts';
 import { subscribeRoutes, subscriberLinkRoutes } from './api/subscribers.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
@@ -81,6 +82,10 @@ export function createApp(app: AppContext) {
   h.route('/api/v1/admin', adminRoutes(app));
   h.route('/api/v1', subscribeRoutes(app));
   h.route('/api/v1', publicRoutes(app));
+  // Status API v2: the common status page JSON format.
+  h.use('/api/v2/*', principalMiddleware(app));
+  h.use('/api/v2/*', rateLimit(app, 'public', { shared: false, skip: (c) => c.get('principal') !== null }));
+  h.route('/api/v2', v2Routes(app));
   h.all('/api/*', (c) => c.json({ error: 'not found' }, 404));
 
   const dist = app.env.webDist;

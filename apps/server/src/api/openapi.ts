@@ -655,6 +655,32 @@ const paths: Record<string, Record<string, Op>> = {
       responses: { 200: { description: 'Atom', content: { 'application/atom+xml': { schema: str() } } } },
     },
   },
+  ...Object.fromEntries(
+    (
+      [
+        ['summary.json', 'Page, status, components, unresolved incidents and open maintenance'],
+        ['status.json', 'Page and its overall status indicator'],
+        ['components.json', 'Your own services and their groups (group.<id>)'],
+        ['incidents.json', 'The 50 latest incidents'],
+        ['incidents/unresolved.json', 'Open incidents'],
+        ['scheduled-maintenances.json', 'The 50 latest maintenance windows'],
+        ['scheduled-maintenances/upcoming.json', 'Maintenance still to come'],
+        ['scheduled-maintenances/active.json', 'Maintenance in progress or verifying'],
+      ] as const
+    ).map(([path, summary]) => [
+      `/api/v2/${path}`,
+      {
+        get: {
+          ...pub,
+          summary: `${summary} (status API v2)`,
+          description:
+            'The common status page JSON format, so existing status widgets and aggregators work with this page. Services without a result yet and paused ones are left out; third-party services too.',
+          tags: ['Status API v2'],
+          responses: { 200: json({ type: 'object' }), 401: E401 },
+        },
+      },
+    ]),
+  ),
   '/api/v1/subscribers': {
     post: {
       ...pub,
