@@ -423,6 +423,19 @@ const migrations: Record<string, Migration> = {
         .execute();
     },
   },
+  '0008_push': {
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('monitor_push')
+        .addColumn('monitor_id', 'text', (c) => c.primaryKey())
+        .addColumn('token_hash', 'text', (c) => c.notNull().unique())
+        .addColumn('prefix', 'text', (c) => c.notNull())
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .addColumn('last_push_at', ts)
+        .addColumn('last_push_status', 'text')
+        .execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

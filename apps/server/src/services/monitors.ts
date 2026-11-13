@@ -59,6 +59,7 @@ export const SECRET_MASK = '••••••••';
 
 /** The spec without secrets, for API responses. */
 export function redactSpec(spec: MonitorSpec): MonitorSpec {
+  if (spec.type === 'push' && spec.token) return { ...spec, token: SECRET_MASK };
   if (spec.type === 'provider' && spec.m365)
     return { ...spec, m365: { ...spec.m365, clientSecret: SECRET_MASK } };
   return spec;
@@ -66,6 +67,8 @@ export function redactSpec(spec: MonitorSpec): MonitorSpec {
 
 /** Puts stored secrets back where an update sent the mask. */
 export function restoreSecrets(spec: MonitorSpec, current: MonitorSpec | undefined): MonitorSpec {
+  if (spec.type === 'push' && spec.token === SECRET_MASK)
+    return { ...spec, token: current?.type === 'push' ? current.token : undefined };
   if (spec.type !== 'provider' || spec.m365?.clientSecret !== SECRET_MASK) return spec;
   const stored = current?.type === 'provider' ? current.m365?.clientSecret : undefined;
   if (!stored) throw new ValidationError('m365.clientSecret is required');
@@ -87,6 +90,7 @@ export async function purgeMonitorRows(
   await trx.deleteFrom('monitor_software').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('monitor_software_history').where('monitor_id', '=', id).execute();
   await trx.deleteFrom('monitor_vulnerabilities').where('monitor_id', '=', id).execute();
+  await trx.deleteFrom('monitor_push').where('monitor_id', '=', id).execute();
 }
 
 export class MonitorService {

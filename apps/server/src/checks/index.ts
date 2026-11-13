@@ -1,4 +1,4 @@
-import { type MonitorSpec, findProvider } from '@heartline/shared';
+import { type MonitorSpec, findProvider, formatDuration } from '@heartline/shared';
 import { checkHttp } from './http.ts';
 import { checkDns, checkIcmp, checkTcp, checkTls } from './network.ts';
 import type { PluginRegistry } from './plugins.ts';
@@ -30,6 +30,9 @@ export async function runCheck(
       return plugins.run(spec, signal);
     case 'provider':
       return checkProvider(spec, signal);
+    case 'push':
+      // Push monitors are not polled; the scheduler watches for missing heartbeats instead.
+      return { status: 'unknown', latencyMs: null, message: 'push monitors report in themselves' };
   }
 }
 
@@ -51,5 +54,7 @@ export function describeTarget(spec: MonitorSpec): string {
       const where = spec.url ?? preset?.homepage ?? preset?.name ?? spec.provider;
       return spec.components.length ? `${where} (${spec.components.join(', ')})` : where;
     }
+    case 'push':
+      return spec.heartbeat ? `heartbeat every ${formatDuration(spec.interval)}` : 'webhook';
   }
 }

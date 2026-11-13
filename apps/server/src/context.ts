@@ -12,6 +12,7 @@ import type { MaintenanceService } from './services/maintenance.ts';
 import type { GroupService } from './services/groups.ts';
 import type { TemplateService } from './services/templates.ts';
 import type { MonitorService } from './services/monitors.ts';
+import type { PushService } from './services/push.ts';
 import type { QueryService } from './services/queries.ts';
 import type { RateLimiter } from './api/rate-limit.ts';
 import type { AuditService } from './services/audit.ts';
@@ -27,6 +28,7 @@ export interface AppContext {
   tokens: TokenService;
   plugins: PluginRegistry;
   monitors: MonitorService;
+  push: PushService;
   groups: GroupService;
   templates: TemplateService;
   maintenance: MaintenanceService;

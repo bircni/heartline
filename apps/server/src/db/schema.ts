@@ -289,6 +289,17 @@ export interface MonitorGroupTable {
   updated_at: number;
 }
 
+/** The secret push URL of a push monitor (hashed) and when it was last used. */
+export interface MonitorPushTable {
+  monitor_id: string;
+  token_hash: string;
+  /** First characters of the token, to recognise it. */
+  prefix: string;
+  created_at: number;
+  last_push_at: number | null;
+  last_push_status: string | null;
+}
+
 export interface Database {
   monitors: MonitorTable;
   monitor_state: MonitorStateTable;
@@ -312,6 +323,7 @@ export interface Database {
   templates: TemplateTable;
   maintenance_updates: MaintenanceUpdateTable;
   maintenance_occurrences: MaintenanceOccurrenceTable;
+  monitor_push: MonitorPushTable;
   rate_limits: RateLimitTable;
   user: UserTable;
   account: AccountTable;

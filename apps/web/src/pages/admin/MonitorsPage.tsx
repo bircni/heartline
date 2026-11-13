@@ -6,7 +6,7 @@ import { Icon } from '../../components/Icon.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { StatusDot, StatusPill } from '../../components/Status.tsx';
 import { Switch } from '../../components/Switch.tsx';
-import { BadgeSnippet } from '../../components/CodeSnippet.tsx';
+import { BadgeSnippet, CodeSnippet } from '../../components/CodeSnippet.tsx';
 import { useConfirm } from '../../components/Dialog.tsx';
 import { toast } from '../../components/Toast.tsx';
 import {
@@ -367,6 +367,7 @@ const KIND_LABEL: Record<MonitorKind, string> = {
   icmp: 'Ping',
   plugin: 'Plugin',
   provider: 'Provider',
+  push: 'Push',
 };
 
 const COMPONENT_LABEL = { components: 'Components', products: 'Products', services: 'Services' } as const;
@@ -391,10 +392,138 @@ function emptyDraft(kind: MonitorKind = 'http'): Draft {
         notify: [],
       },
     };
+  if (kind === 'push')
+    return {
+      group: 'Jobs',
+      spec: {
+        id: '',
+        name: '',
+        type: kind,
+        interval: '1h',
+        grace: '5m',
+        heartbeat: true,
+        failureThreshold: 1,
+        notify: [],
+      },
+    };
   return {
     group: 'Services',
     spec: { id: '', name: '', type: kind, interval: '60s', failureThreshold: 2, notify: [] },
   };
+}
+
+/** How a push monitor reports in, and its secret URL (shown once after creating or renewing it). */
+function PushFields({
+  s,
+  set,
+  locked,
+}: {
+  s: Record<string, unknown>;
+  set: (key: string, value: unknown) => void;
+  locked: boolean;
+}) {
+  return (
+    <>
+      <div className="mt-3 flex items-center justify-between rounded-md bg-fill px-3 py-2">
+        <span className="text-base">Expect a heartbeat</span>
+        <Switch
+          label="Expect a heartbeat"
+          checked={s.heartbeat !== false}
+          disabled={locked}
+          onChange={(v) => set('heartbeat', v)}
+        />
+      </div>
+      <p className="m-0 mt-1 text-xs text-sec">
+        {s.heartbeat !== false
+          ? 'Down when no push arrives within the interval plus the grace time. For cron jobs and backups.'
+          : 'Keeps the status the last push sent, e.g. from Alertmanager or Grafana.'}
+      </p>
+      {s.heartbeat !== false && (
+        <TextField
+          id="m-grace"
+          label="Grace time"
+          value={s.grace}
+          onChange={(v) => set('grace', v || undefined)}
+          disabled={locked}
+          placeholder="1m"
+        />
+      )}
+    </>
+  );
+}
+
+/** The push URL of a saved push monitor: shown once, renewable. */
+function PushUrl({
+  monitor,
+  fresh,
+  onRenewed,
+}: {
+  monitor: AdminMonitor;
+  fresh: string | null;
+  onRenewed: (url: string) => void;
+}) {
+  const confirm = useConfirm();
+  const qc = useQueryClient();
+  const renew = useMutation({
+    mutationFn: () =>
+      api<{ url: string }>(`/api/v1/admin/monitors/${encodeURIComponent(monitor.id)}/push-token`, {
+        method: 'POST',
+      }),
+    onSuccess: async (r) => {
+      onRenewed(r.url);
+      await qc.invalidateQueries({ queryKey: ['admin', 'monitors'] });
+    },
+    meta: { errorToast: true },
+  });
+  const fixed = monitor.spec.type === 'push' && Boolean(monitor.spec.token);
+  return (
+    <div className="mt-4 rounded-md bg-fill p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">Push URL</span>
+        {!fixed && (
+          <button
+            type="button"
+            className="btn-sm"
+            disabled={renew.isPending}
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: 'Create a new push URL?',
+                  message: 'The current URL stops working at once; update the job or tool that calls it.',
+                  confirm: 'New URL',
+                })
+              )
+                renew.mutate();
+            }}
+          >
+            <Icon name="refresh" size={14} /> New URL
+          </button>
+        )}
+      </div>
+      {fresh ? (
+        <>
+          <div className="mt-1 text-xs font-medium text-warn-text">Copy it now. It won’t be shown again.</div>
+          <CodeSnippet code={fresh} />
+          <CodeSnippet label="From a cron job" code={`curl -fsS -m 10 --retry 3 ${fresh}`} />
+          <CodeSnippet
+            label="Report a failure"
+            code={`curl -fsS -m 10 "${fresh}?status=down&msg=backup%20failed"`}
+          />
+        </>
+      ) : (
+        <p className="m-0 mt-1 text-xs text-sec">
+          {fixed
+            ? 'Uses the token from status.yaml.'
+            : monitor.push
+              ? `Starts with ${monitor.push.prefix}…`
+              : 'No URL yet.'}{' '}
+          {monitor.push?.lastPushAt
+            ? `Last push ${relative(monitor.push.lastPushAt)} (${monitor.push.lastPushStatus}).`
+            : 'No push yet.'}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** Provider preset, status URL, component filter and Microsoft 365 credentials. */
@@ -494,6 +623,7 @@ function toDraft(m: AdminMonitor): Draft {
   };
   if ('degradedAfter' in m.spec && m.spec.degradedAfter !== undefined)
     spec.degradedAfter = formatDuration(m.spec.degradedAfter);
+  if (m.spec.type === 'push') spec.grace = formatDuration(m.spec.grace);
   if (m.spec.software?.version) {
     const { interval, headers, method, ignoreTls, ...rest } = m.spec.software.version;
     const version: Record<string, unknown> = { ...rest };
@@ -746,6 +876,7 @@ function Editor({
         />
       )}
       {kind === 'provider' && <ProviderFields s={s} set={set} locked={locked} />}
+      {kind === 'push' && <PushFields s={s} set={set} locked={locked} />}
       {kind === 'plugin' && (
         <>
           <Field label="Plugin" htmlFor="m-plugin">
@@ -787,19 +918,21 @@ function Editor({
       <div className="grid grid-cols-3 gap-x-3">
         <TextField
           id="m-interval"
-          label="Interval"
+          label={kind === 'push' ? 'Expected every' : 'Interval'}
           value={s.interval}
           onChange={(v) => set('interval', v)}
-          disabled={locked}
+          disabled={locked || (kind === 'push' && s.heartbeat === false)}
         />
-        <TextField
-          id="m-timeout"
-          label="Timeout"
-          value={s.timeout}
-          onChange={(v) => set('timeout', v || undefined)}
-          disabled={locked}
-          placeholder="10s"
-        />
+        {kind !== 'push' && (
+          <TextField
+            id="m-timeout"
+            label="Timeout"
+            value={s.timeout}
+            onChange={(v) => set('timeout', v || undefined)}
+            disabled={locked}
+            placeholder="10s"
+          />
+        )}
         <TextField
           id="m-threshold"
           label="Alert after"
@@ -809,7 +942,7 @@ function Editor({
           hint="failed checks"
         />
       </div>
-      {kind !== 'plugin' && kind !== 'tls' && kind !== 'provider' && (
+      {kind !== 'plugin' && kind !== 'tls' && kind !== 'provider' && kind !== 'push' && (
         <TextField
           id="m-degraded"
           label="Degraded when slower than"
@@ -894,12 +1027,17 @@ function MonitorPanel({
   monitor,
   onSaved,
   onDeleted,
+  freshPushUrl,
+  onPushUrl,
   isAdmin,
   isEditor,
 }: {
   monitor: AdminMonitor | null;
   onSaved: (id: string) => void;
   onDeleted: () => void;
+  /** A push URL just created for this monitor, shown once. */
+  freshPushUrl: string | null;
+  onPushUrl: (id: string, url: string) => void;
   isAdmin: boolean;
   isEditor: boolean;
 }) {
@@ -929,6 +1067,7 @@ function MonitorPanel({
       await refresh();
       setMessage(null);
       toast(isNew ? `Created ${m.name}` : `Saved ${m.name}`);
+      if (m.pushUrl) onPushUrl(m.id, m.pushUrl);
       onSaved(m.id);
     },
     onMutate: () => setMessage(null),
@@ -1070,6 +1209,9 @@ function MonitorPanel({
           )}
         </div>
       </form>
+      {monitor?.kind === 'push' && (
+        <PushUrl monitor={monitor} fresh={freshPushUrl} onRenewed={(url) => onPushUrl(monitor.id, url)} />
+      )}
       {monitor && (
         <div className="mt-5 border-t border-hair pt-3">
           <h3 className="m-0 text-base font-semibold">Badge</h3>
@@ -1084,6 +1226,7 @@ export function MonitorsPage() {
   const monitors = useAdminMonitors();
   const me = useMe();
   const [selected, setSelected] = useState<string | null>(null);
+  const [freshPush, setFreshPush] = useState<{ id: string; url: string } | null>(null);
   const isAdmin = can(me.data?.role, 'admin');
   const isEditor = can(me.data?.role, 'editor');
 
@@ -1153,6 +1296,8 @@ export function MonitorsPage() {
             isEditor={isEditor}
             onSaved={setSelected}
             onDeleted={() => setSelected(null)}
+            freshPushUrl={freshPush && freshPush.id === current?.id ? freshPush.url : null}
+            onPushUrl={(id, url) => setFreshPush({ id, url })}
           />
         )}
       </div>

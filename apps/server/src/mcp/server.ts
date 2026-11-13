@@ -398,6 +398,33 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
   );
 
   server.registerTool(
+    'rotate_push_token',
+    {
+      title: 'New push URL',
+      description:
+        'Create a new secret URL for a push monitor; the old URL stops working. The service (cron job, alerting tool) then calls it with GET or POST, optionally with status, msg, latencyMs and version.',
+      inputSchema: z.object({ id: z.string() }),
+    },
+    async ({ id }) =>
+      guard('admin', async () => {
+        const m = app.monitors.require(id);
+        if (m.spec.type === 'push' && m.spec.token)
+          throw new ConflictError('this monitor has a fixed token in status.yaml');
+        const token = await app.push.rotate(id);
+        await audit({
+          action: 'monitor.push_token',
+          entityType: 'monitor',
+          entityId: id,
+          summary: `Created a new push URL for ${m.name}`,
+        });
+        return ok(
+          { url: `${app.env.baseUrl}/api/v1/push/${token}` },
+          'New push URL created; the old one no longer works.',
+        );
+      }),
+  );
+
+  server.registerTool(
     'list_groups',
     {
       title: 'List groups',

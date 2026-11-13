@@ -97,6 +97,8 @@ export const configSchema = z
         public: rateBucketSchema.default({ max: 300, window: 60_000 }),
         /** Sign-in and client registration attempts per client IP, shared by all replicas. */
         auth: rateBucketSchema.default({ max: 10, window: 60_000 }),
+        /** Push monitor reports per client IP, shared by all replicas. */
+        push: rateBucketSchema.default({ max: 120, window: 60_000 }),
         /** Take the client IP from X-Forwarded-For; enable behind a reverse proxy or ingress. */
         trustProxy: z.boolean().default(false),
       })
@@ -104,6 +106,7 @@ export const configSchema = z
         enabled: true,
         public: { max: 300, window: 60_000 },
         auth: { max: 10, window: 60_000 },
+        push: { max: 120, window: 60_000 },
         trustProxy: false,
       }),
     software: z

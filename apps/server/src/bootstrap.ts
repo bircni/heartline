@@ -20,6 +20,7 @@ import { MaintenanceService } from './services/maintenance.ts';
 import { GroupService } from './services/groups.ts';
 import { TemplateService } from './services/templates.ts';
 import { MonitorService } from './services/monitors.ts';
+import { PushService } from './services/push.ts';
 import { QueryService } from './services/queries.ts';
 import { SoftwareService } from './software/service.ts';
 import { StatusEngine } from './status/engine.ts';
@@ -62,6 +63,8 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   engine.audit = audit;
   maintenance.audit = audit;
   const scheduler = new Scheduler(db, monitors, plugins, engine);
+  const push = new PushService(db, monitors);
+  scheduler.push = push;
   const software = new SoftwareService({
     db,
     monitors,
@@ -142,6 +145,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     await maintenance.reload();
     await groups.reconcile(next);
     await monitors.reconcile(next);
+    await push.syncConfigTokens();
     await groups.prune(next);
     await templates.reconcile(next);
     await seedUsers(auth, next, db);
@@ -162,6 +166,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     tokens,
     plugins,
     monitors,
+    push,
     groups,
     templates,
     maintenance,
