@@ -192,7 +192,7 @@ export function SoftwarePage() {
         />
       </div>
       <Section>
-        <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-xs font-medium text-muted">
+        <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-xs font-medium text-muted max-md:hidden">
           <span className="flex-1 pl-[21px]">Service</span>
           <span className="w-28">Running</span>
           <span className="w-28">Latest</span>
@@ -218,7 +218,8 @@ export function SoftwarePage() {
             <div key={s.serviceId}>
               <button
                 type="button"
-                className={`row-btn ${isOpen ? 'bg-sel' : ''}`}
+                // Below md the row wraps: name on the first line, running version, urgency and vulnerabilities below.
+                className={`row-btn max-md:flex-wrap max-md:gap-y-1 ${isOpen ? 'bg-sel' : ''}`}
                 aria-expanded={isOpen}
                 onClick={() => {
                   setOpen(isOpen ? null : s.serviceId);
@@ -230,16 +231,16 @@ export function SoftwarePage() {
                   size={16}
                   className={`shrink-0 text-sec transition-transform ${isOpen ? 'rotate-90' : ''}`}
                 />
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0 flex-1 max-md:basis-[calc(100%-36px)]">
                   <span className="block truncate font-medium">{s.serviceName}</span>
                   <span className="block text-xs text-muted">
                     {s.productName} · {s.group}
                   </span>
                 </span>
-                <span className="w-28 font-mono text-xs">
+                <span className="font-mono text-xs max-md:pl-8 md:w-28">
                   {s.version ?? <span className="text-sec">–</span>}
                 </span>
-                <span className="w-28 font-mono text-xs">
+                <span className="w-28 font-mono text-xs max-md:hidden">
                   {s.latest ? (
                     s.latestUrl ? (
                       <a
@@ -261,7 +262,7 @@ export function SoftwarePage() {
                     <span className="block text-xs text-muted">{s.latestInCycle} in cycle</span>
                   )}
                 </span>
-                <span className="w-32 text-xs">
+                <span className="w-32 text-xs max-md:hidden">
                   {s.cycle ?? s.pinnedCycle ?? <span className="text-sec">–</span>}
                   {s.pinnedCycle && <span className="block text-xs text-muted">pinned</span>}
                   {s.eolReached ? (
@@ -270,10 +271,10 @@ export function SoftwarePage() {
                     <span className="block text-xs text-muted">until {shortDate(s.eol)}</span>
                   ) : null}
                 </span>
-                <span className="w-36">
+                <span className="md:w-36">
                   <UrgencyBadge level={level} score={s.score} />
                 </span>
-                <span className="w-40 text-xs">
+                <span className="text-xs md:w-40">
                   <VulnCounts vulns={s.vulns} />
                 </span>
               </button>

@@ -2,7 +2,19 @@ import type { ApiTokenDto, Scope } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
-import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { useConfirm } from '../../components/Dialog.tsx';
+import { toast } from '../../components/Toast.tsx';
+import {
+  EmptyState,
+  ErrorNote,
+  Field,
+  FieldErrors,
+  Notice,
+  PageHeader,
+  Section,
+  Spinner,
+  fieldErrorsOf,
+} from '../../components/ui.tsx';
 import { api, useMe, useTokens } from '../../lib/api.ts';
 import { dateTime, relative } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
@@ -55,9 +67,15 @@ export function TokensPage() {
     },
   });
   const revoke = useMutation({
-    mutationFn: (id: string) => api(`/api/v1/admin/tokens/${id}`, { method: 'DELETE' }),
-    onSuccess: refresh,
+    mutationFn: (t: ApiTokenDto) => api(`/api/v1/admin/tokens/${t.id}`, { method: 'DELETE' }),
+    onSuccess: async (_r, t) => {
+      await refresh();
+      toast(`Revoked ${t.name}`);
+    },
+    meta: { errorToast: true },
   });
+  const confirm = useConfirm();
+  const createErrors = fieldErrorsOf(create.error, { name: 't-name', expiresInDays: 't-exp' });
   const mcpUrl = `${window.location.origin}/mcp`;
   const command = `claude mcp add --transport http status ${mcpUrl}`;
 
@@ -80,7 +98,11 @@ export function TokensPage() {
           <Section>
             {tokens.isPending && <Spinner />}
             {tokens.error && <ErrorNote error={tokens.error} />}
-            {tokens.data?.length === 0 && <Empty>No tokens yet</Empty>}
+            {tokens.data?.length === 0 && (
+              <EmptyState title="No tokens yet">
+                Create one for scripts, dashboards or MCP clients.
+              </EmptyState>
+            )}
             {tokens.data?.map((t, i) => (
               <div
                 key={t.id}
@@ -101,11 +123,16 @@ export function TokensPage() {
                 <button
                   type="button"
                   className="btn-sm text-bad-text"
-                  onClick={() => {
+                  disabled={revoke.isPending}
+                  onClick={async () => {
                     if (
-                      window.confirm(`Revoke token “${t.name}”? Clients using it stop working immediately.`)
+                      await confirm({
+                        title: `Revoke “${t.name}”?`,
+                        message: 'Clients using it stop working immediately.',
+                        confirm: 'Revoke token',
+                      })
                     )
-                      revoke.mutate(t.id);
+                      revoke.mutate(t);
                   }}
                 >
                   Revoke
@@ -138,53 +165,55 @@ export function TokensPage() {
             }}
           >
             <h2 className="m-0 text-lg font-medium">New token</h2>
-            <Field label="Name" htmlFor="t-name">
-              <input
-                id="t-name"
-                className="field"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="homepage-widget"
-              />
-            </Field>
-            <div className="mt-3">
-              <div className="label">Scopes</div>
-              <div role="group" aria-label="Scopes" className="flex gap-2">
-                {SCOPES.filter((s) => can(me.data?.role, s.min)).map((s) => {
-                  const on = scopes.includes(s.value);
-                  return (
-                    <button
-                      key={s.value}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() =>
-                        setScopes(on ? scopes.filter((x) => x !== s.value) : [...scopes, s.value])
-                      }
-                      className={`h-8 flex-1 rounded-md text-base font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
-                    >
-                      {s.value}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <Field label="Expires" htmlFor="t-exp">
-              <select
-                id="t-exp"
-                className="field"
-                value={expires ?? 'never'}
-                onChange={(e) => setExpires(e.target.value === 'never' ? null : Number(e.target.value))}
-              >
-                <option value={30}>30 days</option>
-                <option value={90}>90 days</option>
-                <option value={365}>1 year</option>
-                <option value="never">never</option>
-              </select>
-            </Field>
-            {create.error && (
+            <FieldErrors errors={createErrors.byId}>
+              <Field label="Name" htmlFor="t-name">
+                <input
+                  id="t-name"
+                  className="field"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="homepage-widget"
+                />
+              </Field>
               <div className="mt-3">
-                <Notice tone="bad">{create.error.message}</Notice>
+                <div className="label">Scopes</div>
+                <div role="group" aria-label="Scopes" className="flex gap-2">
+                  {SCOPES.filter((s) => can(me.data?.role, s.min)).map((s) => {
+                    const on = scopes.includes(s.value);
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() =>
+                          setScopes(on ? scopes.filter((x) => x !== s.value) : [...scopes, s.value])
+                        }
+                        className={`h-8 flex-1 rounded-md text-base font-medium ${on ? 'bg-text text-bg' : 'bg-fill text-text'}`}
+                      >
+                        {s.value}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <Field label="Expires" htmlFor="t-exp">
+                <select
+                  id="t-exp"
+                  className="field"
+                  value={expires ?? 'never'}
+                  onChange={(e) => setExpires(e.target.value === 'never' ? null : Number(e.target.value))}
+                >
+                  <option value={30}>30 days</option>
+                  <option value={90}>90 days</option>
+                  <option value={365}>1 year</option>
+                  <option value="never">never</option>
+                </select>
+              </Field>
+            </FieldErrors>
+            {createErrors.rest.length > 0 && (
+              <div className="mt-3" role="alert">
+                <Notice tone="bad">{createErrors.rest.join(' · ')}</Notice>
               </div>
             )}
             <button

@@ -245,3 +245,8 @@
 @utility nav-item {
   @apply flex h-8 items-center gap-[9px] rounded-md px-2 text-sec no-underline transition-colors hover:bg-fill hover:text-text aria-[current=page]:bg-fill aria-[current=page]:font-medium aria-[current=page]:text-text;
 }
+
+/* A field whose value the server rejected. */
+.field-invalid :is(input, select, textarea) {
+  border-color: var(--bad);
+}

@@ -2,7 +2,19 @@ import type { Maintenance } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
-import { Empty, ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { useConfirm } from '../../components/Dialog.tsx';
+import { toast } from '../../components/Toast.tsx';
+import {
+  EmptyState,
+  ErrorNote,
+  Field,
+  FieldErrors,
+  Notice,
+  PageHeader,
+  Section,
+  Spinner,
+  fieldErrorsOf,
+} from '../../components/ui.tsx';
 import { api, useMaintenance, useMe } from '../../lib/api.ts';
 import { dateTime } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
@@ -51,7 +63,8 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
         ? api<Maintenance>(`/api/v1/admin/maintenance/${existing.id}`, { method: 'PUT', json: body })
         : api<Maintenance>('/api/v1/admin/maintenance', { method: 'POST', json: body });
     },
-    onSuccess: async () => {
+    onSuccess: async (m) => {
+      toast(existing ? `Saved ${m.title}` : `Scheduled ${m.title}`);
       if (!existing) {
         setTitle('');
         setDescription('');
@@ -61,6 +74,14 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
       onDone();
     },
   });
+  const saveErrors = fieldErrorsOf(save.error, {
+    title: 'mt-title',
+    startsAt: 'mt-start',
+    endsAt: 'mt-end',
+    recurrence: 'mt-rec',
+    description: 'mt-desc',
+  });
+  const errors = orderError ? { ...saveErrors.byId, 'mt-end': orderError } : saveErrors.byId;
   return (
     <form
       className="p-4"
@@ -84,86 +105,88 @@ function Editor({ existing, onDone }: { existing: Maintenance | null; onDone: ()
           </button>
         )}
       </div>
-      <Field label="Title" htmlFor="mt-title">
-        <input
-          id="mt-title"
-          className="field"
-          required
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Postgres 17.2 upgrade"
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-x-3">
-        <Field label="Starts" htmlFor="mt-start">
+      <FieldErrors errors={errors}>
+        <Field label="Title" htmlFor="mt-title">
           <input
-            id="mt-start"
-            type="datetime-local"
+            id="mt-title"
             className="field"
             required
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Postgres 17.2 upgrade"
           />
         </Field>
-        <Field label="Ends" htmlFor="mt-end">
-          <input
-            id="mt-end"
-            type="datetime-local"
-            className="field"
-            required
-            min={startsAt}
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-          />
-        </Field>
-      </div>
-      <Field label="Repeats" htmlFor="mt-rec" hint="Any RFC 5545 rule works, e.g. FREQ=WEEKLY;BYDAY=SU">
-        <div className="flex gap-2">
-          <select
-            id="mt-rec"
-            className="field w-36"
-            value={PRESETS.some((p) => p.value === recurrence) ? recurrence : 'custom'}
-            onChange={(e) =>
-              setRecurrence(e.target.value === 'custom' ? 'FREQ=WEEKLY;BYDAY=SU' : e.target.value)
-            }
-          >
-            {PRESETS.map((p) => (
-              <option key={p.label} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-            <option value="custom">Custom…</option>
-          </select>
-          {recurrence && (
+        <div className="grid grid-cols-2 gap-x-3">
+          <Field label="Starts" htmlFor="mt-start">
             <input
-              aria-label="Recurrence rule"
-              className="field font-mono text-xs"
-              value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value)}
+              id="mt-start"
+              type="datetime-local"
+              className="field"
+              required
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
             />
-          )}
+          </Field>
+          <Field label="Ends" htmlFor="mt-end">
+            <input
+              id="mt-end"
+              type="datetime-local"
+              className="field"
+              required
+              min={startsAt}
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+            />
+          </Field>
         </div>
-      </Field>
-      <div className="mt-3">
-        <div className="label">Affected services (none = all)</div>
-        <ServicePicker value={services} onChange={setServices} />
-      </div>
-      <Field label="Description (public)" htmlFor="mt-desc">
-        <textarea
-          id="mt-desc"
-          rows={2}
-          className="field h-auto resize-y py-2"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </Field>
-      {(orderError ?? save.error) && (
+        <Field label="Repeats" htmlFor="mt-rec" hint="Any RFC 5545 rule works, e.g. FREQ=WEEKLY;BYDAY=SU">
+          <div className="flex gap-2">
+            <select
+              id="mt-rec"
+              className="field w-36"
+              value={PRESETS.some((p) => p.value === recurrence) ? recurrence : 'custom'}
+              onChange={(e) =>
+                setRecurrence(e.target.value === 'custom' ? 'FREQ=WEEKLY;BYDAY=SU' : e.target.value)
+              }
+            >
+              {PRESETS.map((p) => (
+                <option key={p.label} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+              <option value="custom">Custom…</option>
+            </select>
+            {recurrence && (
+              <input
+                aria-label="Recurrence rule"
+                className="field font-mono text-xs"
+                value={recurrence}
+                onChange={(e) => setRecurrence(e.target.value)}
+              />
+            )}
+          </div>
+        </Field>
         <div className="mt-3">
-          <Notice tone="bad">{orderError ?? save.error?.message}</Notice>
+          <div className="label">Affected services (none = all)</div>
+          <ServicePicker value={services} onChange={setServices} />
+        </div>
+        <Field label="Description (public)" htmlFor="mt-desc">
+          <textarea
+            id="mt-desc"
+            rows={2}
+            className="field h-auto resize-y py-2"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Field>
+      </FieldErrors>
+      {saveErrors.rest.length > 0 && (
+        <div className="mt-3" role="alert">
+          <Notice tone="bad">{saveErrors.rest.join(' · ')}</Notice>
         </div>
       )}
       <button type="submit" className="btn-primary mt-4 w-full" disabled={save.isPending}>
-        {existing ? 'Save changes' : 'Schedule'}
+        {save.isPending ? 'Saving…' : existing ? 'Save changes' : 'Schedule'}
       </button>
     </form>
   );
@@ -175,12 +198,16 @@ export function MaintenancePage() {
   const qc = useQueryClient();
   const canWrite = can(me.data?.role, 'editor');
   const [editing, setEditing] = useState<string | null>(null);
+  const confirm = useConfirm();
   const remove = useMutation({
-    mutationFn: (id: string) => api(`/api/v1/admin/maintenance/${id}`, { method: 'DELETE' }),
-    onSuccess: async () => {
+    mutationFn: (m: Maintenance) => api(`/api/v1/admin/maintenance/${m.id}`, { method: 'DELETE' }),
+    onSuccess: async (_r, m) => {
+      if (editing === m.id) setEditing(null);
       await qc.invalidateQueries({ queryKey: ['maintenance'] });
       await qc.invalidateQueries({ queryKey: ['overview'] });
+      toast(`Deleted ${m.title}`);
     },
+    meta: { errorToast: true },
   });
   if (list.isPending) return <Spinner />;
   if (list.error) return <ErrorNote error={list.error} />;
@@ -192,7 +219,11 @@ export function MaintenancePage() {
       />
       <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
-          {list.data.length === 0 && <Empty>No maintenance scheduled</Empty>}
+          {list.data.length === 0 && (
+            <EmptyState title="No maintenance scheduled">
+              During a window, services show as in maintenance and no alerts are sent.
+            </EmptyState>
+          )}
           {list.data.map((m, i) => {
             const start = new Date(m.nextStartsAt ?? m.startsAt);
             return (
@@ -227,7 +258,7 @@ export function MaintenancePage() {
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"
-                      className="btn h-8 px-3"
+                      className="icon-btn"
                       aria-label={`Edit ${m.title}`}
                       onClick={() => setEditing(m.id)}
                     >
@@ -235,10 +266,18 @@ export function MaintenancePage() {
                     </button>
                     <button
                       type="button"
-                      className="btn-danger"
+                      className="icon-btn text-bad-text hover:text-bad-text"
                       aria-label={`Delete ${m.title}`}
-                      onClick={() => {
-                        if (window.confirm(`Delete “${m.title}”?`)) remove.mutate(m.id);
+                      disabled={remove.isPending}
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: `Delete “${m.title}”?`,
+                            message: m.recurrence ? 'Every future occurrence is removed as well.' : undefined,
+                            confirm: 'Delete',
+                          })
+                        )
+                          remove.mutate(m);
                       }}
                     >
                       <Icon name="trash" size={16} />

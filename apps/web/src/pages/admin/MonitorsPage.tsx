@@ -6,7 +6,19 @@ import { Icon } from '../../components/Icon.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { StatusDot, StatusPill } from '../../components/Status.tsx';
 import { Switch } from '../../components/Switch.tsx';
-import { ErrorNote, Field, Notice, PageHeader, Section, Spinner } from '../../components/ui.tsx';
+import { useConfirm } from '../../components/Dialog.tsx';
+import { toast } from '../../components/Toast.tsx';
+import {
+  EmptyState,
+  ErrorNote,
+  Field,
+  FieldErrors,
+  Notice,
+  PageHeader,
+  Section,
+  Spinner,
+  fieldErrorsOf,
+} from '../../components/ui.tsx';
 import { api, useAdminMonitors, useCatalog, useMe, useNotifiers, usePlugins } from '../../lib/api.ts';
 import { ms, relative } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
@@ -831,6 +843,29 @@ function Editor({
   );
 }
 
+/** Request paths of the monitor form, mapped to the inputs that show them. */
+const MONITOR_FIELDS: Record<string, string> = {
+  group: 'm-group',
+  'spec.name': 'm-name',
+  'spec.id': 'm-id',
+  'spec.url': 'm-url',
+  'spec.expect.status': 'm-status',
+  'spec.expect.bodyContains': 'm-contains',
+  'spec.expect': 'm-expect',
+  'spec.host': 'm-host',
+  'spec.port': 'm-port',
+  'spec.record': 'm-record',
+  'spec.server': 'm-server',
+  'spec.minDays': 'm-mindays',
+  'spec.plugin': 'm-plugin',
+  'spec.provider': 'm-provider',
+  'spec.interval': 'm-interval',
+  'spec.timeout': 'm-timeout',
+  'spec.failureThreshold': 'm-threshold',
+  'spec.degradedAfter': 'm-degraded',
+  'spec.dependsOn': 'm-depends',
+};
+
 function MonitorPanel({
   monitor,
   onSaved,
@@ -866,11 +901,13 @@ function MonitorPanel({
         : api<AdminMonitor>(path, { method: 'PUT', json: { group: d.group, spec: clean(d.spec) } }),
     onSuccess: async (m) => {
       await refresh();
-      setMessage({ tone: 'ok', text: 'Saved' });
+      setMessage(null);
+      toast(isNew ? `Created ${m.name}` : `Saved ${m.name}`);
       onSaved(m.id);
     },
-    onError,
+    onMutate: () => setMessage(null),
   });
+  const saveErrors = fieldErrorsOf(save.error, MONITOR_FIELDS);
   const run = useMutation({
     mutationFn: () =>
       api<{ status: string | null; latencyMs: number | null; message: string | null }>(`${path}/run`, {
@@ -887,17 +924,22 @@ function MonitorPanel({
   });
   const pause = useMutation({
     mutationFn: (paused: boolean) => api(`${path}/pause`, { method: 'POST', json: { paused } }),
-    onSuccess: refresh,
-    onError,
+    onSuccess: async (_r, paused) => {
+      await refresh();
+      toast(paused ? `Paused ${monitor?.name}` : `Resumed ${monitor?.name}`);
+    },
+    meta: { errorToast: true },
   });
   const remove = useMutation({
     mutationFn: () => api(path, { method: 'DELETE' }),
     onSuccess: async () => {
       onDeleted();
+      toast(`Deleted ${monitor?.name}`);
       await refresh();
     },
-    onError,
+    meta: { errorToast: true },
   });
+  const confirm = useConfirm();
 
   return (
     <Section className="min-w-0 flex-[1_1_320px] p-4">
@@ -930,7 +972,19 @@ function MonitorPanel({
           save.mutate(draft);
         }}
       >
-        <Editor draft={draft} setDraft={setDraft} locked={locked} isNew={isNew} />
+        <FieldErrors errors={saveErrors.byId}>
+          <Editor draft={draft} setDraft={setDraft} locked={locked} isNew={isNew} />
+        </FieldErrors>
+        {saveErrors.rest.length > 0 && (
+          <div className="mt-3" role="alert">
+            <Notice tone="bad">{saveErrors.rest.join(' · ')}</Notice>
+          </div>
+        )}
+        {save.error && saveErrors.rest.length === 0 && (
+          <div className="mt-3" role="alert">
+            <Notice tone="bad">Check the highlighted fields.</Notice>
+          </div>
+        )}
         {message && (
           <div className="mt-3" role="status">
             <Notice tone={message.tone}>{message.text}</Notice>
@@ -947,9 +1001,20 @@ function MonitorPanel({
               >
                 <Icon name="play" size={16} /> {run.isPending ? 'Checking…' : 'Run check now'}
               </button>
-              <button type="button" className="btn" onClick={() => pause.mutate(!monitor.paused)}>
+              <button
+                type="button"
+                className="btn"
+                disabled={pause.isPending}
+                onClick={() => pause.mutate(!monitor.paused)}
+              >
                 <Icon name={monitor.paused ? 'play' : 'pause'} size={16} />{' '}
-                {monitor.paused ? 'Resume' : 'Pause'}
+                {pause.isPending
+                  ? monitor.paused
+                    ? 'Resuming…'
+                    : 'Pausing…'
+                  : monitor.paused
+                    ? 'Resume'
+                    : 'Pause'}
               </button>
             </>
           )}
@@ -962,8 +1027,16 @@ function MonitorPanel({
             <button
               type="button"
               className="btn-danger"
-              onClick={() => {
-                if (window.confirm(`Delete ${monitor.name} and its history?`)) remove.mutate();
+              disabled={remove.isPending}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: `Delete ${monitor.name}?`,
+                    message: 'Its check history and uptime are deleted as well. This cannot be undone.',
+                    confirm: 'Delete monitor',
+                  })
+                )
+                  remove.mutate();
               }}
             >
               <Icon name="trash" size={16} /> Delete
@@ -1004,12 +1077,20 @@ export function MonitorsPage() {
       />
       <div className="flex flex-wrap items-start gap-3">
         <Section className="min-w-0 flex-[999_1_420px]">
-          <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-xs font-medium text-sec">
-            <span className="flex-1 pl-6">Name</span>
-            <span className="w-14">Type</span>
-            <span className="w-16">Every</span>
-            <span className="w-20">Source</span>
-          </div>
+          {monitors.data.length === 0 ? (
+            <EmptyState title="No monitors yet">
+              {isAdmin
+                ? 'Create one with “New monitor”, or add monitors to status.yaml.'
+                : 'Monitors are added in status.yaml or by an admin.'}
+            </EmptyState>
+          ) : (
+            <div aria-hidden="true" className="flex gap-4 px-4 py-2 text-xs font-medium text-sec">
+              <span className="flex-1 pl-6">Name</span>
+              <span className="w-14 max-sm:hidden">Type</span>
+              <span className="w-16 max-sm:hidden">Every</span>
+              <span className="w-20 max-sm:hidden">Source</span>
+            </div>
+          )}
           {monitors.data.map((m) => (
             <button
               key={m.id}
@@ -1023,9 +1104,9 @@ export function MonitorsPage() {
                 <span className="block font-medium">{m.name}</span>
                 <span className="block truncate font-mono text-xs text-muted">{m.target}</span>
               </span>
-              <span className="w-14 text-xs">{KIND_LABEL[m.kind]}</span>
-              <span className="w-16 text-xs text-sec">{formatDuration(m.spec.interval)}</span>
-              <span className="flex w-20 items-center gap-1 text-xs text-sec">
+              <span className="w-14 text-xs max-sm:hidden">{KIND_LABEL[m.kind]}</span>
+              <span className="w-16 text-xs text-sec max-sm:hidden">{formatDuration(m.spec.interval)}</span>
+              <span className="flex w-20 items-center gap-1 text-xs text-sec max-sm:hidden">
                 {m.source === 'config' && <Icon name="lock" size={16} />}
                 {m.source === 'config' ? 'yaml' : 'UI'}
               </span>

@@ -10,7 +10,15 @@ export class ForbiddenError extends Error {}
 
 export function onError(error: Error, c: Context): Response {
   if (error instanceof HTTPException) return error.getResponse();
-  if (error instanceof ZodError) return c.json({ error: z.prettifyError(error) }, 400);
+  if (error instanceof ZodError)
+    return c.json(
+      {
+        error: z.prettifyError(error),
+        // Per-field messages, so forms can show each next to its field.
+        issues: error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message })),
+      },
+      400,
+    );
   if (error instanceof NotFoundError) return c.json({ error: error.message }, 404);
   if (error instanceof ConflictError) return c.json({ error: error.message }, 409);
   if (error instanceof BadRequestError || error instanceof ValidationError)

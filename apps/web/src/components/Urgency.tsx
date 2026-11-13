@@ -49,7 +49,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
     <div>
       <div
         aria-hidden="true"
-        className="flex gap-3 border-t border-hair px-4 py-2 text-xs font-medium text-sec"
+        className="flex gap-3 border-t border-hair px-4 py-2 text-xs font-medium text-sec max-sm:hidden"
       >
         <span className="w-[150px] shrink-0 pl-[17px]">Advisory</span>
         <span className="w-14 shrink-0">CVSS</span>
@@ -57,7 +57,11 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
         <span className="w-24 shrink-0">Fixed in</span>
       </div>
       {vulns.map((v) => (
-        <div key={v.id} className="flex items-start gap-3 border-t border-hair px-4 py-2 text-base">
+        // On phones the summary moves to its own line below the advisory, score and fix.
+        <div
+          key={v.id}
+          className="flex items-start gap-3 border-t border-hair px-4 py-2 text-base max-sm:flex-wrap"
+        >
           <span className="flex w-[150px] shrink-0 items-start gap-2.5 pt-1">
             <SeverityDot severity={v.severity} />
             <span className="min-w-0">
@@ -79,7 +83,7 @@ export function VulnTable({ vulns }: { vulns: VulnerabilityDto[] }) {
           <span className="w-14 shrink-0 pt-1 font-mono text-xs" style={{ color: SEVERITY_TONE[v.severity] }}>
             {v.score === null ? '–' : v.score.toFixed(1)}
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full max-sm:pl-[17px]">
             <span className="line-clamp-2 text-text">{v.summary ?? 'No summary.'}</span>
             <span className="block text-xs text-muted">
               {v.sources.join(' + ')}

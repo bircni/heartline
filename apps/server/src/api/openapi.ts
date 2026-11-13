@@ -54,7 +54,15 @@ const CHECK_STATUS = ['up', 'degraded', 'down', 'maintenance', 'unknown'] as con
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
 
 const schemas: Record<string, Schema> = {
-  Error: obj({ error: str() }),
+  Error: obj(
+    {
+      error: str(),
+      issues: arr(
+        obj({ path: str({ description: 'Dotted path of the field, e.g. spec.url' }), message: str() }),
+      ),
+    },
+    ['error'],
+  ),
   SiteInfo: obj({
     title: str(),
     description: nullable(str()),
