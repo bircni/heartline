@@ -1,7 +1,10 @@
-import { Agent } from 'undici';
+import { Agent, type Dispatcher } from 'undici';
+import { createProxyDispatcher } from './proxy.ts';
 
-let agent: Agent | undefined;
+let agent: Dispatcher | undefined;
 
-/** Shared undici dispatcher that skips certificate verification (`ignoreTls`). */
-export const insecureDispatcher = (): Agent =>
-  (agent ??= new Agent({ connect: { rejectUnauthorized: false } }));
+/** Shared undici dispatcher that skips certificate verification (`ignoreTls`), proxy-aware. */
+export const insecureDispatcher = (): Dispatcher =>
+  (agent ??=
+    createProxyDispatcher(process.env, { insecure: true }) ??
+    new Agent({ connect: { rejectUnauthorized: false } }));
