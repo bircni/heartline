@@ -64,3 +64,17 @@ test('admin dialogs: deleting asks in a dialog, failures show as toasts, fields 
   await dialog.getByRole('button', { name: 'Delete monitor' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Deleted Dialog test' })).toBeVisible();
 });
+
+test('the audit log lists admin changes', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('E-mail').fill('admin@e2e.local');
+  await page.getByLabel('Password').fill('e2e-admin-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/admin\/monitors/);
+  await page.getByRole('link', { name: 'Audit log' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
+  // The dialog test before this one created and deleted a monitor.
+  await expect(page.getByText('Deleted monitor Dialog test')).toBeVisible();
+  await page.getByRole('button', { name: 'Users' }).click();
+  await expect(page.getByText('Deleted monitor Dialog test')).toBeHidden();
+});

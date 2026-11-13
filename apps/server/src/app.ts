@@ -6,11 +6,15 @@ import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import { adminRoutes } from './api/admin.ts';
 import { onError } from './api/errors.ts';
+import { rateLimit } from './api/rate-limit.ts';
 import { docsHtml, openApiDocument } from './api/openapi.ts';
 import { bootstrapRoutes, publicRoutes } from './api/public.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
 import { mcpHandler } from './mcp/server.ts';
+
+/** better-auth endpoints that take a password or create a client: sign-in, sign-up and client registration. */
+const AUTH_LIMITED = /^\/api\/auth\/(sign-in|sign-up|oauth2\/register|mcp\/register)(\/|$)/;
 
 export function createApp(app: AppContext) {
   const h = new Hono<Vars>();
@@ -41,6 +45,11 @@ export function createApp(app: AppContext) {
     }
   });
 
+  // Sign-in and OAuth client registration: a shared limit per IP against password guessing and spam.
+  const authLimit = rateLimit(app, 'auth', { shared: true });
+  h.use('/api/auth/*', async (c, next) =>
+    c.req.method === 'POST' && AUTH_LIMITED.test(c.req.path) ? authLimit(c, next) : next(),
+  );
   // better-auth: sessions, OAuth logins, the OAuth 2.1 provider for MCP and its discovery documents.
   h.on(['GET', 'POST'], '/api/auth/*', (c) => app.auth.handler(c.req.raw));
   h.on(['GET', 'HEAD'], '/.well-known/*', (c) => app.auth.handler(c.req.raw));
@@ -54,6 +63,8 @@ export function createApp(app: AppContext) {
   h.get('/api/docs', (c) => c.html(docsHtml(doc())));
 
   h.use('/api/v1/*', principalMiddleware(app));
+  // Anonymous reads are limited per replica; signed-in users and API tokens are not.
+  h.use('/api/v1/*', rateLimit(app, 'public', { shared: false, skip: (c) => c.get('principal') !== null }));
   h.route('/api/v1', bootstrapRoutes(app));
   h.route('/api/v1/admin', adminRoutes(app));
   h.route('/api/v1', publicRoutes(app));

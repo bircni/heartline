@@ -313,3 +313,18 @@ export interface Bootstrap {
   showVersions: boolean;
   auth: AuthProviders;
 }
+
+/** One entry of the audit log: who changed what, when. */
+export interface AuditEntryDto {
+  id: string;
+  at: number;
+  actor: { id: string | null; name: string; via: 'session' | 'token' | 'oauth' | 'system' | 'subscriber' };
+  /** Dotted verb, e.g. `monitor.create` or `incident.auto_resolve`. */
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  /** Changed values, with secrets removed. */
+  detail: Record<string, unknown> | null;
+  ip: string | null;
+}

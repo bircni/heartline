@@ -42,6 +42,11 @@ export const oidcProviderSchema = z.object({
 });
 export type OidcProviderConfig = z.output<typeof oidcProviderSchema>;
 
+const rateBucketSchema = z.object({
+  max: z.number().int().min(1),
+  window: duration,
+});
+
 const groupSchema = z.object({
   name: z.string().min(1),
   monitors: z.array(monitorSpecSchema).default([]),
@@ -65,7 +70,29 @@ export const configSchema = z
         theme: z.enum(THEMES).default('green'),
       })
       .default({ title: 'Status', timezone: 'UTC', public: true, showVersions: false, theme: 'green' }),
-    retention: z.object({ rawDays: z.number().int().min(1).default(30) }).default({ rawDays: 30 }),
+    retention: z
+      .object({
+        rawDays: z.number().int().min(1).default(30),
+        /** How long the audit log keeps entries. */
+        auditDays: z.number().int().min(1).default(365),
+      })
+      .default({ rawDays: 30, auditDays: 365 }),
+    rateLimit: z
+      .object({
+        enabled: z.boolean().default(true),
+        /** Anonymous reads of the public API, feeds and badges, per client IP and replica. */
+        public: rateBucketSchema.default({ max: 300, window: 60_000 }),
+        /** Sign-in and client registration attempts per client IP, shared by all replicas. */
+        auth: rateBucketSchema.default({ max: 10, window: 60_000 }),
+        /** Take the client IP from X-Forwarded-For; enable behind a reverse proxy or ingress. */
+        trustProxy: z.boolean().default(false),
+      })
+      .default({
+        enabled: true,
+        public: { max: 300, window: 60_000 },
+        auth: { max: 10, window: 60_000 },
+        trustProxy: false,
+      }),
     software: z
       .object({
         enabled: z.boolean().default(true),

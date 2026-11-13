@@ -1,5 +1,6 @@
 import type {
   AdminMonitor,
+  AuditEntryDto,
   ApiTokenDto,
   Bootstrap,
   CatalogEntryDto,
@@ -14,7 +15,7 @@ import type {
   SoftwareInventory,
   UserDto,
 } from '@heartline/shared';
-import { MutationCache, QueryClient, useQuery } from '@tanstack/react-query';
+import { MutationCache, QueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { toast } from '../components/Toast.tsx';
 
 export interface FieldIssue {
@@ -172,6 +173,20 @@ export const useTokens = (all: boolean) =>
     queryKey: ['admin', 'tokens', all],
     queryFn: () => api<ApiTokenDto[]>(`/api/v1/admin/tokens${all ? '?all=true' : ''}`),
   });
+export const useAuditLog = (filter: { entityType?: string }) =>
+  useInfiniteQuery({
+    queryKey: ['admin', 'audit', filter],
+    initialPageParam: undefined as number | undefined,
+    queryFn: ({ pageParam }) => {
+      const q = new URLSearchParams({ limit: '100' });
+      if (pageParam) q.set('before', String(pageParam));
+      if (filter.entityType) q.set('entityType', filter.entityType);
+      return api<AuditEntryDto[]>(`/api/v1/admin/audit?${q.toString()}`);
+    },
+    // A full page means there may be older entries.
+    getNextPageParam: (last) => (last.length === 100 ? last.at(-1)?.at : undefined),
+  });
+
 export const useUsers = () =>
   useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/api/v1/admin/users') });
 

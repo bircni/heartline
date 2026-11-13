@@ -200,6 +200,27 @@ export interface IntelCacheTable {
   error: string | null;
 }
 
+export interface AuditLogTable {
+  id: string;
+  at: number;
+  actor_id: string | null;
+  actor_name: string;
+  actor_via: 'session' | 'token' | 'oauth' | 'system' | 'subscriber';
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  /** Redacted JSON with the changed values. */
+  detail: string | null;
+  ip: string | null;
+}
+
+export interface RateLimitTable {
+  key: string;
+  window_start: number;
+  count: number;
+}
+
 export interface Database {
   monitors: MonitorTable;
   monitor_state: MonitorStateTable;
@@ -217,6 +238,8 @@ export interface Database {
   vulnerabilities: VulnerabilityTable;
   monitor_vulnerabilities: MonitorVulnerabilityTable;
   intel_cache: IntelCacheTable;
+  audit_log: AuditLogTable;
+  rate_limits: RateLimitTable;
   user: UserTable;
   account: AccountTable;
 }

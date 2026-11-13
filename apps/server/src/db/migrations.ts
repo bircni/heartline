@@ -231,6 +231,37 @@ const migrations: Record<string, Migration> = {
       await db.schema.alterTable('monitor_software').addColumn('latest_published_at', ts).execute();
     },
   },
+  '0004_audit_rate_limits': {
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('audit_log')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('at', ts, (c) => c.notNull())
+        .addColumn('actor_id', 'text')
+        .addColumn('actor_name', 'text', (c) => c.notNull())
+        .addColumn('actor_via', 'text', (c) => c.notNull())
+        .addColumn('action', 'text', (c) => c.notNull())
+        .addColumn('entity_type', 'text', (c) => c.notNull())
+        .addColumn('entity_id', 'text')
+        .addColumn('summary', 'text', (c) => c.notNull())
+        .addColumn('detail', 'text')
+        .addColumn('ip', 'text')
+        .execute();
+      await db.schema.createIndex('audit_log_at').on('audit_log').column('at').execute();
+      await db.schema
+        .createIndex('audit_log_entity')
+        .on('audit_log')
+        .columns(['entity_type', 'entity_id'])
+        .execute();
+
+      await db.schema
+        .createTable('rate_limits')
+        .addColumn('key', 'text', (c) => c.primaryKey())
+        .addColumn('window_start', ts, (c) => c.notNull())
+        .addColumn('count', 'integer', (c) => c.notNull())
+        .execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

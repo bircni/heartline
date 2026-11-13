@@ -28,5 +28,10 @@ Admin (`/api/v1/admin/…`):
 | `POST tokens`, `DELETE tokens/:id` (own; `GET tokens?all=true` needs admin)                                                        | read  |
 | `POST monitors`, `PUT monitors/:id`, `DELETE monitors/:id`, `POST plugins/test`, `POST notifiers/:id/test`, `DELETE incidents/:id` | admin |
 | `GET users`, `POST users`, `PATCH users/:id`, `DELETE users/:id`                                                                   | admin |
+| `GET audit?limit&before&entityType&entityId&actor` (newest first; page with `before` = the last `at`)                              | admin |
+
+Validation errors answer `400` with `{ error, issues: [{ path, message }] }`, one issue per field. Anonymous
+reads and sign-in attempts are rate limited and answer `429` with `Retry-After` (see `rateLimit` in the
+[configuration](configuration.md#rate-limits)).
 
 Health: `/healthz`, `/readyz`.

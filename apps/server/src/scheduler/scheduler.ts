@@ -30,6 +30,8 @@ export class Scheduler {
   #abort = new AbortController();
   #inFlight = new Set<Promise<unknown>>();
   retentionDays = 30;
+  /** Extra leader-only cleanup run with housekeeping, e.g. pruning the audit log. */
+  housekeepingTasks: { name: string; run: (now: number) => Promise<void> }[] = [];
   /** Called after every recorded check (version tracking). Errors are logged, never propagated. */
   onOutcome: ((monitor: LoadedMonitor, outcome: CheckOutcome) => Promise<void>) | null = null;
 
@@ -203,6 +205,13 @@ export class Scheduler {
       if (pruned) log.info('pruned raw check results', { rows: pruned });
     } catch (error) {
       log.error('housekeeping failed', { error });
+    }
+    for (const task of this.housekeepingTasks) {
+      try {
+        await task.run(now);
+      } catch (error) {
+        log.error('housekeeping task failed', { task: task.name, error });
+      }
     }
   }
 }
