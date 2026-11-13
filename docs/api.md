@@ -23,6 +23,22 @@ Public (or for any signed-in user when `site.public: false`):
   `GET /api/v1/incidents.rss` (incidents and maintenance)
 - `POST /api/v1/subscribers` (e-mail sign-up, see [subscribers](subscribers.md))
 
+Statuspage-compatible (same gate as the public routes): `GET /api/v2/summary.json`, `status.json`,
+`components.json`, `incidents.json`, `incidents/unresolved.json`, `scheduled-maintenances.json`,
+`scheduled-maintenances/upcoming.json`, `scheduled-maintenances/active.json`. They follow the
+[Atlassian Statuspage public API](https://developer.statuspage.io/), so tools that read Statuspage pages read
+this one too:
+
+| Statuspage                                                                    | heartline                                                                                  |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| component                                                                     | your own service (not third-party ones); groups are `group.<id>` with `components`         |
+| `degraded_performance`, `partial_outage`, `major_outage`, `under_maintenance` | degraded, partial outage, down, maintenance (as the status page shows them)                |
+| impact `none`, `minor`, `major`, `critical`                                   | impact none, degraded, partial, major                                                      |
+| `postmortem` status                                                           | resolved with a published postmortem                                                       |
+| scheduled maintenance                                                         | maintenance window; a recurring one shows its current or next occurrence as `<id>.<start>` |
+
+Services without a result yet and paused services are left out. Responses are cached for 10 seconds.
+
 Software inventory (`read` scope; anonymous visitors only with `site.showVersions`, and never the
 vulnerabilities): `GET /api/v1/software`, `GET /api/v1/services/:id/software`,
 `GET /api/v1/software/report.csv`.
