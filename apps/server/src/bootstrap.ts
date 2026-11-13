@@ -99,6 +99,8 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     description: config.site.description ?? null,
     timezone: config.site.timezone,
     logoUrl: config.site.logoUrl ?? null,
+    faviconUrl: config.site.faviconUrl ?? null,
+    links: config.site.links,
     theme: config.site.theme,
   });
   const queries = new QueryService({

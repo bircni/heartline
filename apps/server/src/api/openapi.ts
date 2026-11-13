@@ -85,6 +85,11 @@ const schemas: Record<string, Schema> = {
     description: nullable(str()),
     timezone: str(),
     logoUrl: nullable(str()),
+    faviconUrl: nullable(str()),
+    links: obj({
+      header: arr(obj({ label: str(), url: str() })),
+      footer: arr(obj({ label: str(), url: str() })),
+    }),
     theme: en(THEMES),
   }),
   Bootstrap: obj({

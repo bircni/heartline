@@ -1,5 +1,6 @@
 import { type ReactNode, createContext, useContext } from 'react';
 import { ApiError } from '../lib/api.ts';
+import { usePageTitle } from '../lib/title.ts';
 
 /** Field id → message for the fields of the enclosing form that the server rejected. */
 const FieldErrorsContext = createContext<Record<string, string>>({});
@@ -89,6 +90,7 @@ export function PageHeader({
   subtitle?: ReactNode;
   actions?: ReactNode;
 }) {
+  usePageTitle(typeof title === 'string' ? title : undefined);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">

@@ -16,9 +16,15 @@ import './styles.css';
  */
 function Site({ children }: { children: ReactNode }) {
   const boot = useBootstrap();
+  // The server sets the icon in the HTML; the dev server serves the plain index.html, so set it here too.
+  const favicon = boot.data?.site.faviconUrl;
   useEffect(() => {
-    if (boot.data) document.title = boot.data.site.title;
-  }, [boot.data]);
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (favicon && link && link.href !== favicon) {
+      link.removeAttribute('type');
+      link.href = favicon;
+    }
+  }, [favicon]);
   useSiteAccent(boot.data?.site.theme);
   if (boot.isPending) return null;
   setDisplayTimeZone(boot.data?.site.timezone);
