@@ -9,6 +9,7 @@ import {
   TraceViewToggle,
   useTraceView,
 } from '../components/DayBars.tsx';
+import { BadgeSnippet } from '../components/CodeSnippet.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
 import { type ChartBand, LatencyChart } from '../components/LatencyChart.tsx';
@@ -235,6 +236,16 @@ export function ServicePage() {
           </div>
         ))}
       </Section>
+
+      <details className="card group px-3.5 py-2.5">
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold">
+          <Icon name="chevron" size={14} className="text-sec transition-transform group-open:rotate-90" />
+          Badge for your README or website
+        </summary>
+        <div className="mt-2">
+          <BadgeSnippet id={data.id} name={data.name} version={Boolean(data.software?.version)} />
+        </div>
+      </details>
     </>
   );
 }

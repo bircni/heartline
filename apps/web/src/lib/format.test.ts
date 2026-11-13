@@ -62,3 +62,39 @@ describe('axis ticks', () => {
     expect(timeTicks(5, 5)).toEqual([]);
   });
 });
+
+describe('site time zone', () => {
+  it('formats inputs and ticks in the given zone, whatever zone the browser is in', async () => {
+    const { fromZonedInput, timeTicks, toZonedInput } = await import('./format.ts');
+    // 2026-04-05 03:00 in Auckland is the end of daylight saving time (NZDT → NZST).
+    const at = Date.UTC(2026, 3, 4, 11, 30); // 2026-04-05 00:30 NZDT (UTC+13)
+    expect(toZonedInput(at, 'Pacific/Auckland')).toBe('2026-04-05T00:30');
+    expect(fromZonedInput('2026-04-05T00:30', 'Pacific/Auckland')).toBe(at);
+    // After the change the offset is +12.
+    expect(fromZonedInput('2026-04-06T00:30', 'Pacific/Auckland')).toBe(Date.UTC(2026, 3, 5, 12, 30));
+    expect(toZonedInput(Date.UTC(2026, 10, 13, 23, 30), 'Europe/Berlin')).toBe('2026-11-14T00:30');
+
+    // A week in Auckland: the first tick is the first local midnight, 11:00 UTC (NZDT +13 → midnight at 11:00).
+    const from = Date.UTC(2026, 10, 9, 11); // 2026-11-10 00:00 NZDT
+    const ticks = timeTicks(from, from + 7 * 86_400_000, undefined, 'Pacific/Auckland');
+    expect(ticks).toHaveLength(6);
+    expect(ticks[0]!.pos).toBeCloseTo(1 / 7, 5);
+    expect(ticks[0]!.label).toBe(
+      new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' }).format(
+        Date.UTC(2026, 10, 11),
+      ),
+    );
+  });
+
+  it('labels the zone', async () => {
+    const { setDisplayTimeZone, zoneLabel, displayTimeZone, dateTime } = await import('./format.ts');
+    setDisplayTimeZone('Europe/Berlin');
+    expect(displayTimeZone()).toBe('Europe/Berlin');
+    expect(zoneLabel(Date.UTC(2026, 0, 15))).toMatch(/^Europe\/Berlin \((CET|GMT\+1)\)$/);
+    expect(dateTime(Date.UTC(2026, 0, 15, 23, 30))).toMatch(/00:30/);
+    // An unknown zone falls back to the browser's.
+    setDisplayTimeZone('Not/AZone');
+    expect(displayTimeZone()).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    setDisplayTimeZone(undefined);
+  });
+});

@@ -5,6 +5,7 @@ import type {
   incidentUpdateCreateSchema,
 } from '@heartline/shared';
 import type { z } from 'zod';
+import { sql } from 'kysely';
 import type { Db } from '../db/index.ts';
 import type { NotifierService } from '../notify/index.ts';
 import { newId } from '../util/ids.ts';
@@ -69,13 +70,41 @@ export class IncidentService {
   }
 
   async list(
-    opts: { activeOnly?: boolean; since?: number; until?: number; monitorId?: string; limit?: number } = {},
+    opts: {
+      activeOnly?: boolean;
+      resolvedOnly?: boolean;
+      since?: number;
+      until?: number;
+      monitorId?: string;
+      limit?: number;
+      /** Only incidents after this one in the newest-first order (a page cursor). */
+      before?: { createdAt: number; id: string };
+      /** Case-insensitive text in the title. */
+      search?: string;
+      impact?: Impact;
+    } = {},
   ): Promise<Incident[]> {
     let q = this.#db.kysely
       .selectFrom('incidents')
       .selectAll('incidents')
-      .orderBy('incidents.created_at', 'desc');
+      .orderBy('incidents.created_at', 'desc')
+      .orderBy('incidents.id', 'desc');
     if (opts.activeOnly) q = q.where('incidents.resolved_at', 'is', null);
+    if (opts.resolvedOnly) q = q.where('incidents.resolved_at', 'is not', null);
+    if (opts.before) {
+      const { createdAt, id } = opts.before;
+      q = q.where((eb) =>
+        eb.or([
+          eb('incidents.created_at', '<', createdAt),
+          eb.and([eb('incidents.created_at', '=', createdAt), eb('incidents.id', '<', id)]),
+        ]),
+      );
+    }
+    if (opts.search) {
+      const pattern = `%${opts.search.toLowerCase().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+      q = q.where(sql<boolean>`lower(incidents.title) like ${pattern} escape '\\'`);
+    }
+    if (opts.impact) q = q.where('incidents.impact', '=', opts.impact);
     if (opts.since !== undefined) {
       const since = opts.since;
       q = q.where((eb) =>

@@ -1,3 +1,10 @@
+import {
+  addDays,
+  dayKey,
+  dayRange,
+  zoneAbbreviation,
+  zonedToInstant as zonedInstant,
+} from '@heartline/shared';
 import type {
   DayState,
   Impact,
@@ -27,24 +34,75 @@ export function relative(at: number | null | undefined, now = Date.now()): strin
   return `${Math.round(s / 86_400)} d ago`;
 }
 
+let siteZone: string | undefined;
+
+/**
+ * Sets the time zone every timestamp is shown in: the site's, so times agree with the day bars and reports
+ * (which the server computes in that zone) whatever zone the visitor's browser is in.
+ */
+export function setDisplayTimeZone(timeZone: string | undefined): void {
+  if (timeZone === siteZone) return;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone });
+    siteZone = timeZone;
+  } catch {
+    siteZone = undefined;
+  }
+  formatters.clear();
+}
+
+/** The zone timestamps are shown in: the site's once known, else the browser's. */
+export function displayTimeZone(): string {
+  return siteZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatter(options: Intl.DateTimeFormatOptions, timeZone = displayTimeZone()): Intl.DateTimeFormat {
+  const key = `${timeZone}|${JSON.stringify(options)}`;
+  let f = formatters.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(undefined, { ...options, timeZone });
+    formatters.set(key, f);
+  }
+  return f;
+}
+
+/** "Europe/Berlin (CET)": the zone timestamps are shown in. */
+export function zoneLabel(at = Date.now()): string {
+  const tz = displayTimeZone();
+  const abbr = zoneAbbreviation(at, tz);
+  return abbr && abbr !== tz ? `${tz} (${abbr})` : tz;
+}
+
+/** "CET": the short zone name at an instant, for a timestamp that stands on its own. */
+export function zoneShort(at: number): string {
+  return zoneAbbreviation(at, displayTimeZone());
+}
+
 export function dateTime(at: number, timeZone?: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return formatter(
+    { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+    timeZone,
+  ).format(at);
+}
+
+/** "Nov 13, 2026, 14:05": a full date and time. */
+export function fullDateTime(at: number): string {
+  return formatter({
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone,
+    hourCycle: 'h23',
   }).format(at);
 }
 
 export function time(at: number, timeZone?: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
+  return formatter(
+    { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' },
     timeZone,
-  }).format(at);
+  ).format(at);
 }
 
 export function shortDay(day: string): string {
@@ -53,25 +111,64 @@ export function shortDay(day: string): string {
   );
 }
 
-const clockFormat = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-const weekdayFormat = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-});
-
 /** "14:05". */
 export function clock(at: number): string {
-  return clockFormat.format(at);
+  return formatter({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
 }
 
 /** "Sun, Nov 15". */
 export function weekdayDate(at: number): string {
-  return weekdayFormat.format(at);
+  return formatter({ weekday: 'short', month: 'short', day: 'numeric' }).format(at);
+}
+
+/** Calendar day (`YYYY-MM-DD`) of an instant in the display zone, for grouping by day. */
+export function displayDay(at: number): string {
+  return dayKey(at, displayTimeZone());
+}
+
+/** "November 2026" for a `YYYY-MM-DD` day. */
+export function monthLabel(day: string): string {
+  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+    Date.parse(`${day}T00:00:00Z`),
+  );
+}
+
+/** "Fri, Nov 13" for a `YYYY-MM-DD` day. */
+export function weekdayDay(day: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(Date.parse(`${day}T00:00:00Z`));
+}
+
+/**
+ * The value of a `datetime-local` input for an instant, in the display zone, and back. Admin forms use them so
+ * a window entered as 22:00 starts at 22:00 site time, as shown everywhere else.
+ */
+export function toZonedInput(at: number, timeZone = displayTimeZone()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+export function fromZonedInput(value: string, timeZone = displayTimeZone()): number {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return Number.NaN;
+  const [, y, mo, d, h, mi] = m.map(Number) as [number, number, number, number, number, number];
+  return zonedInstant(Date.UTC(y, mo - 1, d, h, mi), timeZone);
 }
 
 export function duration(from: number, to: number | null): string {
@@ -223,34 +320,34 @@ export const DAY_MS = 86_400_000;
  * Calendar ticks between two instants: every day for a week, Mondays for a month, the first of each
  * month beyond that. `snap` rounds positions to a grid of that many equal marks so ticks fall between them.
  */
-export function timeTicks(from: number, to: number, snap?: number): Tick[] {
+export function timeTicks(from: number, to: number, snap?: number, timeZone = displayTimeZone()): Tick[] {
   const span = to - from;
   if (span <= 0) return [];
   const days = span / DAY_MS;
   const mode = days <= 10 ? 'day' : days <= 45 ? 'week' : 'month';
-  const format = new Intl.DateTimeFormat(
-    undefined,
-    mode === 'day'
+  // Labels name calendar days, so they are formatted from the day itself (at UTC), not from an instant.
+  const format = new Intl.DateTimeFormat(undefined, {
+    ...(mode === 'day'
       ? { weekday: 'short' }
       : mode === 'week'
         ? { month: 'short', day: 'numeric' }
-        : { month: 'short' },
-  );
+        : { month: 'short' }),
+    timeZone: 'UTC',
+  });
   const ticks: Tick[] = [];
-  const d = new Date(from);
-  d.setHours(24, 0, 0, 0);
-  for (; d.getTime() < to; d.setDate(d.getDate() + 1)) {
-    if (mode === 'week' && d.getDay() !== 1) continue;
-    if (mode === 'month' && d.getDate() !== 1) continue;
-    const pos = (d.getTime() - from) / span;
-    ticks.push({ pos: snap ? Math.round(pos * snap) / snap : pos, label: format.format(d) });
+  // Ticks sit on midnights in the display zone, from the first one after `from`.
+  for (let day = addDays(dayKey(from, timeZone), 1); ; day = addDays(day, 1)) {
+    const start = dayRange(day, timeZone)[0];
+    if (start >= to) break;
+    const date = new Date(`${day}T00:00:00Z`);
+    if (mode === 'week' && date.getUTCDay() !== 1) continue;
+    if (mode === 'month' && date.getUTCDate() !== 1) continue;
+    const pos = (start - from) / span;
+    ticks.push({ pos: snap ? Math.round(pos * snap) / snap : pos, label: format.format(date) });
   }
   // Longer ranges rarely start on a tick, so the left edge says where the axis begins.
   if (mode !== 'day' && (ticks[0]?.pos ?? 1) > 0.18)
-    ticks.unshift({
-      pos: 0,
-      label: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(from),
-    });
+    ticks.unshift({ pos: 0, label: formatter({ month: 'short', day: 'numeric' }, timeZone).format(from) });
   return ticks;
 }
 
@@ -260,9 +357,9 @@ export function clearOfEndLabel(t: Tick): boolean {
 }
 
 /** Ticks for a run of consecutive `YYYY-MM-DD` days, one mark per day. */
-export function dayTicks(days: string[]): Tick[] {
+export function dayTicks(days: string[], timeZone = displayTimeZone()): Tick[] {
   const first = days[0];
-  if (!first) return [];
-  const from = new Date(`${first}T00:00:00`).getTime();
-  return timeTicks(from, from + days.length * DAY_MS, days.length);
+  const last = days.at(-1);
+  if (!first || !last) return [];
+  return timeTicks(dayRange(first, timeZone)[0], dayRange(last, timeZone)[1], days.length, timeZone);
 }

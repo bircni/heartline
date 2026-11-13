@@ -1,4 +1,5 @@
 import type {
+  Impact,
   AdminMonitor,
   AuditEntryDto,
   ApiTokenDto,
@@ -151,6 +152,31 @@ export const useIncidents = (active = false, limit = 100) =>
   useQuery({
     queryKey: ['incidents', active, limit],
     queryFn: () => api<Incident[]>(`/api/v1/incidents?limit=${limit}${active ? '&active=true' : ''}`),
+  });
+export interface IncidentFilter {
+  q?: string;
+  impact?: Impact;
+  service?: string;
+}
+const HISTORY_PAGE = 50;
+/** Resolved incidents, newest first, a page at a time. */
+export const useIncidentHistory = (filter: IncidentFilter) =>
+  useInfiniteQuery({
+    queryKey: ['incidents', 'history', filter],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => {
+      const q = new URLSearchParams({ state: 'resolved', limit: String(HISTORY_PAGE) });
+      if (pageParam) q.set('before', pageParam);
+      if (filter.q) q.set('q', filter.q);
+      if (filter.impact) q.set('impact', filter.impact);
+      if (filter.service) q.set('service', filter.service);
+      return api<Incident[]>(`/api/v1/incidents?${q.toString()}`);
+    },
+    // Same cursor the server sends in X-Next-Cursor: the last incident of a full page.
+    getNextPageParam: (last) => {
+      const end = last.at(-1);
+      return last.length === HISTORY_PAGE && end ? `${end.createdAt}:${end.id}` : undefined;
+    },
   });
 export const useMaintenance = () =>
   useQuery({ queryKey: ['maintenance'], queryFn: () => api<Maintenance[]>('/api/v1/maintenance') });

@@ -1,7 +1,7 @@
 import type { ApiTokenDto, Scope } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Icon } from '../../components/Icon.tsx';
+import { CopyButton } from '../../components/CodeSnippet.tsx';
 import { useConfirm } from '../../components/Dialog.tsx';
 import { toast } from '../../components/Toast.tsx';
 import {
@@ -24,24 +24,6 @@ const SCOPES: { value: Scope; min: 'viewer' | 'editor' | 'admin' }[] = [
   { value: 'write', min: 'editor' },
   { value: 'admin', min: 'admin' },
 ];
-
-function CopyButton({ text }: { text: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      type="button"
-      className="btn-sm shrink-0"
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setDone(true);
-          setTimeout(() => setDone(false), 1500);
-        });
-      }}
-    >
-      <Icon name={done ? 'check' : 'copy'} size={16} /> {done ? 'Copied' : 'Copy'}
-    </button>
-  );
-}
 
 export function TokensPage() {
   const me = useMe();

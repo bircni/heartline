@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon.tsx';
 import { Segmented } from '../../components/Segmented.tsx';
 import { StatusDot, StatusPill } from '../../components/Status.tsx';
 import { Switch } from '../../components/Switch.tsx';
+import { BadgeSnippet } from '../../components/CodeSnippet.tsx';
 import { useConfirm } from '../../components/Dialog.tsx';
 import { toast } from '../../components/Toast.tsx';
 import {
@@ -1044,6 +1045,12 @@ function MonitorPanel({
           )}
         </div>
       </form>
+      {monitor && (
+        <div className="mt-5 border-t border-hair pt-3">
+          <h3 className="m-0 text-base font-semibold">Badge</h3>
+          <BadgeSnippet id={monitor.id} name={monitor.name} version={Boolean(monitor.spec.software)} />
+        </div>
+      )}
     </Section>
   );
 }

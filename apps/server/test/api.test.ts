@@ -230,3 +230,53 @@ describe('history ranges', () => {
     expect((await h.request('/api/v1/overview?to=2026-02-31')).status).toBe(400);
   });
 });
+
+describe('incident history paging', () => {
+  it('pages with a cursor and filters by text, impact, service and state', async () => {
+    const cookie = await h.login();
+    const make = (title: string, impact: string, services: string[]) =>
+      h.request('/api/v1/admin/incidents', {
+        method: 'POST',
+        cookie,
+        json: { title, message: 'm', impact, services, notify: false },
+      });
+    for (let i = 0; i < 5; i++)
+      await make(`Outage ${i}`, i % 2 ? 'major' : 'degraded', i < 2 ? ['api'] : ['web']);
+    await make('Slow_search 100%', 'partial', []);
+    // Resolve all but the last one.
+    const all: Incident[] = await (await h.request('/api/v1/incidents?limit=50')).json();
+    for (const i of all.slice(1))
+      await h.request(`/api/v1/admin/incidents/${i.id}/updates`, {
+        method: 'POST',
+        cookie,
+        json: { status: 'resolved', message: 'ok', notify: false },
+      });
+
+    const first = await h.request('/api/v1/incidents?state=resolved&limit=2');
+    const page1: Incident[] = await first.json();
+    const cursor = first.headers.get('x-next-cursor');
+    expect(page1).toHaveLength(2);
+    expect(cursor).toBe(`${page1[1]!.createdAt}:${page1[1]!.id}`);
+    const page2: Incident[] = await (
+      await h.request(`/api/v1/incidents?state=resolved&limit=2&before=${encodeURIComponent(cursor!)}`)
+    ).json();
+    const page3res = await h.request(
+      `/api/v1/incidents?state=resolved&limit=2&before=${encodeURIComponent(`${page2[1]!.createdAt}:${page2[1]!.id}`)}`,
+    );
+    const page3: Incident[] = await page3res.json();
+    expect(page3res.headers.get('x-next-cursor')).toBeNull();
+    const ids = [...page1, ...page2, ...page3].map((i) => i.id);
+    expect(new Set(ids).size).toBe(5);
+    expect(ids).toEqual(all.slice(1).map((i) => i.id));
+
+    const titles = async (q: string) =>
+      ((await (await h.request(`/api/v1/incidents?${q}`)).json()) as Incident[]).map((i) => i.title);
+    expect(await titles('q=outage%203')).toEqual(['Outage 3']);
+    // LIKE wildcards in the search are literal.
+    expect(await titles('q=_search%20100%25')).toEqual(['Slow_search 100%']);
+    expect(await titles('q=%25')).toEqual(['Slow_search 100%']);
+    expect(await titles('impact=major')).toEqual(['Outage 3', 'Outage 1']);
+    expect(await titles('service=api')).toEqual(['Outage 1', 'Outage 0']);
+    expect(await titles('state=open')).toEqual(['Slow_search 100%']);
+  });
+});

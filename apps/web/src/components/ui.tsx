@@ -138,6 +138,19 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
 }
 
 export function ErrorNote({ error }: { error: unknown }) {
+  // A session that ended (or a private page) gets a way back in instead of the raw API message.
+  if (error instanceof ApiError && error.status === 401)
+    return (
+      <div role="alert" className="card px-3.5 py-3">
+        Sign in to see this page.{' '}
+        <a
+          href={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+          className="font-medium text-text"
+        >
+          Sign in
+        </a>
+      </div>
+    );
   return (
     <div role="alert" className="card border-bad-line bg-bad-bg px-3.5 py-3 text-bad-text">
       {error instanceof Error ? error.message : 'Something went wrong.'}

@@ -8,6 +8,13 @@ import { Notice } from '../components/ui.tsx';
 import { useBootstrap, useMe, useSiteTitle } from '../lib/api.ts';
 import { authClient, authorizeUrlFrom, isOAuthContinuation } from '../lib/auth.ts';
 
+/** A path on this site to return to after signing in; anything else (other hosts, `//x`) falls back to admin. */
+export function safeRedirect(value: string | null): string {
+  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')
+    ? value
+    : '/admin';
+}
+
 export function LoginPage() {
   const boot = useBootstrap();
   const me = useMe();
@@ -16,6 +23,7 @@ export function LoginPage() {
   const search = typeof window === 'undefined' ? '' : window.location.search;
   const oauth = isOAuthContinuation(search);
   const errorParam = new URLSearchParams(search).get('error');
+  const next = safeRedirect(new URLSearchParams(search).get('redirect'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(
@@ -27,8 +35,8 @@ export function LoginPage() {
   useEffect(() => {
     if (!me.data) return;
     if (oauth) window.location.assign(authorizeUrlFrom(search));
-    else void navigate({ to: '/admin' });
-  }, [me.data, oauth, search, navigate]);
+    else void navigate({ href: next });
+  }, [me.data, oauth, search, navigate, next]);
 
   const finish = async (data: unknown) => {
     const url = (data as { url?: string; redirect?: boolean } | null)?.url;
@@ -37,7 +45,7 @@ export function LoginPage() {
       return;
     }
     await qc.invalidateQueries({ queryKey: ['me'] });
-    void navigate({ to: '/admin' });
+    void navigate({ href: next });
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -52,7 +60,7 @@ export function LoginPage() {
 
   const social = async (provider: string) => {
     setBusy(true);
-    const callbackURL = oauth ? `/login${search}` : '/admin';
+    const callbackURL = oauth ? `/login${search}` : next;
     const res = await authClient.signIn.social({
       provider,
       callbackURL,
