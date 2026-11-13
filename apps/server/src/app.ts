@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
-import { secureHeaders } from 'hono/secure-headers';
 import { adminRoutes } from './api/admin.ts';
+import { embedCors, securityHeaders } from './api/cors.ts';
 import { onError } from './api/errors.ts';
 import { rateLimit } from './api/rate-limit.ts';
 import { docsHtml, openApiDocument } from './api/openapi.ts';
@@ -22,21 +22,8 @@ const AUTH_LIMITED = /^\/api\/auth\/(sign-in|sign-up|oauth2\/register|mcp\/regis
 export function createApp(app: AppContext) {
   const h = new Hono<Vars>();
   h.onError(onError);
-  h.use(
-    '*',
-    secureHeaders({
-      contentSecurityPolicy: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        connectSrc: ["'self'"],
-        frameAncestors: ["'none'"],
-        formAction: ["'self'", 'https:', 'http:'],
-      },
-      crossOriginEmbedderPolicy: false,
-    }),
-  );
+  h.use('*', securityHeaders(app));
+  h.use('*', embedCors(app));
 
   h.get('/healthz', (c) => c.json({ ok: true }));
   h.get('/readyz', async (c) => {
@@ -91,6 +78,11 @@ export function createApp(app: AppContext) {
   const dist = app.env.webDist;
   if (dist && existsSync(join(dist, 'index.html'))) {
     const root = relative(process.cwd(), dist) || '.';
+    h.use('/widget.js', async (c, next) => {
+      await next();
+      // A stable name other sites load: keep it fresh enough to pick up new versions.
+      c.header('cache-control', 'public, max-age=300');
+    });
     h.use('/assets/*', async (c, next) => {
       c.header('cache-control', 'public, max-age=31536000, immutable');
       await next();

@@ -157,6 +157,14 @@ export const configSchema = z
         maintenance: z.boolean().default(true),
       })
       .default({ recovery: true, incidents: true, reminderEvery: 0, security: true, maintenance: true }),
+    embed: z
+      .object({
+        /** The /embed page, the widget and badges can be used on other sites. */
+        enabled: z.boolean().default(true),
+        /** Sites that may show /embed in a frame (CSP frame-ancestors), e.g. https://example.com; '*' for any. */
+        frameAncestors: z.array(z.string().min(1)).default(['*']),
+      })
+      .default({ enabled: true, frameAncestors: ['*'] }),
     subscribers: z
       .object({
         /** Visitors can sign up for e-mail notifications. */
