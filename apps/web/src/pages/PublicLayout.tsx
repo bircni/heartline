@@ -14,6 +14,20 @@ function SignedIn({ me }: { me: Me }) {
   );
 }
 
+/** E-mail sign-up when the site offers it, otherwise the feed. */
+export function SubscribeButton() {
+  const boot = useBootstrap();
+  return boot.data?.subscribe.enabled && boot.data.subscribe.email ? (
+    <Link to="/subscribe" className="btn">
+      <Icon name="bell" size={14} /> Subscribe
+    </Link>
+  ) : (
+    <a className="btn" href="/api/v1/incidents.atom">
+      <Icon name="rss" size={14} /> Subscribe
+    </a>
+  );
+}
+
 /** A private status page shown to a visitor: where to sign in, instead of an error per request. */
 function SignInPrompt() {
   const { href } = useLocation();
@@ -37,11 +51,7 @@ function Visitor({ isPrivate }: { isPrivate: boolean }) {
         <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5 text-text no-underline">
           <SiteBrand />
         </Link>
-        {!isPrivate && (
-          <a className="btn" href="/api/v1/incidents.rss">
-            <Icon name="rss" size={14} /> Subscribe
-          </a>
-        )}
+        {!isPrivate && <SubscribeButton />}
         <Link to="/login" className="btn">
           Sign in
         </Link>

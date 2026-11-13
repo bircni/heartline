@@ -436,6 +436,65 @@ const migrations: Record<string, Migration> = {
         .execute();
     },
   },
+  '0009_subscribers': {
+    async up(db: Kysely<any>) {
+      await db.schema
+        .createTable('subscribers')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('email', 'text', (c) => c.notNull().unique())
+        .addColumn('status', 'text', (c) => c.notNull())
+        .addColumn('events', 'text', (c) => c.notNull())
+        .addColumn('all_components', 'integer', (c) => c.notNull().defaultTo(1))
+        .addColumn('token_version', 'integer', (c) => c.notNull().defaultTo(1))
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .addColumn('confirmed_at', ts)
+        .addColumn('unsubscribed_at', ts)
+        .addColumn('last_sent_at', ts)
+        .addColumn('last_error', 'text')
+        .execute();
+      await db.schema
+        .createTable('subscriber_components')
+        .addColumn('subscriber_id', 'text', (c) => c.notNull())
+        .addColumn('monitor_id', 'text', (c) => c.notNull())
+        .addPrimaryKeyConstraint('subscriber_components_pk', ['subscriber_id', 'monitor_id'])
+        .execute();
+      await db.schema
+        .createTable('subscriber_incidents')
+        .addColumn('subscriber_id', 'text', (c) => c.notNull())
+        .addColumn('incident_id', 'text', (c) => c.notNull())
+        .addPrimaryKeyConstraint('subscriber_incidents_pk', ['subscriber_id', 'incident_id'])
+        .execute();
+      await db.schema
+        .createTable('subscriber_events')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('type', 'text', (c) => c.notNull())
+        .addColumn('dedupe_key', 'text', (c) => c.unique())
+        .addColumn('payload', 'text', (c) => c.notNull())
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .addColumn('expanded_at', ts)
+        .execute();
+      await db.schema
+        .createTable('subscriber_deliveries')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('kind', 'text', (c) => c.notNull())
+        .addColumn('event_id', 'text')
+        .addColumn('subscriber_id', 'text', (c) => c.notNull())
+        .addColumn('dedupe', 'text', (c) => c.notNull().unique())
+        .addColumn('status', 'text', (c) => c.notNull())
+        .addColumn('attempts', 'integer', (c) => c.notNull().defaultTo(0))
+        .addColumn('next_attempt_at', ts, (c) => c.notNull())
+        .addColumn('locked_until', ts)
+        .addColumn('sent_at', ts)
+        .addColumn('error', 'text')
+        .addColumn('created_at', ts, (c) => c.notNull())
+        .execute();
+      await db.schema
+        .createIndex('subscriber_deliveries_due')
+        .on('subscriber_deliveries')
+        .columns(['status', 'next_attempt_at'])
+        .execute();
+    },
+  },
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

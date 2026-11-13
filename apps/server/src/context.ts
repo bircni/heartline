@@ -16,6 +16,7 @@ import type { PushService } from './services/push.ts';
 import type { QueryService } from './services/queries.ts';
 import type { RateLimiter } from './api/rate-limit.ts';
 import type { AuditService } from './services/audit.ts';
+import type { SubscriberService } from './services/subscribers.ts';
 import type { SoftwareService } from './software/service.ts';
 import type { StatusEngine } from './status/engine.ts';
 
@@ -40,4 +41,5 @@ export interface AppContext {
   software: SoftwareService;
   audit: AuditService;
   rateLimiter: RateLimiter;
+  subscribers: SubscriberService;
 }

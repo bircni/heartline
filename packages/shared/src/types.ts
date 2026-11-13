@@ -4,6 +4,7 @@ import type {
   IMPACTS,
   INCIDENT_STATUSES,
   MAINTENANCE_STATUSES,
+  SUBSCRIBER_EVENTS,
   ROLES,
   SCOPES,
   THEMES,
@@ -414,9 +415,37 @@ export interface AuthProviders {
   oidc: { id: string; name: string }[];
 }
 
+export type SubscriberEvent = (typeof SUBSCRIBER_EVENTS)[number];
+
+/** A subscriber, as seen on their own manage page. */
+export interface SubscriptionDto {
+  email: string;
+  status: 'pending' | 'active' | 'unsubscribed';
+  events: SubscriberEvent[];
+  components: 'all' | string[];
+  incidents: { id: string; title: string }[];
+  /** What the site offers, and the services to pick from. */
+  available: { events: SubscriberEvent[]; services: { id: string; name: string; group: string }[] };
+}
+
+export interface SubscriberDto {
+  id: string;
+  email: string;
+  status: 'pending' | 'active' | 'unsubscribed';
+  events: SubscriberEvent[];
+  components: 'all' | string[];
+  incidents: number;
+  createdAt: number;
+  confirmedAt: number | null;
+  lastSentAt: number | null;
+  lastError: string | null;
+}
+
 export interface Bootstrap {
   site: SiteInfo;
   public: boolean;
+  /** Public sign-up for e-mail notifications; `email` is false when no mail server is configured. */
+  subscribe: { enabled: boolean; email: boolean; events: SubscriberEvent[] };
   showVersions: boolean;
   auth: AuthProviders;
 }

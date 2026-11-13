@@ -423,6 +423,32 @@ export const maintenanceUpdateSchema = z
     path: ['endsAt'],
   });
 
+/** What subscribers can hear about. */
+export const SUBSCRIBER_EVENTS = [
+  'incidents',
+  'automaticIncidents',
+  'maintenance',
+  'componentStatus',
+] as const;
+export const subscriberEventSchema = z.enum(SUBSCRIBER_EVENTS);
+
+export const subscribeSchema = z.object({
+  email: z.email().max(254),
+  /** Defaults to every event the site offers. */
+  events: z.array(subscriberEventSchema).optional(),
+  /** `all`, or the ids of the services to hear about. */
+  components: z.union([z.literal('all'), z.array(z.string()).max(500)]).default('all'),
+  /** Follow this one incident (every update), on top of the choices above. */
+  incidentId: z.string().max(100).optional(),
+});
+
+export const subscriberPrefsSchema = z.object({
+  events: z.array(subscriberEventSchema).optional(),
+  components: z.union([z.literal('all'), z.array(z.string()).max(500)]).optional(),
+  /** Incidents followed one by one; send the full list. */
+  incidents: z.array(z.string()).max(100).optional(),
+});
+
 /** A status update on a one-off maintenance window. */
 export const maintenanceUpdateCreateSchema = z.object({
   status: maintenanceStatusSchema,

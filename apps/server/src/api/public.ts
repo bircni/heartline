@@ -7,7 +7,7 @@ import type {
   Me,
   UrgencyLevel,
 } from '@heartline/shared';
-import { IMPACTS } from '@heartline/shared';
+import { IMPACTS, renderMarkdown } from '@heartline/shared';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { type Vars, requireScope } from '../auth/principal.ts';
 import type { AppContext } from '../context.ts';
@@ -37,6 +37,57 @@ export function badgeSvg(label: string, value: string, color: string): string {
   const lw = w(label);
   const vw = w(value);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${lw + vw}" height="20" role="img" aria-label="${escapeXml(label)}: ${escapeXml(value)}"><rect width="${lw}" height="20" fill="#555"/><rect x="${lw}" width="${vw}" height="20" fill="${color}"/><g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle"><text x="${lw / 2}" y="14">${escapeXml(label)}</text><text x="${lw + vw / 2}" y="14">${escapeXml(value)}</text></g></svg>`;
+}
+
+interface FeedItem {
+  id: string;
+  title: string;
+  url: string;
+  published: number;
+  updated: number;
+  /** The whole timeline as HTML. */
+  html: string;
+}
+
+const statusWord = (s: string) => (s[0]?.toUpperCase() ?? '') + s.slice(1).replace('_', ' ');
+
+/** The 50 latest incidents and 20 latest maintenance windows, most recently updated first. */
+async function feedItems(app: AppContext): Promise<FeedItem[]> {
+  const base = app.env.baseUrl;
+  const timeline = (updates: { status: string; message: string; createdAt: number }[]) =>
+    updates
+      .map(
+        (u) =>
+          `<p><strong>${escapeXml(statusWord(u.status))}</strong> · ${new Date(u.createdAt).toUTCString()}</p>${renderMarkdown(u.message)}`,
+      )
+      .join('');
+  const incidents = (await app.incidents.list({ limit: 50 })).map((i): FeedItem => ({
+    id: i.id,
+    title: `${i.title} (${statusWord(i.status)})`,
+    url: `${base}/incidents/${i.id}`,
+    published: i.createdAt,
+    updated: i.updatedAt,
+    html:
+      (i.services.length ? `<p>Affected: ${escapeXml(i.services.map((s) => s.name).join(', '))}</p>` : '') +
+      (i.postmortem ? `<h3>Postmortem</h3>${renderMarkdown(i.postmortem.body)}` : '') +
+      timeline(i.updates),
+  }));
+  const maintenance = app.maintenance
+    .list()
+    .toSorted((a, b) => (b.updates[0]?.createdAt ?? b.startsAt) - (a.updates[0]?.createdAt ?? a.startsAt))
+    .slice(0, 20)
+    .map((m): FeedItem => ({
+      id: m.id,
+      title: `Maintenance: ${m.title} (${statusWord(m.status)})`,
+      url: `${base}/maintenance/${m.id}`,
+      published: m.startsAt,
+      updated: m.updates[0]?.createdAt ?? m.startsAt,
+      html:
+        `<p>${new Date(m.nextStartsAt ?? m.startsAt).toUTCString()} – ${new Date(m.nextEndsAt ?? m.endsAt).toUTCString()}</p>` +
+        (m.description ? renderMarkdown(m.description) : '') +
+        timeline(m.updates),
+    }));
+  return [...incidents, ...maintenance].toSorted((a, b) => b.updated - a.updated);
 }
 
 export function publicRoutes(app: AppContext) {
@@ -176,18 +227,34 @@ export function publicRoutes(app: AppContext) {
 
   r.get('/incidents.rss', async (c) => {
     const site = app.site();
-    const items = await app.incidents.list({ limit: 50 });
     const base = app.env.baseUrl;
+    const items = await feedItems(app);
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>${escapeXml(site.title)} incidents</title><link>${base}</link><description>Incident history</description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>${escapeXml(site.title)} incidents and maintenance</title><link>${base}</link><description>Incident and maintenance history</description><atom:link href="${base}/api/v1/incidents.rss" rel="self" type="application/rss+xml"/>
 ${items
-  .map((i) => {
-    const latest = i.updates[0];
-    return `<item><title>${escapeXml(`${i.title} (${i.status})`)}</title><link>${base}/incidents/${i.id}</link><guid isPermaLink="false">${i.id}:${latest?.id ?? ''}</guid><pubDate>${new Date(latest?.createdAt ?? i.createdAt).toUTCString()}</pubDate><description>${escapeXml(latest?.message ?? '')}</description></item>`;
-  })
+  .map(
+    (i) =>
+      `<item><title>${escapeXml(i.title)}</title><link>${i.url}</link><guid isPermaLink="false">${i.id}:${i.updated}</guid><pubDate>${new Date(i.updated).toUTCString()}</pubDate><description>${escapeXml(i.html)}</description></item>`,
+  )
   .join('\n')}
 </channel></rss>`;
     return c.body(xml, 200, { 'content-type': 'application/rss+xml; charset=utf-8' });
+  });
+  r.get('/incidents.atom', async (c) => {
+    const site = app.site();
+    const base = app.env.baseUrl;
+    const items = await feedItems(app);
+    const updated = new Date(Math.max(0, ...items.map((i) => i.updated)) || Date.now()).toISOString();
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>${escapeXml(site.title)} incidents and maintenance</title><id>${base}/</id><updated>${updated}</updated><link href="${base}"/><link rel="self" href="${base}/api/v1/incidents.atom"/><author><name>${escapeXml(site.title)}</name></author>
+${items
+  .map(
+    (i) =>
+      `<entry><id>urn:uuid:${i.id}</id><title>${escapeXml(i.title)}</title><updated>${new Date(i.updated).toISOString()}</updated><published>${new Date(i.published).toISOString()}</published><link href="${i.url}"/><content type="html">${escapeXml(i.html)}</content></entry>`,
+  )
+  .join('\n')}
+</feed>`;
+    return c.body(xml, 200, { 'content-type': 'application/atom+xml; charset=utf-8' });
   });
 
   return r;
@@ -206,6 +273,11 @@ export function bootstrapRoutes(app: AppContext) {
       site: app.site(),
       public: cfg.site.public,
       showVersions: cfg.site.showVersions,
+      subscribe: {
+        enabled: cfg.subscribers.enabled,
+        email: app.subscribers.emailEnabled,
+        events: app.subscribers.settings.events,
+      },
       auth,
     };
     return c.json(boot);

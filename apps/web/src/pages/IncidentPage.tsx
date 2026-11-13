@@ -6,7 +6,14 @@ import { IncidentRow } from '../components/IncidentRow.tsx';
 import { Markdown } from '../components/Markdown.tsx';
 import { UpdateTimeline } from '../components/UpdateTimeline.tsx';
 import { Empty, ErrorNote, PageHeader, Section, Spinner } from '../components/ui.tsx';
-import { useIncident, useIncidentHistory, useIncidents, useMe, useNavOverview } from '../lib/api.ts';
+import {
+  useBootstrap,
+  useIncident,
+  useIncidentHistory,
+  useIncidents,
+  useMe,
+  useNavOverview,
+} from '../lib/api.ts';
 import { can } from '../lib/roles.ts';
 import {
   COMPONENT_LABEL,
@@ -25,6 +32,7 @@ export function IncidentPage() {
   const { id } = useParams({ from: '/public/incidents/$id' });
   const { data, error, isPending } = useIncident(id);
   const me = useMe();
+  const boot = useBootstrap();
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
   const open = data.resolvedAt === null;
@@ -40,11 +48,18 @@ export function IncidentPage() {
       <PageHeader
         title={data.title}
         actions={
-          can(me.data?.role, 'editor') && (
-            <Link to="/admin/incidents" search={{ incident: data.id }} className="btn">
-              <Icon name="edit" size={14} /> Manage incident
-            </Link>
-          )
+          <>
+            {open && boot.data?.subscribe.email && (
+              <Link to="/subscribe" search={{ incident: data.id }} className="btn">
+                <Icon name="bell" size={14} /> Follow this incident
+              </Link>
+            )}
+            {can(me.data?.role, 'editor') && (
+              <Link to="/admin/incidents" search={{ incident: data.id }} className="btn">
+                <Icon name="edit" size={14} /> Manage incident
+              </Link>
+            )}
+          </>
         }
         subtitle={
           <span className="font-medium" style={{ color: incidentTone(data).text }}>

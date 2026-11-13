@@ -10,6 +10,7 @@ import { rateLimit } from './api/rate-limit.ts';
 import { docsHtml, openApiDocument } from './api/openapi.ts';
 import { bootstrapRoutes, publicRoutes } from './api/public.ts';
 import { pushRoutes } from './api/push.ts';
+import { subscribeRoutes, subscriberLinkRoutes } from './api/subscribers.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
 import { mcpHandler } from './mcp/server.ts';
@@ -75,8 +76,10 @@ export function createApp(app: AppContext) {
   );
   // Before the public routes: the push secret is the credential, also on private sites.
   h.route('/api/v1', pushRoutes(app));
+  h.route('/api/v1', subscriberLinkRoutes(app));
   h.route('/api/v1', bootstrapRoutes(app));
   h.route('/api/v1/admin', adminRoutes(app));
+  h.route('/api/v1', subscribeRoutes(app));
   h.route('/api/v1', publicRoutes(app));
   h.all('/api/*', (c) => c.json({ error: 'not found' }, 404));
 

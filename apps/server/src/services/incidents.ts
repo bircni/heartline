@@ -15,12 +15,21 @@ import type { Db } from '../db/index.ts';
 import type { IncidentTable } from '../db/schema.ts';
 import type { NotifierService } from '../notify/index.ts';
 import { newId } from '../util/ids.ts';
+import { log } from '../util/log.ts';
 import { type MonitorService, NotFoundError, ValidationError } from './monitors.ts';
 
 /** An update or incident dated further back than this is a write-up after the fact: it never notifies. */
 const BACKFILL_MS = 60_000;
 
 const COMPONENT_RANK: Record<ComponentStatus, number> = { operational: 0, degraded: 1, partial: 2, down: 3 };
+
+/** An update people may hear about; `notify` is its switch (automatic incidents decide by setting). */
+export interface IncidentEvent {
+  incident: Incident;
+  update: IncidentUpdateDto;
+  notify: boolean;
+  postmortem?: boolean;
+}
 
 /** What open incidents say about one service: its worst status among them, and the incident saying so. */
 export interface IncidentOverride {
@@ -47,6 +56,8 @@ export class IncidentService {
   #monitors: MonitorService;
   #notifier: NotifierService;
   notifyIncidents = true;
+  /** Further listeners (subscriber e-mails) for posted updates; failures are logged, never thrown. */
+  readonly listeners: ((e: IncidentEvent) => Promise<void>)[] = [];
 
   constructor(db: Db, monitors: MonitorService, notifier: NotifierService) {
     this.#db = db;
@@ -252,13 +263,21 @@ export class IncidentService {
           .execute();
     });
     const incident = await this.get(id);
-    if (notify && this.notifyIncidents)
-      await this.#notifier.send({
-        kind: 'incident',
-        incident,
-        update: incident.updates[0] as IncidentUpdateDto,
-      });
+    const update = incident.updates[0] as IncidentUpdateDto;
+    if (notify && this.notifyIncidents) await this.#notifier.send({ kind: 'incident', incident, update });
+    // Written-up incidents are history: nobody hears about them, not even for automatic ones.
+    if (!backfill) await this.#tell({ incident, update, notify });
     return incident;
+  }
+
+  async #tell(e: IncidentEvent): Promise<void> {
+    for (const l of this.listeners) {
+      try {
+        await l(e);
+      } catch (error) {
+        log.error('incident listener failed', { error });
+      }
+    }
   }
 
   async addUpdate(
@@ -326,12 +345,9 @@ export class IncidentService {
         .execute();
     });
     const incident = await this.get(id);
-    if (notify && this.notifyIncidents)
-      await this.#notifier.send({
-        kind: 'incident',
-        incident,
-        update: incident.updates.find((u) => u.id === updateId) as IncidentUpdateDto,
-      });
+    const update = incident.updates.find((u) => u.id === updateId) as IncidentUpdateDto;
+    if (notify && this.notifyIncidents) await this.#notifier.send({ kind: 'incident', incident, update });
+    if (!backfill) await this.#tell({ incident, update, notify });
     return incident;
   }
 
@@ -413,14 +429,16 @@ export class IncidentService {
       .execute();
     const incident = await this.get(id, { drafts: true });
     const published = publishedAt !== null && row.postmortem_published_at === null;
-    if (published && input.notify && this.notifyIncidents) {
-      const latest = incident.updates[0];
-      if (latest)
+    const latest = incident.updates[0];
+    if (published && input.notify && latest) {
+      const update = { ...latest, message: input.body, createdAt: now };
+      if (this.notifyIncidents)
         await this.#notifier.send({
           kind: 'incident',
           incident,
-          update: { ...latest, message: `Postmortem published.\n\n${input.body}` },
+          update: { ...update, message: `Postmortem published.\n\n${input.body}` },
         });
+      await this.#tell({ incident, update, notify: true, postmortem: true });
     }
     return { incident, published };
   }

@@ -80,6 +80,14 @@ export class StatusEngine {
   settings: EngineSettings = { timezone: 'UTC', recoveryNotifications: true, reminderEveryMs: 0 };
   /** Dependencies of a monitor that are not operational; set by the app. */
   upstream: (monitor: LoadedMonitor) => Promise<UpstreamIssue[]> = async () => [];
+  /** Told about status changes people may hear about (subscriber e-mails); failures are logged. */
+  readonly transitionListeners: ((e: {
+    service: { id: string; name: string };
+    from: ServiceStatus;
+    to: ServiceStatus;
+    message: string | null;
+    at: number;
+  }) => Promise<void>)[] = [];
   /** Records automatic incidents in the audit log. */
   audit: AuditService | null = null;
 
@@ -240,6 +248,16 @@ export class StatusEngine {
         .where('monitor_id', '=', monitor.id)
         .execute();
     }
+
+    // Subscribers hear about real changes, recoveries included, whatever the channels are set to.
+    if (!quiet && !firstCheck && (bad || (recovery && from !== 'unknown')))
+      for (const l of this.transitionListeners) {
+        try {
+          await l({ service, from, to, message, at });
+        } catch (error) {
+          log.error('status listener failed', { service: monitor.id, error });
+        }
+      }
 
     if (!monitor.spec.autoIncident) return;
     try {

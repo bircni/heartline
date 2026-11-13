@@ -425,6 +425,45 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
   );
 
   server.registerTool(
+    'list_subscribers',
+    {
+      title: 'List subscribers',
+      description: 'E-mail subscribers of the status page with their status and choices.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async () =>
+      guard('admin', async () => {
+        const subscribers = await app.subscribers.list();
+        return ok(
+          { subscribers },
+          `${subscribers.filter((s) => s.status === 'active').length} active of ${subscribers.length}`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    'remove_subscriber',
+    {
+      title: 'Remove subscriber',
+      description: 'Delete a subscriber and everything queued for them.',
+      inputSchema: z.object({ id: z.string() }),
+      annotations: { destructiveHint: true },
+    },
+    async ({ id }) =>
+      guard('admin', async () => {
+        const email = await app.subscribers.remove(id);
+        await audit({
+          action: 'subscriber.delete',
+          entityType: 'subscriber',
+          entityId: id,
+          summary: `Removed subscriber ${email}`,
+        });
+        return ok({ id, deleted: true }, 'Subscriber removed.');
+      }),
+  );
+
+  server.registerTool(
     'list_groups',
     {
       title: 'List groups',

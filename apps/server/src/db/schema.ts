@@ -300,6 +300,62 @@ export interface MonitorPushTable {
   last_push_status: string | null;
 }
 
+export interface SubscriberTable {
+  id: string;
+  /** Lowercase. */
+  email: string;
+  status: 'pending' | 'active' | 'unsubscribed';
+  /** JSON array of SubscriberEvent. */
+  events: string;
+  all_components: number;
+  /** Bumped on unsubscribe, which invalidates every link sent before. */
+  token_version: number;
+  created_at: number;
+  confirmed_at: number | null;
+  unsubscribed_at: number | null;
+  last_sent_at: number | null;
+  last_error: string | null;
+}
+
+export interface SubscriberComponentTable {
+  subscriber_id: string;
+  monitor_id: string;
+}
+
+export interface SubscriberIncidentTable {
+  subscriber_id: string;
+  incident_id: string;
+}
+
+/** Outbox: something subscribers may hear about. Any replica writes; the leader expands and sends. */
+export interface SubscriberEventTable {
+  id: string;
+  type: string;
+  /** Makes an event idempotent, e.g. `maint:<id>:<occurrence>:started`. */
+  dedupe_key: string | null;
+  /** JSON SubscriberMessage. */
+  payload: string;
+  created_at: number;
+  expanded_at: number | null;
+}
+
+/** One e-mail to one subscriber, with retries. */
+export interface SubscriberDeliveryTable {
+  id: string;
+  kind: 'event' | 'confirm' | 'manage';
+  event_id: string | null;
+  subscriber_id: string;
+  /** Unique per (event_id, subscriber_id) for events; the id itself for confirm and manage mails. */
+  dedupe: string;
+  status: 'pending' | 'sending' | 'sent' | 'failed';
+  attempts: number;
+  next_attempt_at: number;
+  locked_until: number | null;
+  sent_at: number | null;
+  error: string | null;
+  created_at: number;
+}
+
 export interface Database {
   monitors: MonitorTable;
   monitor_state: MonitorStateTable;
@@ -324,6 +380,11 @@ export interface Database {
   maintenance_updates: MaintenanceUpdateTable;
   maintenance_occurrences: MaintenanceOccurrenceTable;
   monitor_push: MonitorPushTable;
+  subscribers: SubscriberTable;
+  subscriber_components: SubscriberComponentTable;
+  subscriber_incidents: SubscriberIncidentTable;
+  subscriber_events: SubscriberEventTable;
+  subscriber_deliveries: SubscriberDeliveryTable;
   rate_limits: RateLimitTable;
   user: UserTable;
   account: AccountTable;

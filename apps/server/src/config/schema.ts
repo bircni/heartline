@@ -99,6 +99,8 @@ export const configSchema = z
         auth: rateBucketSchema.default({ max: 10, window: 60_000 }),
         /** Push monitor reports per client IP, shared by all replicas. */
         push: rateBucketSchema.default({ max: 120, window: 60_000 }),
+        /** Subscription sign-ups and manage-link requests per client IP, shared by all replicas. */
+        subscribe: rateBucketSchema.default({ max: 10, window: 600_000 }),
         /** Take the client IP from X-Forwarded-For; enable behind a reverse proxy or ingress. */
         trustProxy: z.boolean().default(false),
       })
@@ -107,6 +109,7 @@ export const configSchema = z
         public: { max: 300, window: 60_000 },
         auth: { max: 10, window: 60_000 },
         push: { max: 120, window: 60_000 },
+        subscribe: { max: 10, window: 600_000 },
         trustProxy: false,
       }),
     software: z
@@ -154,6 +157,40 @@ export const configSchema = z
         maintenance: z.boolean().default(true),
       })
       .default({ recovery: true, incidents: true, reminderEvery: 0, security: true, maintenance: true }),
+    subscribers: z
+      .object({
+        /** Visitors can sign up for e-mail notifications. */
+        enabled: z.boolean().default(true),
+        email: z
+          .object({
+            /** Id of an `email` notifier whose mail server and sender are used; default the first one. */
+            notifier: z.string().optional(),
+            /** Most e-mails sent per minute, for the mail server's limits. */
+            ratePerMinute: z.number().int().min(1).max(10_000).default(60),
+          })
+          .default({ ratePerMinute: 60 }),
+        /** How long a confirmation link works. */
+        confirmTtl: duration.default(48 * 3_600_000),
+        /** Which events subscribers can choose. */
+        events: z
+          .object({
+            /** Incidents posted by people (created, updates, resolved, postmortem); each update's notify switch decides. */
+            incidents: z.boolean().default(true),
+            /** Incidents opened and resolved by failing checks. */
+            automaticIncidents: z.boolean().default(false),
+            /** Maintenance scheduled, reminder, started, completed, updates. */
+            maintenance: z.boolean().default(true),
+            /** Every change of a service's status, also without an incident. */
+            componentStatus: z.boolean().default(false),
+          })
+          .default({ incidents: true, automaticIncidents: false, maintenance: true, componentStatus: false }),
+      })
+      .default({
+        enabled: true,
+        email: { ratePerMinute: 60 },
+        confirmTtl: 48 * 3_600_000,
+        events: { incidents: true, automaticIncidents: false, maintenance: true, componentStatus: false },
+      }),
     maintenance: z
       .object({
         /** Reminder this long before a window starts; 0 sends none. */

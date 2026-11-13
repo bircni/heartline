@@ -147,6 +147,7 @@ export const useService = (id: string, range: Range) =>
   });
 export const useIncident = (id: string) =>
   useQuery({
+    enabled: Boolean(id),
     queryKey: ['incident', id],
     queryFn: () => api<Incident>(`/api/v1/incidents/${encodeURIComponent(id)}`),
   });
