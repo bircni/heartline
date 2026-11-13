@@ -1,5 +1,5 @@
 import type { ServiceStatus } from '@heartline/shared';
-import { STATUS_LABEL, STATUS_TONE } from '../lib/format.ts';
+import { STATUS_TONE, statusLabel } from '../lib/format.ts';
 import { Icon } from './Icon.tsx';
 
 export function StatusDot({ status, size = 8 }: { status: ServiceStatus; size?: number }) {
@@ -31,7 +31,7 @@ export function StatusIcon({ status, size = 16 }: { status: ServiceStatus; size?
   );
 }
 
-export function StatusPill({ status }: { status: ServiceStatus }) {
+export function StatusPill({ status, external = false }: { status: ServiceStatus; external?: boolean }) {
   const tone = STATUS_TONE[status];
   return (
     <span
@@ -39,7 +39,7 @@ export function StatusPill({ status }: { status: ServiceStatus }) {
       style={{ color: tone.text, background: tone.bg }}
     >
       <StatusDot status={status} size={6} />
-      {STATUS_LABEL[status]}
+      {statusLabel(status, external)}
     </span>
   );
 }

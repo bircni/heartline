@@ -50,7 +50,7 @@ const ts = () => int({ description: 'Unix time in milliseconds' });
 
 const SERVICE_STATUS = ['operational', 'degraded', 'down', 'maintenance', 'paused', 'unknown'] as const;
 const DAY_STATE = ['operational', 'degraded', 'down', 'maintenance', 'nodata'] as const;
-const CHECK_STATUS = ['up', 'degraded', 'down'] as const;
+const CHECK_STATUS = ['up', 'degraded', 'down', 'maintenance', 'unknown'] as const;
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
 
 const schemas: Record<string, Schema> = {
@@ -101,7 +101,9 @@ const schemas: Record<string, Schema> = {
     name: str(),
     group: str(),
     kind: en(MONITOR_KINDS),
+    external: bool(),
     status: en(SERVICE_STATUS),
+    upstream: arr(obj({ id: str(), name: str(), status: en(SERVICE_STATUS) })),
     uptime: nullable(num()),
     bars: arr(ref('DayBar')),
     software: nullable(ref('SoftwareSummary')),
@@ -145,6 +147,7 @@ const schemas: Record<string, Schema> = {
     total: int(),
     days: int(),
     groups: arr(obj({ name: str(), services: arr(ref('ServiceSummary')) })),
+    external: arr(obj({ name: str(), services: arr(ref('ServiceSummary')) })),
     activeIncidents: arr(ref('Incident')),
     upcomingMaintenance: arr(ref('Maintenance')),
     security: nullable(obj({ critical: int(), high: int() })),

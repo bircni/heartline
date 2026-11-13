@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parseDuration } from './duration.ts';
+import { findProvider } from './providers.ts';
 
 export const duration = z.union([z.string(), z.number().int().nonnegative()]).transform((value, ctx) => {
   try {
@@ -122,6 +123,8 @@ const base = {
   autoIncident: z.boolean().default(false),
   /** Track the running version and its known vulnerabilities. */
   software: softwareSchema.optional(),
+  /** Services this one relies on (e.g. a provider monitor); their outages are shown as a likely cause. */
+  dependsOn: z.array(z.string().min(1)).default([]),
 };
 
 export const httpMonitorSchema = z.object({
@@ -188,6 +191,31 @@ export const pluginMonitorSchema = z.object({
   args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
 });
 
+/** Status of a third-party service, read from its public status page or API. */
+export const providerMonitorSchema = z.object({
+  ...base,
+  // Providers aggregate their own status, so poll less often and trust a single answer.
+  interval: duration.default(300_000),
+  failureThreshold: z.number().int().min(1).max(20).default(1),
+  type: z.literal('provider'),
+  /** Preset slug such as `github` or `atlassian-jira`, or a generic kind: `statuspage`, `feed`. */
+  provider: z.string().min(1),
+  /** Status page (statuspage) or feed URL (feed); overrides the preset URL. */
+  url: z.url().optional(),
+  /** Only these components, products or services count (case-insensitive names). Empty means all. */
+  components: z.array(z.string().min(1)).default([]),
+  /** Feeds only: entries newer than this count as open issues. Defaults to every entry for Azure, 6h otherwise. */
+  window: duration.optional(),
+  /** Microsoft 365 service health of your tenant (app registration with ServiceHealth.Read.All). */
+  m365: z
+    .object({
+      tenantId: z.string().min(1),
+      clientId: z.string().min(1),
+      clientSecret: z.string().min(1),
+    })
+    .optional(),
+});
+
 export const monitorSpecSchema = z
   .discriminatedUnion('type', [
     httpMonitorSchema,
@@ -196,8 +224,32 @@ export const monitorSpecSchema = z
     tlsMonitorSchema,
     icmpMonitorSchema,
     pluginMonitorSchema,
+    providerMonitorSchema,
   ])
   .superRefine((m, ctx) => {
+    if (m.dependsOn.includes(m.id))
+      ctx.addIssue({ code: 'custom', message: 'a service cannot depend on itself', path: ['dependsOn'] });
+    if (m.type === 'provider') {
+      const preset = findProvider(m.provider);
+      if (!preset) {
+        ctx.addIssue({ code: 'custom', message: `unknown provider "${m.provider}"`, path: ['provider'] });
+      } else if (preset.kind === 'm365' && !m.m365) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'm365 needs tenantId, clientId and clientSecret',
+          path: ['m365'],
+        });
+      } else if (preset.url === null && preset.kind !== 'm365' && !m.url) {
+        ctx.addIssue({ code: 'custom', message: `${m.provider} needs a url`, path: ['url'] });
+      }
+      if (m.software)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'provider monitors cannot track software',
+          path: ['software'],
+        });
+      return;
+    }
     // Without an HTTP response (or a plugin result) there is nothing to read a version from.
     const probe = m.software?.version;
     if (m.software && m.type !== 'http' && m.type !== 'plugin' && !probe?.url && !probe?.static) {
@@ -211,7 +263,15 @@ export const monitorSpecSchema = z
 export type MonitorSpec = z.output<typeof monitorSpecSchema>;
 export type MonitorSpecInput = z.input<typeof monitorSpecSchema>;
 export type MonitorKind = MonitorSpec['type'];
-export const MONITOR_KINDS = ['http', 'tcp', 'dns', 'tls', 'icmp', 'plugin'] as const satisfies MonitorKind[];
+export const MONITOR_KINDS = [
+  'http',
+  'tcp',
+  'dns',
+  'tls',
+  'icmp',
+  'plugin',
+  'provider',
+] as const satisfies MonitorKind[];
 
 export const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'] as const;
 export const incidentStatusSchema = z.enum(INCIDENT_STATUSES);

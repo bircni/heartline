@@ -39,6 +39,11 @@ groups:
         interval: 5m
         args: { path: ../../dev/demo/backups, max_age_hours: 26 }
 
+  - name: Third-party
+    monitors:
+      - { id: github-status, name: GitHub, type: provider, provider: github }
+      - { id: slack, name: Slack, type: provider, provider: slack }
+
 notifications: { recovery: true, incidents: true }
 
 auth:

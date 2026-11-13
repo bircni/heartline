@@ -18,7 +18,7 @@ import { mcpResource } from '../auth/auth.ts';
 import { OAUTH_SCOPES, oauthScopesToScopes, scopeAtLeast } from '../auth/roles.ts';
 import { describeTarget, runCheck } from '../checks/index.ts';
 import type { AppContext } from '../context.ts';
-import { validateMonitorSpec } from '../services/monitors.ts';
+import { restoreSecrets, validateMonitorSpec } from '../services/monitors.ts';
 import { URGENCY_RANK } from '../software/urgency.ts';
 import { log } from '../util/log.ts';
 import { APP_VERSION } from '../util/pkg.ts';
@@ -80,18 +80,21 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     async ({ days }) =>
       guard('read', async () => {
         const o = await app.queries.overview(days);
-        const services = o.groups.flatMap((g) =>
+        const services = [...o.groups, ...o.external].flatMap((g) =>
           g.services.map((s) => ({
             id: s.id,
             name: s.name,
             group: g.name,
             kind: s.kind,
+            external: s.external,
             status: s.status,
             uptime: s.uptime,
+            upstream: s.upstream.map((u) => ({ id: u.id, status: u.status })),
           })),
         );
         const lines = services.map(
-          (s) => `- ${s.name} [${s.id}] ${s.status}, ${fmtPct(s.uptime)} over ${days}d`,
+          (s) =>
+            `- ${s.name} [${s.id}]${s.external ? ' (third-party)' : ''} ${s.status}, ${fmtPct(s.uptime)} over ${days}d${s.upstream.length ? `, upstream: ${s.upstream.map((u) => `${u.id} ${u.status}`).join(', ')}` : ''}`,
         );
         return ok(
           { status: o.status, headline: o.headline, services },
@@ -303,7 +306,8 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     'create_monitor',
     {
       title: 'Create monitor',
-      description: 'Add a UI-managed monitor (http, tcp, dns, tls, icmp or plugin).',
+      description:
+        'Add a UI-managed monitor (http, tcp, dns, tls, icmp, plugin, or provider for a third-party status page such as github, atlassian-jira, slack, google-workspace or m365).',
       inputSchema: z.object({ group: z.string(), spec: z.record(z.string(), z.unknown()) }),
     },
     async ({ group, spec }) =>
@@ -324,7 +328,7 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
     },
     async ({ id, group, spec }) =>
       guard('admin', async () => {
-        const parsed = monitorSpecSchema.parse(spec);
+        const parsed = restoreSecrets(monitorSpecSchema.parse(spec), app.monitors.get(id)?.spec);
         validateMonitorSpec(parsed, app);
         const m = await app.monitors.update(id, parsed, group);
         return ok({ id: m.id, name: m.name, group: m.group }, 'Monitor updated.');
@@ -366,6 +370,8 @@ export function buildMcpServer(app: AppContext, principal: Principal): McpServer
             target: describeTarget(m.spec),
             source: m.source,
             paused: m.paused,
+            external: m.spec.type === 'provider',
+            dependsOn: m.spec.dependsOn,
             intervalMs: m.spec.interval,
             software: m.spec.software
               ? { product: m.spec.software.product, track: m.spec.software.track }

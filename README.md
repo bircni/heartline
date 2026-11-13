@@ -26,6 +26,7 @@ MCP server for you. One container, one YAML file.
 **For you**
 
 - 🩺 **Pull-based checks**: HTTP, TCP, DNS, TLS certificates, ICMP and exec **plugins** for anything else (backup age, queue length, a scripted login). Your services are never modified.
+- 🌐 **Third-party services**: follow Atlassian, GitHub, Google Workspace, Slack, Azure or your Microsoft 365 tenant from their own status pages, shown apart from your services and linked to them with `dependsOn`.
 - 🛠️ **One sidebar for everything** once you sign in: incidents, monitors, maintenance, notifications, API tokens and users, next to every service.
 - 🔔 **Alerts** to Microsoft Teams, e-mail and webhooks, with recovery notices and reminders.
 - 🛡️ **Software inventory**: the running version of every service, the latest release, end of life and known vulnerabilities (OSV.dev, NVD, CISA KEV), scored from none to critical.

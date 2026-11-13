@@ -1,5 +1,5 @@
 import type { AdminMonitor, CatalogEntryDto, MonitorKind, MonitorSpecInput } from '@heartline/shared';
-import { MONITOR_KINDS, formatDuration } from '@heartline/shared';
+import { MONITOR_KINDS, PROVIDERS, findProvider, formatDuration } from '@heartline/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Icon } from '../../components/Icon.tsx';
@@ -345,13 +345,124 @@ const KIND_LABEL: Record<MonitorKind, string> = {
   tls: 'TLS',
   icmp: 'Ping',
   plugin: 'Plugin',
+  provider: 'Provider',
 };
 
+const COMPONENT_LABEL = { components: 'Components', products: 'Products', services: 'Services' } as const;
+
+const splitList = (v: string) =>
+  v
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+
 function emptyDraft(kind: MonitorKind = 'http'): Draft {
+  if (kind === 'provider')
+    return {
+      group: 'Third-party',
+      spec: {
+        id: '',
+        name: '',
+        type: kind,
+        provider: 'github',
+        interval: '5m',
+        failureThreshold: 1,
+        notify: [],
+      },
+    };
   return {
     group: 'Services',
     spec: { id: '', name: '', type: kind, interval: '60s', failureThreshold: 2, notify: [] },
   };
+}
+
+/** Provider preset, status URL, component filter and Microsoft 365 credentials. */
+function ProviderFields({
+  s,
+  set,
+  locked,
+}: {
+  s: Record<string, unknown>;
+  set: (key: string, value: unknown) => void;
+  locked: boolean;
+}) {
+  const preset = findProvider(String(s.provider ?? ''));
+  const m365 = (s.m365 ?? {}) as Record<string, unknown>;
+  return (
+    <>
+      <Field label="Provider" htmlFor="m-provider">
+        <select
+          id="m-provider"
+          className="field"
+          value={String(s.provider ?? '')}
+          onChange={(e) => set('provider', e.target.value)}
+          disabled={locked}
+        >
+          {PROVIDERS.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {preset?.kind !== 'm365' && (
+        <TextField
+          id="m-provider-url"
+          label={
+            preset?.url ? 'Status URL (optional)' : preset?.kind === 'feed' ? 'Feed URL' : 'Status page URL'
+          }
+          value={s.url}
+          onChange={(v) => set('url', v || undefined)}
+          disabled={locked}
+          placeholder={
+            preset?.url ??
+            (preset?.kind === 'feed' ? 'https://status.example.com/feed.rss' : 'https://status.example.com')
+          }
+        />
+      )}
+      {preset?.kind === 'm365' && (
+        <>
+          <div className="grid grid-cols-2 gap-x-3">
+            <TextField
+              id="m-tenant"
+              label="Tenant ID"
+              value={m365.tenantId}
+              onChange={(v) => set('m365', { ...m365, tenantId: v })}
+              disabled={locked}
+            />
+            <TextField
+              id="m-client"
+              label="Client ID"
+              value={m365.clientId}
+              onChange={(v) => set('m365', { ...m365, clientId: v })}
+              disabled={locked}
+            />
+          </div>
+          <Field label="Client secret" htmlFor="m-secret" hint="App registration with ServiceHealth.Read.All">
+            <input
+              id="m-secret"
+              type="password"
+              autoComplete="off"
+              className="field font-mono text-[13px]"
+              value={String(m365.clientSecret ?? '')}
+              onChange={(e) => set('m365', { ...m365, clientSecret: e.target.value })}
+              disabled={locked}
+            />
+          </Field>
+        </>
+      )}
+      <TextField
+        id="m-components"
+        label={`${preset?.components ? COMPONENT_LABEL[preset.components] : 'Title keywords'} (optional)`}
+        value={Array.isArray(s.components) ? (s.components as string[]).join(', ') : ''}
+        onChange={(v) => set('components', splitList(v))}
+        disabled={locked}
+        mono={false}
+        hint="Comma separated; empty means everything"
+        placeholder={preset?.kind === 'm365' ? 'Exchange Online, Microsoft Teams' : ''}
+      />
+    </>
+  );
 }
 
 function toDraft(m: AdminMonitor): Draft {
@@ -476,8 +587,15 @@ function Editor({
           <Segmented
             size="sm"
             label="Check type"
+            columns={4}
             value={kind}
-            onChange={(k) => setDraft({ ...draft, spec: { ...emptyDraft(k).spec, id: s.id, name: s.name } })}
+            onChange={(k) =>
+              setDraft({
+                // Keep a group the user typed; otherwise use the default group of the new type.
+                group: draft.group === emptyDraft(kind).group ? emptyDraft(k).group : draft.group,
+                spec: { ...emptyDraft(k).spec, id: s.id, name: s.name },
+              })
+            }
             options={MONITOR_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
           />
         </div>
@@ -592,6 +710,7 @@ function Editor({
           disabled={locked}
         />
       )}
+      {kind === 'provider' && <ProviderFields s={s} set={set} locked={locked} />}
       {kind === 'plugin' && (
         <>
           <Field label="Plugin" htmlFor="m-plugin">
@@ -655,7 +774,7 @@ function Editor({
           hint="failed checks"
         />
       </div>
-      {kind !== 'plugin' && kind !== 'tls' && (
+      {kind !== 'plugin' && kind !== 'tls' && kind !== 'provider' && (
         <TextField
           id="m-degraded"
           label="Degraded when slower than"
@@ -698,7 +817,16 @@ function Editor({
           onChange={(v) => set('autoIncident', v)}
         />
       </div>
-      <SoftwareFields spec={s} set={set} locked={locked} kind={kind} />
+      <TextField
+        id="m-depends"
+        label="Depends on (optional)"
+        value={Array.isArray(s.dependsOn) ? (s.dependsOn as string[]).join(', ') : ''}
+        onChange={(v) => set('dependsOn', splitList(v))}
+        disabled={locked}
+        hint="Service IDs; their outages are shown as a likely cause"
+        placeholder="github, atlassian-jira"
+      />
+      {kind !== 'provider' && <SoftwareFields spec={s} set={set} locked={locked} kind={kind} />}
     </>
   );
 }

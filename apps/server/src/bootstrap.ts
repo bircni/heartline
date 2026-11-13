@@ -78,6 +78,7 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
     software: () => software.summaries(),
     security: () => software.security(),
   });
+  engine.upstream = (m) => queries.upstream(m);
   const tokens = new TokenService(db);
 
   const applyConfig = async (next: AppConfig) => {

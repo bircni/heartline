@@ -114,8 +114,8 @@ export function AppNav({ me }: { me: Me }) {
         {items(MANAGE)}
       </NavGroup>
       <NavGroup label="Access">{items(ACCESS)}</NavGroup>
-      {overview.data?.groups.map((g) => (
-        <NavGroup key={g.name} label={g.name}>
+      {[...(overview.data?.groups ?? []), ...(overview.data?.external ?? [])].map((g, i) => (
+        <NavGroup key={`${i}-${g.name}`} label={g.name}>
           {g.services.map((s) => (
             <NavItem
               key={s.id}
