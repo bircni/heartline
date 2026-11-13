@@ -10,6 +10,8 @@ site:
   showVersions: false # show running versions to anonymous visitors (vulnerabilities never are)
   theme: green # default colour of the UI: green, blue, violet, amber or rose; visitors can pick their own
 
+# layout: { pastIncidents: true, subscribeDialog: true, statusLabels: true, incidentBox: true }
+
 retention:
   rawDays: 30 # raw check results; daily rollups are kept forever
   auditDays: 365 # audit log entries

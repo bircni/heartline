@@ -130,8 +130,16 @@ export interface SiteInfo {
   description: string | null;
   timezone: string;
   logoUrl: string | null;
+  faviconUrl: string | null;
+  /** Links in the header and footer of the public page, e.g. to the main website or an imprint. */
+  links: { header: SiteLink[]; footer: SiteLink[] };
   /** Default colour theme; visitors can pick another one for themselves. */
   theme: Theme;
+}
+
+export interface SiteLink {
+  label: string;
+  url: string;
 }
 
 export interface DayBar {
@@ -211,6 +219,8 @@ export interface Overview {
   /** Third-party services (provider monitors) by group. */
   external: OverviewGroup[];
   activeIncidents: Incident[];
+  /** Resolved incidents of the last 15 days by the day they started (site time zone), newest day first. */
+  pastIncidents: { day: string; incidents: Incident[] }[];
   upcomingMaintenance: Maintenance[];
   /** Services needing urgent updates; null for viewers without read access. */
   security: { critical: number; high: number } | null;
@@ -444,6 +454,13 @@ export interface SubscriberDto {
 export interface Bootstrap {
   site: SiteInfo;
   public: boolean;
+  /** Parts of the public overview, each switchable in status.yaml. */
+  layout: {
+    pastIncidents: boolean;
+    subscribeDialog: boolean;
+    statusLabels: boolean;
+    incidentBox: boolean;
+  };
   /** Public sign-up for e-mail notifications; `email` is false when no mail server is configured. */
   subscribe: { enabled: boolean; email: boolean; events: SubscriberEvent[] };
   showVersions: boolean;

@@ -1,6 +1,7 @@
 import type { Me } from '@heartline/shared';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import { Icon } from '../components/Icon.tsx';
+import { SubscribeDialogButton } from '../components/SubscribeDialog.tsx';
 import { Shell, SiteBrand } from '../components/Shell.tsx';
 import { ThemeMenu } from '../components/ThemeMenu.tsx';
 import { useBootstrap, useMe } from '../lib/api.ts';
@@ -17,6 +18,7 @@ function SignedIn({ me }: { me: Me }) {
 /** E-mail sign-up when the site offers it, otherwise the feed. */
 export function SubscribeButton() {
   const boot = useBootstrap();
+  if (boot.data?.layout.subscribeDialog) return <SubscribeDialogButton />;
   return boot.data?.subscribe.enabled && boot.data.subscribe.email ? (
     <Link to="/subscribe" className="btn">
       <Icon name="bell" size={14} /> Subscribe

@@ -273,6 +273,7 @@ export function bootstrapRoutes(app: AppContext) {
       site: app.site(),
       public: cfg.site.public,
       showVersions: cfg.site.showVersions,
+      layout: cfg.layout,
       subscribe: {
         enabled: cfg.subscribers.enabled,
         email: app.subscribers.emailEnabled,
