@@ -10,6 +10,7 @@ import {
 } from '../components/DayBars.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { InfoTip } from '../components/Tooltip.tsx';
+import { IncidentBox, PastIncidents } from '../components/OverviewParts.tsx';
 import { IncidentRow } from '../components/IncidentRow.tsx';
 import { StatusIcon } from '../components/Status.tsx';
 import { UpstreamHint } from '../components/Upstream.tsx';
@@ -17,7 +18,7 @@ import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
 import { useStoredChoice } from '../lib/store.ts';
 import { usePageTitle } from '../lib/title.ts';
-import { rangeQuery, useMe, useOverview } from '../lib/api.ts';
+import { rangeQuery, useBootstrap, useMe, useOverview } from '../lib/api.ts';
 import {
   statusLabel,
   STATUS_LABEL,
@@ -100,6 +101,8 @@ function ServiceRow({
   floor: number;
 }) {
   const linkSearch = useRangeSearch();
+  // Always say the status (and offer the description), or only when something is wrong.
+  const labels = useBootstrap().data?.layout.statusLabels ?? false;
   return (
     <Link
       to="/services/$id"
@@ -111,7 +114,8 @@ function ServiceRow({
       <span className="flex min-w-0 items-center gap-2.5">
         <StatusIcon status={s.status} />
         <span className="truncate font-medium">{s.name}</span>
-        {s.status !== 'operational' && (
+        {labels && s.description && <InfoTip text={s.description} label={`About ${s.name}`} />}
+        {(labels || s.status !== 'operational') && (
           <span className="shrink-0 text-xs font-medium" style={{ color: STATUS_TONE[s.status].text }}>
             {statusLabel(s.status, s.external)}
           </span>
@@ -258,6 +262,7 @@ export function OverviewPage() {
   const [view] = useTraceView();
   const { data, error, isPending } = useOverview(range);
   const signedIn = Boolean(useMe().data);
+  const layout = useBootstrap().data?.layout;
   usePageTitle();
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
@@ -271,7 +276,16 @@ export function OverviewPage() {
 
   return (
     <>
-      <StatusBanner data={data} />
+      {layout?.incidentBox && data.activeIncidents.length > 0 ? (
+        <>
+          <h1 className="sr-only">{data.headline}</h1>
+          {data.activeIncidents.map((i) => (
+            <IncidentBox key={i.id} incident={i} />
+          ))}
+        </>
+      ) : (
+        <StatusBanner data={data} />
+      )}
 
       {urgent > 0 && data.security && (
         <Link
@@ -336,6 +350,8 @@ export function OverviewPage() {
           ))}
         </Section>
       )}
+
+      {layout?.pastIncidents && <PastIncidents days={data.pastIncidents} />}
     </>
   );
 }

@@ -27,6 +27,14 @@ retention:
   auditDays: 365 # audit log entries
 ```
 
+```yaml
+layout: # parts of the public overview, all on by default
+  pastIncidents: true # the last 15 days of resolved incidents, day by day
+  subscribeDialog: true # Subscribe opens a dialog with e-mail and feeds (off: goes to /subscribe)
+  statusLabels: true # every service says its status, with its description as a "?" tooltip
+  incidentBox: true # open incidents show as boxes with all updates in place of the status banner
+```
+
 Each page's title and description are put into the HTML by the server, so link previews in chat apps and
 search engines show the incident or service. Private sites only show the site title and are not indexed.
 

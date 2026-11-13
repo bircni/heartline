@@ -51,7 +51,7 @@ test('signed-in users get one sidebar with the status page, management and servi
   await nav.getByRole('link', { name: 'Overview', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'All systems operational' })).toBeVisible();
   await expect(nav).toBeVisible();
-  await expect(page.getByText('E2E Admin')).toBeVisible();
+  await expect(page.getByText('E2E Admin', { exact: true })).toBeVisible();
 
   // The colour theme is the viewer's own choice and is kept.
   await page.getByRole('button', { name: 'Theme' }).click();

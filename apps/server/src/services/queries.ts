@@ -19,7 +19,7 @@ import type { Db } from '../db/index.ts';
 import type { DailyRollupTable } from '../db/schema.ts';
 import { dayRange, lastDays } from '../util/time.ts';
 import type { GroupService } from './groups.ts';
-import { impactStatus } from '@heartline/shared';
+import { dayKey, impactStatus } from '@heartline/shared';
 import type { IncidentOverride, IncidentService } from './incidents.ts';
 import type { MaintenanceService } from './maintenance.ts';
 import type { LoadedMonitor, MonitorService } from './monitors.ts';
@@ -316,10 +316,22 @@ export class QueryService {
       groups,
       external,
       activeIncidents,
+      pastIncidents: await this.#pastIncidents(now),
       upcomingMaintenance: this.#d.maintenance.upcoming(now),
       security: await this.#d.security(),
       generatedAt: now,
     };
+  }
+
+  /** Resolved incidents that started in the last 15 days, grouped by day, newest first (empty days too). */
+  async #pastIncidents(now: number): Promise<Overview['pastIncidents']> {
+    const tz = this.#d.site().timezone;
+    const days = lastDays(15, now, tz).toReversed();
+    const since = dayRange(days.at(-1) as string, tz)[0];
+    const list = (await this.#d.incidents.list({ resolvedOnly: true, since, limit: 200 })).filter(
+      (i) => i.createdAt >= since,
+    );
+    return days.map((day) => ({ day, incidents: list.filter((i) => dayKey(i.createdAt, tz) === day) }));
   }
 
   /** The current state of a service, with history for the `daysCount` days ending with the day of `end`. */

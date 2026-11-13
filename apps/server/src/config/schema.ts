@@ -180,6 +180,18 @@ export const configSchema = z
         maintenance: z.boolean().default(true),
       })
       .default({ recovery: true, incidents: true, reminderEvery: 0, security: true, maintenance: true }),
+    layout: z
+      .object({
+        /** The last 15 days of resolved incidents, day by day, below the services. */
+        pastIncidents: z.boolean().default(true),
+        /** Subscribe opens a dialog with e-mail and feeds instead of going to a page. */
+        subscribeDialog: z.boolean().default(true),
+        /** Every service row says its status ("Operational"), with its description as a tooltip. */
+        statusLabels: z.boolean().default(true),
+        /** Open incidents show as boxes with all their updates in place of the status banner. */
+        incidentBox: z.boolean().default(true),
+      })
+      .default({ pastIncidents: true, subscribeDialog: true, statusLabels: true, incidentBox: true }),
     embed: z
       .object({
         /** The /embed page, the widget and badges can be used on other sites. */
