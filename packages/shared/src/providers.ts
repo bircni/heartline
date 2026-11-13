@@ -43,7 +43,6 @@ export const PROVIDERS: readonly ProviderPreset[] = [
   statuspage('digitalocean', 'DigitalOcean', 'https://status.digitalocean.com'),
   statuspage('discord', 'Discord', 'https://discordstatus.com'),
   statuspage('dropbox', 'Dropbox', 'https://status.dropbox.com'),
-  statuspage('datadog', 'Datadog', 'https://status.datadoghq.com'),
   statuspage('netlify', 'Netlify', 'https://www.netlifystatus.com'),
   statuspage('npm', 'npm', 'https://status.npmjs.org'),
   statuspage('sentry', 'Sentry', 'https://status.sentry.io'),

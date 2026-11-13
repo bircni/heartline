@@ -60,7 +60,7 @@ function StatusBanner({ data }: { data: Overview }) {
 }
 
 const ROW =
-  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_4.5rem]';
+  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem]';
 
 function MaintenanceRow({ window: m }: { window: Maintenance }) {
   const start = m.nextStartsAt ?? m.startsAt;

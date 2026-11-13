@@ -42,10 +42,31 @@ function missing(components: string[], available: Iterable<string>): string[] {
   return components.filter((c) => !have.has(norm(c)));
 }
 
+const MAX_LABELS = 3;
+
+/** First line of a description that says something: Google prefixes sections like `**Summary:**`. */
+export function firstLine(text: string | null): string | null {
+  const line = (text ?? '')
+    .split('\n')
+    .map((l) => l.replace(/\*\*|__/g, '').trim())
+    .find((l) => l && !/^[\w ]{1,30}:$/.test(l));
+  return line ?? null;
+}
+
+/** `A, B, C, +4 more` for long lists. */
+function capped(items: string[]): string {
+  return (
+    items.length > MAX_LABELS ? [...items.slice(0, MAX_LABELS), `+${items.length - MAX_LABELS} more`] : items
+  ).join(', ');
+}
+
 function summarize(findings: Finding[]): string | null {
-  const labels = [...new Set(findings.filter((f) => f.label && f.level !== 'up').map((f) => f.label))];
+  // Providers with hundreds of regional components (Cloudflare, Twilio) would fill the message.
+  const labels = [
+    ...new Set(findings.filter((f) => f.label && f.level !== 'up').map((f) => f.label as string)),
+  ];
   const notes = [...new Set(findings.map((f) => f.note).filter((n): n is string => Boolean(n)))];
-  const parts = [labels.join(', '), notes.join(' · ')].filter(Boolean);
+  const parts = [capped(labels), notes.join(' · ')].filter(Boolean);
   if (!parts.length) return null;
   const text = parts.join(' – ');
   return text.length > MAX_MESSAGE ? `${text.slice(0, MAX_MESSAGE - 1)}…` : text;
@@ -187,8 +208,8 @@ export function evaluateGoogle(
     const link = str(i.uri) ? new URL(String(i.uri), base).href : null;
     findings.push({
       level,
-      label: hit.length ? hit.join(', ') : undefined,
-      note: [str(i.external_desc)?.split('\n')[0], link].filter(Boolean).join(' '),
+      label: hit.length ? capped(hit) : undefined,
+      note: [firstLine(str(i.external_desc)), link].filter(Boolean).join(' '),
     });
   }
   return findings;
@@ -209,7 +230,7 @@ export function evaluateSlack(body: unknown, components: string[]): Finding[] {
     const type = String(i.type ?? 'incident');
     findings.push({
       level: type === 'outage' ? 'down' : type === 'incident' ? 'degraded' : 'up',
-      label: hit.length ? hit.join(', ') : undefined,
+      label: hit.length ? capped(hit) : undefined,
       note: [str(i.title), str(i.url)].filter(Boolean).join(' '),
     });
   }
@@ -276,7 +297,13 @@ async function m365Token(cfg: NonNullable<ProviderSpec['m365']>, signal: AbortSi
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok || typeof body.access_token !== 'string') {
-    const reason = str(body.error_description)?.split('\n')[0] ?? str(body.error) ?? `HTTP ${res.status}`;
+    // Microsoft appends trace and correlation ids to every error description.
+    const reason =
+      str(body.error_description)
+        ?.split(/\r?\n| Trace ID:/)[0]
+        ?.trim() ??
+      str(body.error) ??
+      `HTTP ${res.status}`;
     throw new Unreadable(`Microsoft sign-in failed: ${reason}`);
   }
   tokens.set(key, {

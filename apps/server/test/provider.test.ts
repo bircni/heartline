@@ -7,7 +7,7 @@ import { monitorSpecSchema } from '@heartline/shared';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { runCheck } from '../src/checks/index.ts';
 import { PluginRegistry } from '../src/checks/plugins.ts';
-import { evaluateFeed, m365Endpoints } from '../src/checks/provider.ts';
+import { evaluateFeed, firstLine, m365Endpoints } from '../src/checks/provider.ts';
 import { SECRET_MASK } from '../src/services/monitors.ts';
 import { nextState } from '../src/status/engine.ts';
 import { ADMIN, type Harness, harness } from './helpers.ts';
@@ -148,6 +148,27 @@ describe('Atlassian Statuspage', () => {
   });
 });
 
+describe('messages', () => {
+  it('caps long component lists', async () => {
+    routes = {
+      '/many/api/v2/summary.json': [
+        200,
+        statuspage(Array.from({ length: 30 }, (_, i) => component(`c${i}`, `PoP ${i}`, 'partial_outage'))),
+      ],
+    };
+    expect((await check({ provider: 'statuspage', url: `${base}/many` })).message).toBe(
+      'PoP 0 (partial outage), PoP 1 (partial outage), PoP 2 (partial outage), +27 more',
+    );
+  });
+  it('skips Markdown section headings in Google descriptions', () => {
+    expect(firstLine('**Summary:**\nMitigating elevated error rate.\n**Description:**\nMore')).toBe(
+      'Mitigating elevated error rate.',
+    );
+    expect(firstLine('Gmail delivery delays\nmore')).toBe('Gmail delivery delays');
+    expect(firstLine(null)).toBeNull();
+  });
+});
+
 describe('Google, Slack and feeds', () => {
   it('reads open Google incidents per product', async () => {
     routes = {
@@ -273,7 +294,10 @@ describe('Microsoft 365', () => {
     routes = {
       '/other/oauth2/v2.0/token': [
         401,
-        { error: 'invalid_client', error_description: 'AADSTS7000215: Invalid client secret.\nTrace' },
+        {
+          error: 'invalid_client',
+          error_description: 'AADSTS7000215: Invalid client secret. Trace ID: abc Correlation ID: def',
+        },
       ],
     };
     expect(await check({ provider: 'm365', m365: { ...m365, tenantId: 'other' } })).toMatchObject({
