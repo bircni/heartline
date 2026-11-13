@@ -16,6 +16,7 @@ import { UpstreamHint } from '../components/Upstream.tsx';
 import { UrgencyBadge } from '../components/Urgency.tsx';
 import { ErrorNote, Section, Spinner } from '../components/ui.tsx';
 import { useStoredChoice } from '../lib/store.ts';
+import { usePageTitle } from '../lib/title.ts';
 import { rangeQuery, useMe, useOverview } from '../lib/api.ts';
 import {
   statusLabel,
@@ -257,6 +258,7 @@ export function OverviewPage() {
   const [view] = useTraceView();
   const { data, error, isPending } = useOverview(range);
   const signedIn = Boolean(useMe().data);
+  usePageTitle();
   if (isPending) return <Spinner />;
   if (error) return <ErrorNote error={error} />;
 

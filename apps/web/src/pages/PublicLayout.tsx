@@ -45,12 +45,18 @@ function SignInPrompt() {
 
 /** Visitors get a plain centred page: no sidebar, sign-in in the corner. */
 function Visitor({ isPrivate }: { isPrivate: boolean }) {
+  const links = useBootstrap().data?.site.links ?? { header: [], footer: [] };
   return (
     <div className="mx-auto flex min-h-screen max-w-[56rem] flex-col gap-4 px-4 pt-5 pb-10 md:px-5">
       <header className="flex flex-wrap items-center gap-2.5 pb-1">
         <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5 text-text no-underline">
           <SiteBrand />
         </Link>
+        {links.header.map((l) => (
+          <a key={l.url} href={l.url} className="text-sec no-underline hover:text-text max-sm:hidden">
+            {l.label}
+          </a>
+        ))}
         {!isPrivate && <SubscribeButton />}
         <Link to="/login" className="btn">
           Sign in
@@ -64,6 +70,11 @@ function Visitor({ isPrivate }: { isPrivate: boolean }) {
             Incident history
           </Link>
         )}
+        {links.footer.map((l) => (
+          <a key={l.url} href={l.url} className="text-muted no-underline hover:text-text">
+            {l.label}
+          </a>
+        ))}
         <span>Times in {zoneLabel()}</span>
       </footer>
     </div>

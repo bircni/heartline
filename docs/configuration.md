@@ -13,6 +13,11 @@ site:
   timezone: Europe/Berlin # days, ranges, reports and every time shown on the page follow this zone
   # baseUrl: https://status.example.com   # defaults to BASE_URL
   # logoUrl: https://example.com/logo.svg
+  # faviconUrl: https://example.com/favicon.png   # browser tab icon
+  # ogImage: https://example.com/preview.png      # picture for link previews
+  # links:                                        # http(s), mailto or /path
+  #   header: [{ label: Website, url: https://example.com }]
+  #   footer: [{ label: Imprint, url: https://example.com/imprint }]
   public: true # false: the status page and public API need a signed-in user or a token
   showVersions: false # show running versions to anonymous visitors (vulnerabilities never are)
   theme: green # default colour: green, blue, violet, amber or rose; visitors can pick their own
@@ -21,6 +26,9 @@ retention:
   rawDays: 30 # raw check results; daily rollups are kept forever
   auditDays: 365 # audit log entries
 ```
+
+Each page's title and description are put into the HTML by the server, so link previews in chat apps and
+search engines show the incident or service. Private sites only show the site title and are not indexed.
 
 ## Monitors
 

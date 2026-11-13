@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { adminRoutes } from './api/admin.ts';
 import { embedCors, securityHeaders } from './api/cors.ts';
 import { onError } from './api/errors.ts';
@@ -15,6 +15,7 @@ import { subscribeRoutes, subscriberLinkRoutes } from './api/subscribers.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
 import { mcpHandler } from './mcp/server.ts';
+import { pageMeta, renderIndex } from './web/meta.ts';
 
 /** better-auth endpoints that take a password or create a client: sign-in, sign-up and client registration. */
 const AUTH_LIMITED = /^\/api\/auth\/(sign-in|sign-up|oauth2\/register|mcp\/register)(\/|$)/;
@@ -87,13 +88,34 @@ export function createApp(app: AppContext) {
       c.header('cache-control', 'public, max-age=31536000, immutable');
       await next();
     });
-    h.use('*', serveStatic({ root }));
+    // index.html gets the page's title and meta tags; rendered pages are kept for 30 s per path.
     let indexHtml: string | null = null;
-    h.get('*', async (c) => {
+    const rendered = new Map<string, { at: number; html: string }>();
+    const page = async (c: Context) => {
       indexHtml ??= await readFile(join(dist, 'index.html'), 'utf8');
+      const path = c.req.path === '/index.html' ? '/' : c.req.path;
+      const now = Date.now();
+      let hit = rendered.get(path);
+      if (!hit || now - hit.at > 30_000) {
+        const site = app.site();
+        const html = renderIndex(indexHtml, await pageMeta(app, path), {
+          url: `${app.env.baseUrl}${path === '/' ? '' : path}`,
+          siteName: site.title,
+          favicon: site.faviconUrl,
+          image: app.config().site.ogImage ?? null,
+        });
+        if (rendered.size > 500) rendered.clear();
+        hit = { at: now, html };
+        rendered.set(path, hit);
+      }
       c.header('cache-control', 'no-cache');
-      return c.html(indexHtml);
-    });
+      return c.html(hit.html);
+    };
+    // Before the static files, which would serve the raw index.html for `/`.
+    h.get('/', page);
+    h.get('/index.html', page);
+    h.use('*', serveStatic({ root }));
+    h.get('*', page);
   } else {
     h.get('/', (c) =>
       c.text('heartline API is running. Build apps/web (pnpm build) to serve the UI from here.'),

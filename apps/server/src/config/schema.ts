@@ -48,6 +48,12 @@ const rateBucketSchema = z.object({
   window: duration,
 });
 
+/** Links on the public page may only go to web pages or e-mail. */
+const linkUrl = z
+  .string()
+  .regex(/^(https?:\/\/|mailto:|\/)/i, 'must start with https://, http://, mailto: or /');
+const siteLinkSchema = z.object({ label: z.string().min(1).max(60), url: linkUrl });
+
 export const groupIdSchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{0,59}$/, 'lowercase letters, digits and dashes');
@@ -73,6 +79,16 @@ export const configSchema = z
         description: z.string().optional(),
         timezone: z.string().default('UTC'),
         logoUrl: z.string().optional(),
+        /** Icon in the browser tab; the heartline icon by default. */
+        faviconUrl: z.string().optional(),
+        /** Picture for link previews (OpenGraph). */
+        ogImage: linkUrl.optional(),
+        links: z
+          .object({
+            header: z.array(siteLinkSchema).max(5).default([]),
+            footer: z.array(siteLinkSchema).max(10).default([]),
+          })
+          .default({ header: [], footer: [] }),
         /** Public base URL, e.g. https://status.example.com. Falls back to BASE_URL. */
         baseUrl: z.url().optional(),
         /** When false, the status page and public API require a signed-in user. */
@@ -82,7 +98,14 @@ export const configSchema = z
         /** Default colour theme of the web UI; visitors can pick another one for themselves. */
         theme: z.enum(THEMES).default('green'),
       })
-      .default({ title: 'Status', timezone: 'UTC', public: true, showVersions: false, theme: 'green' }),
+      .default({
+        title: 'Status',
+        timezone: 'UTC',
+        public: true,
+        showVersions: false,
+        theme: 'green',
+        links: { header: [], footer: [] },
+      }),
     retention: z
       .object({
         rawDays: z.number().int().min(1).default(30),
