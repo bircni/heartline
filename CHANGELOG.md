@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-11-14
+
+### Bug Fixes
+
+- Add HTTP(S)_PROXY support for outbound requests (#12)
+- **web:** Admin and navigation bugs
+- **demo:** Seed raw checks for the whole retention period
+- **web:** Overview width, labels and titles
+
+### Build
+
+- **deps:** Bump the minor-and-patch group with 7 updates (#25)
+
+### Features
+
+- **monitors:** Follow third-party status pages with provider monitors (#11)
+- **web:** Confirm dialogs, toasts, field errors
+- **server:** Audit log and rate limiting
+- **web:** Site time zone, history paging, system theme
+- Groups as entities
+- **incidents:** Component impact, templates, postmortems, markdown
+- **maintenance:** Lifecycle, updates, detail page
+- **monitors:** Push monitors and inbound webhook
+- Subscribers and Atom feed
+- **api:** Status API v2
+- Embed widget and iframe page
+- Links, favicon, titles, meta tags
+- **web:** Overview layout switches
+
 ## [1.0.1] - 2026-11-10
 
 ### Bug Fixes
