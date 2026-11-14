@@ -18,7 +18,7 @@ export function SubscribeDialogButton() {
       <button type="button" className="btn" onClick={() => setOpen(true)}>
         <Icon name="bell" size={14} /> Subscribe
       </button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Subscribe to updates">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Subscribe to updates" wide>
         {email && (
           <div className="mt-3">
             <Segmented

@@ -43,8 +43,26 @@ export function IncidentBox({ incident: i }: { incident: Incident }) {
   );
 }
 
+type PastDay = Overview['pastIncidents'][number];
+
+/**
+ * Runs of days without incidents become one row, so a quiet fortnight does not fill the page. Today (the
+ * first day) always stands alone.
+ */
+export function groupPastDays(days: PastDay[]): [PastDay, ...PastDay[]][] {
+  const quiet = (d: PastDay) => d.incidents.length === 0;
+  const groups: [PastDay, ...PastDay[]][] = [];
+  days.forEach((d, n) => {
+    const last = groups.at(-1);
+    if (n > 1 && last && quiet(d) && last.every(quiet)) last.push(d);
+    else groups.push([d]);
+  });
+  return groups;
+}
+
 /** The last 15 days, each with the incidents that started on it, like a status page's "Past incidents". */
 export function PastIncidents({ days }: { days: Overview['pastIncidents'] }) {
+  const today = days[0]?.day;
   return (
     <section aria-labelledby="past-incidents" className="card">
       <div className="panel-head">
@@ -52,33 +70,39 @@ export function PastIncidents({ days }: { days: Overview['pastIncidents'] }) {
           Past incidents
         </h2>
       </div>
-      {days.map((d, n) => (
-        <div key={d.day} className="border-t border-hair px-3.5 py-2.5">
-          <h3 className="m-0 text-xs font-semibold text-sec">{weekdayDay(d.day)}</h3>
-          {d.incidents.length === 0 ? (
-            <p className="m-0 mt-0.5 text-sec">
-              {n === 0 ? 'No incidents reported today.' : 'No incidents reported.'}
-            </p>
-          ) : (
-            d.incidents.map((i) => (
-              <div key={i.id} className="mt-1.5">
-                <Link to="/incidents/$id" params={{ id: i.id }} className="font-medium text-text">
-                  {i.title}
-                </Link>
-                <div className="mt-1">
-                  <UpdateTimeline updates={i.updates} accent="var(--fill-2)" />
+      {groupPastDays(days).map(([d, ...more]) => {
+        const oldest = more.at(-1);
+        return (
+          <div key={d.day} className="border-t border-hair px-3.5 py-2.5">
+            <h3 className="m-0 text-xs font-semibold text-sec">
+              {/* Days come newest first; a run reads from its oldest day to its newest. */}
+              {oldest ? `${weekdayDay(oldest.day)} – ${weekdayDay(d.day)}` : weekdayDay(d.day)}
+            </h3>
+            {d.incidents.length === 0 ? (
+              <p className="m-0 mt-0.5 text-sec">
+                {d.day === today ? 'No incidents reported today.' : 'No incidents reported.'}
+              </p>
+            ) : (
+              d.incidents.map((i) => (
+                <div key={i.id} className="mt-1.5">
+                  <Link to="/incidents/$id" params={{ id: i.id }} className="font-medium text-text">
+                    {i.title}
+                  </Link>
+                  <div className="mt-1">
+                    <UpdateTimeline updates={i.updates} accent="var(--fill-2)" />
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      ))}
+              ))
+            )}
+          </div>
+        );
+      })}
       <div className="border-t border-hair px-3.5 py-2">
         <Link
           to="/incidents"
           className="flex items-center gap-1 text-xs text-sec no-underline hover:text-text"
         >
-          <Icon name="arrowLeft" size={13} /> Incident history
+          Incident history <Icon name="chevron" size={13} />
         </Link>
       </div>
     </section>

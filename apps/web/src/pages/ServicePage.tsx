@@ -29,7 +29,6 @@ import {
   relative,
   time,
 } from '../lib/format.ts';
-import { usePageTitle } from '../lib/title.ts';
 import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeControl.tsx';
 
 const CHECK_TONE = {
@@ -66,7 +65,6 @@ export function ServicePage() {
   const linkSearch = useRangeSearch();
   const [view] = useTraceView();
   const { data, error, isPending } = useService(id, range);
-  usePageTitle(data?.name);
   const me = useMe();
   // Vulnerability details need a signed-in viewer; the summary tells us whether we are one (urgency is non-null).
   const software = useServiceSoftware(id, Boolean(data?.software && data.software.urgency !== null));
@@ -89,6 +87,7 @@ export function ServicePage() {
   return (
     <>
       <PageHeader
+        pageTitle={data.name}
         title={
           <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <Link to="/" search={linkSearch} className="font-normal text-muted no-underline hover:text-text">

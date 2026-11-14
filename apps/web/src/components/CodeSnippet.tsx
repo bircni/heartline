@@ -25,7 +25,9 @@ export function CodeSnippet({ code, label }: { code: string; label?: string }) {
     <div className="mt-2">
       {label && <div className="mb-1 text-xs font-medium text-sec">{label}</div>}
       <div className="flex items-center gap-2 rounded-md bg-fill px-3 py-2">
-        <code className="min-w-0 flex-1 overflow-x-auto font-mono text-xs whitespace-nowrap">{code}</code>
+        <code className="min-w-0 flex-1 overflow-x-auto font-mono text-xs whitespace-nowrap [scrollbar-color:var(--fill-2)_transparent] [scrollbar-width:thin]">
+          {code}
+        </code>
         <CopyButton text={code} />
       </div>
     </div>

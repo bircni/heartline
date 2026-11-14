@@ -83,14 +83,17 @@ export function Avatar({ name, image, size = 28 }: { name: string; image?: strin
 
 export function PageHeader({
   title,
+  pageTitle,
   subtitle,
   actions,
 }: {
   title: ReactNode;
+  /** Tab title when `title` is markup rather than text. */
+  pageTitle?: string;
   subtitle?: ReactNode;
   actions?: ReactNode;
 }) {
-  usePageTitle(typeof title === 'string' ? title : undefined);
+  usePageTitle(pageTitle ?? (typeof title === 'string' ? title : undefined));
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">

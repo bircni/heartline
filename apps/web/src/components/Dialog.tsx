@@ -9,12 +9,15 @@ export function Dialog({
   onClose,
   title,
   children,
+  wide = false,
   className = '',
 }: {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
   children: ReactNode;
+  /** Room for content that should not wrap, e.g. a URL to copy. */
+  wide?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -29,7 +32,7 @@ export function Dialog({
       ref={ref}
       aria-labelledby="dialog-title"
       onClose={onClose}
-      className={`m-auto w-[min(28rem,calc(100vw-32px))] rounded-xl border border-hair bg-surface p-0 text-text shadow-pop backdrop:bg-black/40 ${className}`}
+      className={`m-auto ${wide ? 'w-[min(36rem,calc(100vw-32px))]' : 'w-[min(28rem,calc(100vw-32px))]'} rounded-xl border border-hair bg-surface p-0 text-text shadow-pop backdrop:bg-black/40 ${className}`}
     >
       {open && (
         <div className="p-5">
