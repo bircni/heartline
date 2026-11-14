@@ -49,7 +49,7 @@ function SignInPrompt() {
 function Visitor({ isPrivate }: { isPrivate: boolean }) {
   const links = useBootstrap().data?.site.links ?? { header: [], footer: [] };
   return (
-    <div className="mx-auto flex min-h-screen max-w-[56rem] flex-col gap-4 px-4 pt-5 pb-10 md:px-5">
+    <div className="mx-auto flex min-h-screen max-w-[80rem] flex-col gap-4 px-4 pt-5 pb-10 md:px-5">
       <header className="flex flex-wrap items-center gap-2.5 pb-1">
         <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5 text-text no-underline">
           <SiteBrand />

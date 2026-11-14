@@ -35,6 +35,8 @@ import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeCo
 /** The current state of everything, with the open incidents underneath. */
 function StatusBanner({ data }: { data: Overview }) {
   const tone = STATUS_TONE[data.status];
+  // The summary below already counts the operational services, so the header does not repeat it.
+  const summarised = data.activeIncidents.length === 0 && data.status !== 'operational';
   return (
     <section
       aria-labelledby="overall-status"
@@ -50,7 +52,9 @@ function StatusBanner({ data }: { data: Overview }) {
           {data.headline}
         </h1>
         <span className="text-xs text-sec">
-          {data.operational} of {data.total} operational, checked {relative(data.generatedAt)}
+          {summarised
+            ? `Checked ${relative(data.generatedAt)}`
+            : `${data.operational} of ${data.total} operational, checked ${relative(data.generatedAt)}`}
         </span>
       </div>
       {data.activeIncidents.length > 0 ? (
@@ -64,8 +68,9 @@ function StatusBanner({ data }: { data: Overview }) {
   );
 }
 
+// The name column also holds the status label, version and urgency, so it widens once there is room.
 const ROW =
-  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem]';
+  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 gap-y-2 px-3.5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_4.5rem]';
 
 function MaintenanceRow({ window: m }: { window: Maintenance }) {
   const start = m.nextStartsAt ?? m.startsAt;
