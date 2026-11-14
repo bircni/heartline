@@ -1,5 +1,5 @@
 /**
- * Starts heartline with example history: 90 days of daily rollups, 7 days of raw checks,
+ * Starts heartline with example history: 90 days of daily rollups, raw checks for the retention period,
  * past incidents and upcoming maintenance. Live checks continue on top of the seeded data.
  *
  *   pnpm --filter @heartline/server demo
@@ -44,7 +44,7 @@ const EVENTS: Record<string, Record<number, 'degraded' | 'down'>> = {
   backups: { 35: 'down' },
 };
 
-async function seed(db: Db, ids: string[], timezone: string, now: number) {
+async function seed(db: Db, ids: string[], timezone: string, rawDays: number, now: number) {
   const k = db.kysely;
   if (await k.selectFrom('daily_rollups').select('monitor_id').limit(1).executeTakeFirst()) {
     log.info('demo data already present, skipping seed');
@@ -82,19 +82,22 @@ async function seed(db: Db, ids: string[], timezone: string, now: number) {
         .values(rows.slice(i, i + 50))
         .execute();
 
-    // Raw results every 10 minutes for the last 7 days (fine-grained charts and recent checks).
+    // Raw results every 10 minutes for as long as they are retained: service pages chart from them inside
+    // that period, so a shorter history would show as "no data" next to the rollups.
     const raw = [];
-    for (let at = now - 7 * DAY; at < now - 60_000; at += 10 * 60_000) {
+    for (let at = now - rawDays * DAY; at < now - 60_000; at += 10 * 60_000) {
       const hour = new Date(at).getUTCHours();
       const wave = 1 + 0.25 * Math.sin(((hour - 6) / 24) * 2 * Math.PI);
       const ago = Math.floor((now - at) / DAY) + 1;
       const slow = events[ago] === 'degraded';
+      // An outage takes the first hour of its day, where the seeded incident starts.
+      const down = events[ago] === 'down' && at - (now - ago * DAY) < 60 * 60_000;
       raw.push({
         monitor_id: id,
         checked_at: at,
-        status: slow ? 'degraded' : 'up',
+        status: down ? 'down' : slow ? 'degraded' : 'up',
         latency_ms: Math.round(base * wave * (0.85 + rand() * 0.3) * (slow ? 2.2 : 1)),
-        message: slow ? 'slow response' : 'ok',
+        message: down ? 'connection refused' : slow ? 'slow response' : 'ok',
       });
     }
     for (let i = 0; i < raw.length; i += 200)
@@ -244,6 +247,7 @@ await seed(
   runtime.db,
   runtime.monitors.list().map((m) => m.id),
   config.site.timezone,
+  config.retention.rawDays,
   Date.now(),
 );
 await runtime.maintenance.reload();
