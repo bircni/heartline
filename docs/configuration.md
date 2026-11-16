@@ -31,7 +31,7 @@ retention:
 layout: # parts of the public overview, all on by default
   pastIncidents: true # the last 15 days of resolved incidents, day by day
   subscribeDialog: true # Subscribe opens a dialog with e-mail and feeds (off: goes to /subscribe)
-  statusLabels: true # every service says its status, with its description as a "?" tooltip
+  statusLabels: true # every service shows its description as a "?" tooltip
   incidentBox: true # open incidents show as boxes with all updates in place of the status banner
 ```
 

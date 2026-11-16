@@ -33,9 +33,7 @@ test('visitors sign up for e-mails, and e-mail links ask before changing anythin
 
 test('the overview shows status labels, past incidents and open incidents as boxes', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: /Status API: Operational/ })).toContainText('Operational', {
-    timeout: 15_000,
-  });
+  await expect(page.getByRole('link', { name: /Status API: Operational/ })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: 'Past incidents' })).toBeVisible();
   await expect(
     page.getByText(/No incidents reported today\.|Database maintenance overran/).first(),
