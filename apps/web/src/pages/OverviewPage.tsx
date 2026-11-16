@@ -106,7 +106,7 @@ function ServiceRow({
   floor: number;
 }) {
   const linkSearch = useRangeSearch();
-  // Always say the status (and offer the description), or only when something is wrong.
+  // The status text only shows when something is wrong; the green icon says "operational".
   const labels = useBootstrap().data?.layout.statusLabels ?? false;
   return (
     <Link
@@ -120,7 +120,7 @@ function ServiceRow({
         <StatusIcon status={s.status} />
         <span className="truncate font-medium">{s.name}</span>
         {labels && s.description && <InfoTip text={s.description} label={`About ${s.name}`} />}
-        {(labels || s.status !== 'operational') && (
+        {s.status !== 'operational' && (
           <span className="shrink-0 text-xs font-medium" style={{ color: STATUS_TONE[s.status].text }}>
             {statusLabel(s.status, s.external)}
           </span>
