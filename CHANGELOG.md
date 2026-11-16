@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-11-16
+
+### Bug Fixes
+
+- **web:** Hide the operational label on overview rows (#27)
+
 ## [1.1.0] - 2026-11-14
 
 ### Bug Fixes
