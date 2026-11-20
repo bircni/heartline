@@ -18,6 +18,8 @@ export interface Env {
   offline: boolean;
   /** GitHub token for release lookups (optional, raises the API rate limit). */
   githubToken: string | null;
+  /** MCP_ENABLED=false turns the MCP endpoint and its OAuth provider off. */
+  mcpEnabled: boolean;
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
@@ -40,5 +42,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
     nvdApiKey: env.NVD_API_KEY?.trim() || null,
     offline: ['1', 'true', 'yes'].includes((env.HEARTLINE_OFFLINE ?? '').toLowerCase()),
     githubToken: env.GITHUB_TOKEN?.trim() || null,
+    mcpEnabled: !['0', 'false', 'no', 'off'].includes((env.MCP_ENABLED ?? '').trim().toLowerCase()),
   };
 }

@@ -77,6 +77,7 @@ export async function harness(configYaml = BASE_CONFIG, opts: HarnessOptions = {
     nvdApiKey: null,
     offline: false,
     githubToken: null,
+    mcpEnabled: true,
     ...opts.env,
   };
   const sent: Harness['sent'] = [];

@@ -12,6 +12,7 @@ import { bootstrapRoutes, publicRoutes } from './api/public.ts';
 import { pushRoutes } from './api/push.ts';
 import { v2Routes } from './api/v2.ts';
 import { subscribeRoutes, subscriberLinkRoutes } from './api/subscribers.ts';
+import { mcpAvailable } from './auth/auth.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
 import { mcpHandler } from './mcp/server.ts';
@@ -45,8 +46,12 @@ export function createApp(app: AppContext) {
   h.on(['GET', 'POST'], '/api/auth/*', (c) => app.auth.handler(c.req.raw));
   h.on(['GET', 'HEAD'], '/.well-known/*', (c) => app.auth.handler(c.req.raw));
 
-  const mcp = mcpHandler(app);
-  h.on(['GET', 'POST', 'DELETE'], '/mcp', (c) => mcp(c.req.raw));
+  if (mcpAvailable(app.env)) {
+    const mcp = mcpHandler(app);
+    h.on(['GET', 'POST', 'DELETE'], '/mcp', (c) => mcp(c.req.raw));
+  } else {
+    h.all('/mcp', (c) => c.json({ error: 'MCP is not enabled on this server' }, 404));
+  }
 
   let openapi: Record<string, unknown> | null = null;
   const doc = () => (openapi ??= openApiDocument(app.env.baseUrl));

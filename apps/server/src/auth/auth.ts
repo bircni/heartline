@@ -14,6 +14,19 @@ export function mcpResource(baseUrl: string): string {
   return `${baseUrl}/mcp`;
 }
 
+const isLoopbackHost = (hostname: string) =>
+  hostname === 'localhost' || hostname === '[::1]' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
+
+/**
+ * MCP authorization requires an HTTPS resource URL (plain HTTP only on loopback, for development), so
+ * MCP and its OAuth provider are off on a plain-HTTP BASE_URL, or when MCP_ENABLED=false.
+ */
+export function mcpAvailable(env: Pick<Env, 'baseUrl' | 'mcpEnabled'>): boolean {
+  if (!env.mcpEnabled) return false;
+  const url = new URL(env.baseUrl);
+  return url.protocol === 'https:' || (url.protocol === 'http:' && isLoopbackHost(url.hostname));
+}
+
 /**
  * Roles mapped from OIDC groups, waiting for the user row to be created. `role` is not an input
  * field (users must not set it themselves), so better-auth drops it from the mapped profile.
@@ -89,19 +102,30 @@ export function authOptions(
     },
     plugins: [
       jwt(),
-      mcp({
-        loginPage: '/login',
-        consentPage: '/consent',
-        resource: mcpResource(env.baseUrl),
-        scopes: ['openid', 'profile', 'email', 'offline_access', ...OAUTH_SCOPES],
-        clientRegistrationDefaultScopes: ['openid', 'profile', 'offline_access', 'status:read'],
-        clientRegistrationAllowedScopes: ['openid', 'profile', 'email', 'offline_access', ...OAUTH_SCOPES],
-        allowDynamicClientRegistration: true,
-        allowUnauthenticatedClientRegistration: true,
-        // CLI clients such as Claude Code register loopback redirect URIs and are native apps.
-        clientRegistrationDefaultApplicationType: 'infer',
-      }),
-      cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
+      ...(mcpAvailable(env)
+        ? [
+            mcp({
+              loginPage: '/login',
+              consentPage: '/consent',
+              resource: mcpResource(env.baseUrl),
+              scopes: ['openid', 'profile', 'email', 'offline_access', ...OAUTH_SCOPES],
+              clientRegistrationDefaultScopes: ['openid', 'profile', 'offline_access', 'status:read'],
+              clientRegistrationAllowedScopes: [
+                'openid',
+                'profile',
+                'email',
+                'offline_access',
+                ...OAUTH_SCOPES,
+              ],
+              allowDynamicClientRegistration: true,
+              allowUnauthenticatedClientRegistration: true,
+              // CLI clients such as Claude Code register loopback redirect URIs and are native apps.
+              clientRegistrationDefaultApplicationType: 'infer',
+            }),
+            // Client ID Metadata Documents are an MCP registration method; off with MCP.
+            cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
+          ]
+        : []),
       ...(config.auth.oidc.length
         ? [
             genericOAuth({

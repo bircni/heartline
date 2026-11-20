@@ -2,7 +2,7 @@ import { type FSWatcher, watch } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { sha256 } from './util/ids.ts';
 import type { SiteInfo } from '@heartline/shared';
-import { type Auth, createAuth, migrateAuth, seedUsers } from './auth/auth.ts';
+import { type Auth, createAuth, mcpAvailable, migrateAuth, seedUsers } from './auth/auth.ts';
 import { TokenService } from './auth/tokens.ts';
 import { PluginRegistry } from './checks/plugins.ts';
 import { loadConfig } from './config/load.ts';
@@ -47,6 +47,10 @@ export interface BootstrapOptions {
 export async function bootstrap(opts: BootstrapOptions): Promise<Runtime> {
   const { env } = opts;
   let config = opts.config;
+  if (env.mcpEnabled && !mcpAvailable(env))
+    log.warn('MCP disabled: BASE_URL is not HTTPS (MCP authorization needs HTTPS or a loopback URL)', {
+      baseUrl: env.baseUrl,
+    });
   const db = opts.db ?? openDb(env.databaseUrl);
   await migrate(db.kysely);
   await migrateAuth(env, config, db);
