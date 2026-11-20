@@ -35,6 +35,10 @@ The client registers itself, opens the browser to sign in (Gitea or local), and 
 is the lower of your role and the granted scopes (`status:read`, `status:write`, `status:admin`).
 Headless clients send `Authorization: Bearer hl_…` with an API token from the admin area.
 
+MCP authorization requires HTTPS, so MCP is only available when `BASE_URL` is `https://…` (or a
+`localhost` / `127.0.0.1` URL for development). On a plain-HTTP `BASE_URL`, heartline starts with MCP off and
+logs a warning; `/mcp` answers 404. Set `MCP_ENABLED=false` to turn it off on purpose.
+
 | Tool                                                                                                                                                                                                                                                     | Needs |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `list_services`, `get_service`, `uptime_report`, `list_incidents`, `get_incident`, `list_maintenance`, `list_monitors`, `list_plugins`, `list_notifiers`, `software_inventory`, `get_vulnerabilities`; resources `status://summary`, `status://software` | read  |

@@ -15,7 +15,7 @@ import {
   Spinner,
   fieldErrorsOf,
 } from '../../components/ui.tsx';
-import { api, useMe, useTokens } from '../../lib/api.ts';
+import { api, useBootstrap, useMe, useTokens } from '../../lib/api.ts';
 import { dateTime, relative } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
 
@@ -58,6 +58,7 @@ export function TokensPage() {
   });
   const confirm = useConfirm();
   const createErrors = fieldErrorsOf(create.error, { name: 't-name', expiresInDays: 't-exp' });
+  const boot = useBootstrap();
   const mcpUrl = `${window.location.origin}/mcp`;
   const command = `claude mcp add --transport http status ${mcpUrl}`;
 
@@ -122,22 +123,24 @@ export function TokensPage() {
               </div>
             ))}
           </Section>
-          <Section className="mt-3 p-4">
-            <h2 className="m-0 text-lg font-medium">Connect an MCP client</h2>
-            <p className="m-0 mt-1 text-sec">
-              Clients sign in through this page with OAuth (Gitea or a local account). No token needed.
-            </p>
-            <div className="mt-3 flex items-center gap-2 rounded-md bg-fill px-3 py-2">
-              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs">
-                {command}
-              </code>
-              <CopyButton text={command} />
-            </div>
-            <p className="m-0 mt-3 text-xs text-sec">
-              Headless clients can send a token instead:{' '}
-              <span className="font-mono">Authorization: Bearer hl_…</span>
-            </p>
-          </Section>
+          {boot.data?.mcp && (
+            <Section className="mt-3 p-4">
+              <h2 className="m-0 text-lg font-medium">Connect an MCP client</h2>
+              <p className="m-0 mt-1 text-sec">
+                Clients sign in through this page with OAuth (Gitea or a local account). No token needed.
+              </p>
+              <div className="mt-3 flex items-center gap-2 rounded-md bg-fill px-3 py-2">
+                <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs">
+                  {command}
+                </code>
+                <CopyButton text={command} />
+              </div>
+              <p className="m-0 mt-3 text-xs text-sec">
+                Headless clients can send a token instead:{' '}
+                <span className="font-mono">Authorization: Bearer hl_…</span>
+              </p>
+            </Section>
+          )}
         </div>
         <Section className="min-w-0 flex-[1_1_300px] p-4">
           <form

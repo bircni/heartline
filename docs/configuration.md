@@ -257,6 +257,7 @@ Only enable it when the proxy sets `X-Forwarded-For`, because clients can otherw
 | Variable                    | Default                                                                                        |
 | --------------------------- | ---------------------------------------------------------------------------------------------- |
 | `BASE_URL`                  | `http://localhost:$PORT`. Public URL, used for links, OAuth and the MCP resource               |
+| `MCP_ENABLED`               | `true`; `false` turns MCP off. MCP is also off when `BASE_URL` is plain HTTP and not loopback  |
 | `AUTH_SECRET`               | required in production                                                                         |
 | `DATABASE_URL`              | `sqlite:./data/status.db` or `postgres://…`                                                    |
 | `CONFIG_PATH`               | `status.yaml`                                                                                  |

@@ -9,6 +9,7 @@ import type {
 } from '@heartline/shared';
 import { IMPACTS, renderMarkdown } from '@heartline/shared';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
+import { mcpAvailable } from '../auth/auth.ts';
 import { type Vars, requireScope } from '../auth/principal.ts';
 import type { AppContext } from '../context.ts';
 import { APP_NAME, APP_VERSION } from '../util/pkg.ts';
@@ -280,6 +281,7 @@ export function bootstrapRoutes(app: AppContext) {
         events: app.subscribers.settings.events,
       },
       auth,
+      mcp: mcpAvailable(app.env),
     };
     return c.json(boot);
   });

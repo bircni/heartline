@@ -465,6 +465,8 @@ export interface Bootstrap {
   subscribe: { enabled: boolean; email: boolean; events: SubscriberEvent[] };
   showVersions: boolean;
   auth: AuthProviders;
+  /** The MCP endpoint is on: it needs an HTTPS BASE_URL and can be turned off with MCP_ENABLED=false. */
+  mcp: boolean;
 }
 
 /** One entry of the audit log: who changed what, when. */

@@ -104,6 +104,7 @@ const schemas: Record<string, Schema> = {
       incidentBox: bool(),
     }),
     auth: obj({ local: bool(), oidc: arr(obj({ id: str(), name: str() })) }),
+    mcp: bool(),
   }),
   Subscribe: jsonSchema(subscribeSchema),
   SubscriberPrefs: jsonSchema(subscriberPrefsSchema),
