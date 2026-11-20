@@ -13,7 +13,7 @@
     "format:check": "oxfmt --check"
   },
   "dependencies": {
-    "markdown-it": "^14.3.3",
+    "markdown-it": "^15.0.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
