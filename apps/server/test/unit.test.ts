@@ -11,6 +11,7 @@ import { occurrence } from '../src/services/maintenance.ts';
 import { dayState, uptimeOf } from '../src/services/queries.ts';
 import { nextState, p95 } from '../src/status/engine.ts';
 import { dayKey } from '@heartline/shared';
+import { newOrderedId } from '../src/util/ids.ts';
 import { dayRange, lastDays } from '../src/util/time.ts';
 
 const rollup = (
@@ -209,5 +210,16 @@ describe('notifications', () => {
     };
     expect(card.attachments[0]?.content.body[0]?.text).toBe('Gitea is down');
     expect(card.attachments[0]?.content.actions[0]?.url).toBe('https://status.example/services/gitea');
+  });
+});
+
+describe('newOrderedId', () => {
+  it('makes UUIDv7s that sort in creation order, also within one millisecond and when the clock steps back', () => {
+    const t = Date.now();
+    const ids = [newOrderedId(t), newOrderedId(t), newOrderedId(t), newOrderedId(t - 5), newOrderedId(t + 1)];
+    for (const id of ids)
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect([...ids].sort()).toEqual(ids);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
