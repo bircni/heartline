@@ -6,6 +6,7 @@ import { Shell, SiteBrand } from '../components/Shell.tsx';
 import { ThemeMenu } from '../components/ThemeMenu.tsx';
 import { useBootstrap, useMe } from '../lib/api.ts';
 import { zoneLabel } from '../lib/format.ts';
+import { withBase } from '../lib/base.ts';
 
 function SignedIn({ me }: { me: Me }) {
   return (
@@ -24,7 +25,7 @@ export function SubscribeButton() {
       <Icon name="bell" size={14} /> Subscribe
     </Link>
   ) : (
-    <a className="btn" href="/api/v1/incidents.atom">
+    <a className="btn" href={withBase('/api/v1/incidents.atom')}>
       <Icon name="rss" size={14} /> Subscribe
     </a>
   );
@@ -38,7 +39,7 @@ function SignInPrompt() {
       <Icon name="lock" size={22} className="mx-auto text-sec" />
       <h1 className="m-0 mt-3 text-xl font-semibold">Sign in to see the status</h1>
       <p className="m-0 mt-1 text-sec">This status page is private.</p>
-      <a href={`/login?redirect=${encodeURIComponent(href)}`} className="btn-primary mt-5 w-full">
+      <a href={withBase(`/login?redirect=${encodeURIComponent(href)}`)} className="btn-primary mt-5 w-full">
         Sign in
       </a>
     </div>

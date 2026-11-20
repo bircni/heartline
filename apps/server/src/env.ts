@@ -22,6 +22,11 @@ export interface Env {
   mcpEnabled: boolean;
 }
 
+/** The path part of the public URL, e.g. `/heartline` for `https://example.com/heartline`; `''` at the root. */
+export function basePathOf(baseUrl: string): string {
+  return new URL(baseUrl).pathname.replace(/\/+$/, '');
+}
+
 export function readEnv(env: NodeJS.ProcessEnv = process.env): Env {
   const isProduction = env.NODE_ENV === 'production';
   const port = Number(env.PORT ?? 3000);

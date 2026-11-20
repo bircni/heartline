@@ -18,6 +18,7 @@ import {
 import { api, useBootstrap, useMe, useTokens } from '../../lib/api.ts';
 import { dateTime, relative } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
+import { siteUrl } from '../../lib/base.ts';
 
 const SCOPES: { value: Scope; min: 'viewer' | 'editor' | 'admin' }[] = [
   { value: 'read', min: 'viewer' },
@@ -59,7 +60,7 @@ export function TokensPage() {
   const confirm = useConfirm();
   const createErrors = fieldErrorsOf(create.error, { name: 't-name', expiresInDays: 't-exp' });
   const boot = useBootstrap();
-  const mcpUrl = `${window.location.origin}/mcp`;
+  const mcpUrl = `${siteUrl()}/mcp`;
   const command = `claude mcp add --transport http status ${mcpUrl}`;
 
   return (

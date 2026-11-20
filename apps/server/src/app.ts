@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { type Context, Hono } from 'hono';
+import { getPath } from 'hono/utils/url';
 import { adminRoutes } from './api/admin.ts';
 import { embedCors, securityHeaders } from './api/cors.ts';
 import { onError } from './api/errors.ts';
@@ -15,14 +16,31 @@ import { subscribeRoutes, subscriberLinkRoutes } from './api/subscribers.ts';
 import { mcpAvailable } from './auth/auth.ts';
 import { type Vars, principalMiddleware } from './auth/principal.ts';
 import type { AppContext } from './context.ts';
+import { basePathOf } from './env.ts';
 import { mcpHandler } from './mcp/server.ts';
 import { pageMeta, renderIndex } from './web/meta.ts';
 
 /** better-auth endpoints that take a password or create a client: sign-in, sign-up and client registration. */
 const AUTH_LIMITED = /^\/api\/auth\/(sign-in|sign-up|oauth2\/register|mcp\/register)(\/|$)/;
 
+/** A request path without BASE_URL's sub-path; proxies differ in whether they strip it, so both work. */
+export function stripBasePath(path: string, prefix: string): string {
+  if (!prefix || path === prefix) return prefix ? '/' : path;
+  return path.startsWith(`${prefix}/`) ? path.slice(prefix.length) : path;
+}
+
 export function createApp(app: AppContext) {
-  const h = new Hono<Vars>();
+  const prefix = basePathOf(app.env.baseUrl);
+  // Routes below match the path without the sub-path; c.req.raw keeps the URL as it came in.
+  const h = new Hono<Vars>(prefix ? { getPath: (req) => stripBasePath(getPath(req), prefix) } : {});
+  /** better-auth matches its routes on the full path, so a stripped sub-path is put back. */
+  const authRequest = (req: Request) => {
+    if (!prefix) return req;
+    const url = new URL(req.url);
+    if (url.pathname.startsWith(`${prefix}/`)) return req;
+    url.pathname = `${prefix}${url.pathname}`;
+    return new Request(url, req);
+  };
   h.onError(onError);
   h.use('*', securityHeaders(app));
   h.use('*', embedCors(app));
@@ -43,7 +61,8 @@ export function createApp(app: AppContext) {
     c.req.method === 'POST' && AUTH_LIMITED.test(c.req.path) ? authLimit(c, next) : next(),
   );
   // better-auth: sessions, OAuth logins, the OAuth 2.1 provider for MCP and its discovery documents.
-  h.on(['GET', 'POST'], '/api/auth/*', (c) => app.auth.handler(c.req.raw));
+  h.on(['GET', 'POST'], '/api/auth/*', (c) => app.auth.handler(authRequest(c.req.raw)));
+  // OAuth discovery documents sit at the host root (RFC 8414, RFC 9728), also under a sub-path.
   h.on(['GET', 'HEAD'], '/.well-known/*', (c) => app.auth.handler(c.req.raw));
 
   if (mcpAvailable(app.env)) {
@@ -108,6 +127,7 @@ export function createApp(app: AppContext) {
           siteName: site.title,
           favicon: site.faviconUrl,
           image: app.config().site.ogImage ?? null,
+          basePath: prefix,
         });
         if (rendered.size > 500) rendered.clear();
         hit = { at: now, html };

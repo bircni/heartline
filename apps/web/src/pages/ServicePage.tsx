@@ -30,6 +30,7 @@ import {
   time,
 } from '../lib/format.ts';
 import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeControl.tsx';
+import { withBase } from '../lib/base.ts';
 
 const CHECK_TONE = {
   up: 'var(--ok)',
@@ -109,7 +110,9 @@ export function ServicePage() {
             <RangeControl fallback={30} />
             <a
               className="btn"
-              href={`/api/v1/services/${encodeURIComponent(data.id)}/report.csv?${rangeQuery(range)}`}
+              href={withBase(
+                `/api/v1/services/${encodeURIComponent(data.id)}/report.csv?${rangeQuery(range)}`,
+              )}
               download
             >
               <Icon name="download" size={14} /> Export CSV

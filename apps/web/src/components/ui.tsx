@@ -1,6 +1,7 @@
 import { type ReactNode, createContext, useContext } from 'react';
 import { ApiError } from '../lib/api.ts';
 import { usePageTitle } from '../lib/title.ts';
+import { currentAppPath, withBase } from '../lib/base.ts';
 
 /** Field id → message for the fields of the enclosing form that the server rejected. */
 const FieldErrorsContext = createContext<Record<string, string>>({});
@@ -149,7 +150,7 @@ export function ErrorNote({ error }: { error: unknown }) {
       <div role="alert" className="card px-3.5 py-3">
         Sign in to see this page.{' '}
         <a
-          href={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+          href={withBase(`/login?redirect=${encodeURIComponent(currentAppPath())}`)}
           className="font-medium text-text"
         >
           Sign in

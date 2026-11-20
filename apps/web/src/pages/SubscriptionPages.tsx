@@ -8,6 +8,7 @@ import { EVENT_LABEL, ServiceChoice, SubscribeForm } from '../components/Subscri
 import { toast } from '../components/Toast.tsx';
 import { ErrorNote, Notice, PageHeader, Section, Spinner } from '../components/ui.tsx';
 import { api, useIncident } from '../lib/api.ts';
+import { withBase } from '../lib/base.ts';
 
 /** `/subscribe` (optionally `?incident=<id>`): sign up for e-mails and see the feeds. */
 export function SubscribePage() {
@@ -25,10 +26,10 @@ export function SubscribePage() {
       </Section>
       <Section title="Feeds">
         <div className="flex flex-col gap-2 px-3.5 py-3">
-          <a href="/api/v1/incidents.atom" className="flex items-center gap-2 text-text">
+          <a href={withBase('/api/v1/incidents.atom')} className="flex items-center gap-2 text-text">
             <Icon name="rss" size={14} /> Atom feed
           </a>
-          <a href="/api/v1/incidents.rss" className="flex items-center gap-2 text-text">
+          <a href={withBase('/api/v1/incidents.rss')} className="flex items-center gap-2 text-text">
             <Icon name="rss" size={14} /> RSS feed
           </a>
         </div>

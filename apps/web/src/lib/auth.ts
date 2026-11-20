@@ -1,8 +1,9 @@
 import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { createAuthClient } from 'better-auth/react';
+import { withBase } from './base.ts';
 
 export const authClient = createAuthClient({
-  basePath: '/api/auth',
+  basePath: withBase('/api/auth'),
   // Forwards the signed OAuth query from /login and /consent so MCP clients resume their authorization.
   plugins: [oauthProviderClient()],
 });
@@ -19,5 +20,5 @@ export function isOAuthContinuation(search: string): boolean {
 export function authorizeUrlFrom(search: string): string {
   const q = new URLSearchParams(search);
   for (const p of OAUTH_SIGNATURE_PARAMS) q.delete(p);
-  return `/api/auth/oauth2/authorize?${q.toString()}`;
+  return withBase(`/api/auth/oauth2/authorize?${q.toString()}`);
 }

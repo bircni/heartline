@@ -20,6 +20,7 @@ import type {
 } from '@heartline/shared';
 import { MutationCache, QueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { toast } from '../components/Toast.tsx';
+import { withBase } from './base.ts';
 
 export interface FieldIssue {
   /** Dotted path of the field in the request body, e.g. `url` or `expect.status`. */
@@ -53,7 +54,7 @@ export function onlyFieldErrors(error: unknown, paths: string[]): boolean {
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.json !== undefined) headers.set('content-type', 'application/json');
-  const res = await fetch(path, {
+  const res = await fetch(withBase(path), {
     ...init,
     headers,
     credentials: 'same-origin',

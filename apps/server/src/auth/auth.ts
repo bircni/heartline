@@ -6,7 +6,7 @@ import { getMigrations } from 'better-auth/db/migration';
 import { genericOAuth, jwt } from 'better-auth/plugins';
 import type { AppConfig } from '../config/schema.ts';
 import type { Db } from '../db/index.ts';
-import type { Env } from '../env.ts';
+import { type Env, basePathOf } from '../env.ts';
 import { log } from '../util/log.ts';
 import { OAUTH_SCOPES, isRole, roleFromGroups } from './roles.ts';
 
@@ -48,13 +48,15 @@ export function authOptions(
   extraOrigins: string[] = [],
   liveConfig: () => AppConfig = () => config,
 ) {
+  // Under a sub-path (BASE_URL=https://example.com/status) every auth route and page lives below it.
+  const prefix = basePathOf(env.baseUrl);
   return {
     appName: config.site.title,
-    baseURL: env.baseUrl,
-    basePath: '/api/auth',
+    baseURL: new URL(env.baseUrl).origin,
+    basePath: `${prefix}/api/auth`,
     secret: env.authSecret,
     database: { db: db.kysely, type: db.kind },
-    trustedOrigins: [env.baseUrl, ...extraOrigins],
+    trustedOrigins: [new URL(env.baseUrl).origin, ...extraOrigins],
     emailAndPassword: { enabled: config.auth.local, disableSignUp: true, minPasswordLength: 12 },
     user: {
       additionalFields: {
@@ -105,8 +107,8 @@ export function authOptions(
       ...(mcpAvailable(env)
         ? [
             mcp({
-              loginPage: '/login',
-              consentPage: '/consent',
+              loginPage: `${prefix}/login`,
+              consentPage: `${prefix}/consent`,
               resource: mcpResource(env.baseUrl),
               scopes: ['openid', 'profile', 'email', 'offline_access', ...OAUTH_SCOPES],
               clientRegistrationDefaultScopes: ['openid', 'profile', 'offline_access', 'status:read'],

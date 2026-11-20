@@ -1314,6 +1314,6 @@ export function docsHtml(doc: Record<string, unknown>): string {
 <style>body{font:14px/1.5 system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:24px;color:#1f2328;background:#fff}@media(prefers-color-scheme:dark){body{color:#e6edf3;background:#0d1117}a{color:#8fb7ff}th,td{border-color:#30363d!important}}
 table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #d0d7de;vertical-align:top}code{font-size:13px}.m{font-weight:700;width:60px}.get{color:#1a7f37}.post{color:#0969da}.put,.patch{color:#9a6700}.delete{color:#cf222e}p{max-width:80ch}</style></head>
 <body><h1>${esc(info.title)} <small>v${esc(info.version)}</small></h1><p>${esc(info.description)}</p>
-<p>Machine-readable: <a href="/api/v1/openapi.json">/api/v1/openapi.json</a> (OpenAPI 3.1). Model Context Protocol: <code>/mcp</code>.</p>
+<p>Machine-readable: <a href="v1/openapi.json">/api/v1/openapi.json</a> (OpenAPI 3.1). Model Context Protocol: <code>/mcp</code>.</p>
 <table><thead><tr><th>Method</th><th>Path</th><th>Summary</th><th>Access</th><th>Tag</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }

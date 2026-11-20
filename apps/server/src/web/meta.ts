@@ -85,11 +85,18 @@ export async function pageMeta(app: AppContext, path: string): Promise<PageMeta>
   return generic(false);
 }
 
-/** index.html with the page's title, meta tags, favicon and canonical URL. */
+/** index.html with the page's title, meta tags, favicon, canonical URL and base path. */
 export function renderIndex(
   template: string,
   meta: PageMeta,
-  opts: { url: string; siteName: string; favicon: string | null; image: string | null },
+  opts: {
+    url: string;
+    siteName: string;
+    favicon: string | null;
+    image: string | null;
+    /** BASE_URL's sub-path (`/status`), or `''`; relative asset and API URLs resolve against it. */
+    basePath?: string;
+  },
 ): string {
   const t = escapeHtml(meta.title);
   const d = escapeHtml(meta.description);
@@ -109,7 +116,8 @@ export function renderIndex(
     .join('\n    ');
   let html = template
     .replace(/<title>[^<]*<\/title>/, `<title>${t}</title>`)
-    .replace('<!--app-head-->', tags);
+    .replace('<!--app-head-->', tags)
+    .replace(/<base href="[^"]*"\s*\/?>/, `<base href="${escapeHtml(opts.basePath ?? '')}/" />`);
   if (opts.favicon)
     html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escapeHtml(opts.favicon)}" />`);
   return html;

@@ -254,22 +254,37 @@ Only enable it when the proxy sets `X-Forwarded-For`, because clients can otherw
 
 ## Environment
 
-| Variable                    | Default                                                                                        |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `BASE_URL`                  | `http://localhost:$PORT`. Public URL, used for links, OAuth and the MCP resource               |
-| `MCP_ENABLED`               | `true`; `false` turns MCP off. MCP is also off when `BASE_URL` is plain HTTP and not loopback  |
-| `AUTH_SECRET`               | required in production                                                                         |
-| `DATABASE_URL`              | `sqlite:./data/status.db` or `postgres://…`                                                    |
-| `CONFIG_PATH`               | `status.yaml`                                                                                  |
-| `PLUGINS_DIR`               | `plugins`                                                                                      |
-| `PORT`, `HOST`              | `3000`, `0.0.0.0`                                                                              |
-| `WEB_DIST`                  | `../web/dist`; empty disables serving the UI                                                   |
-| `LOG_LEVEL`, `LOG_FORMAT`   | `info`, text (`json` in the container)                                                         |
-| `NVD_API_KEY`               | unset; raises the NVD rate limit for vulnerability lookups                                     |
-| `GITHUB_TOKEN`              | unset; raises the GitHub rate limit for release lookups                                        |
-| `HEARTLINE_OFFLINE`         | unset; `1` never contacts the vulnerability and release data sources                           |
-| `HTTPS_PROXY`, `HTTP_PROXY` | unset; proxy for outbound requests (checks, provider status, software sources, notifiers)      |
-| `NO_PROXY`                  | unset; comma-separated hosts that bypass the proxy (`localhost`, `127.0.0.1`, `::1` always do) |
+| Variable                    | Default                                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `BASE_URL`                  | `http://localhost:$PORT`. Public URL, used for links, OAuth and the MCP resource; may have a sub-path |
+| `MCP_ENABLED`               | `true`; `false` turns MCP off. MCP is also off when `BASE_URL` is plain HTTP and not loopback         |
+| `AUTH_SECRET`               | required in production                                                                                |
+| `DATABASE_URL`              | `sqlite:./data/status.db` or `postgres://…`                                                           |
+| `CONFIG_PATH`               | `status.yaml`                                                                                         |
+| `PLUGINS_DIR`               | `plugins`                                                                                             |
+| `PORT`, `HOST`              | `3000`, `0.0.0.0`                                                                                     |
+| `WEB_DIST`                  | `../web/dist`; empty disables serving the UI                                                          |
+| `LOG_LEVEL`, `LOG_FORMAT`   | `info`, text (`json` in the container)                                                                |
+| `NVD_API_KEY`               | unset; raises the NVD rate limit for vulnerability lookups                                            |
+| `GITHUB_TOKEN`              | unset; raises the GitHub rate limit for release lookups                                               |
+| `HEARTLINE_OFFLINE`         | unset; `1` never contacts the vulnerability and release data sources                                  |
+| `HTTPS_PROXY`, `HTTP_PROXY` | unset; proxy for outbound requests (checks, provider status, software sources, notifiers)             |
+| `NO_PROXY`                  | unset; comma-separated hosts that bypass the proxy (`localhost`, `127.0.0.1`, `::1` always do)        |
 
 `AUTH_SECRET` may also be given as `BETTER_AUTH_SECRET`; `site.baseUrl` in the config wins over `BASE_URL`.
 Proxy variables are read in either case; `NODE_USE_ENV_PROXY` is not needed. `ignoreTls` checks go through the proxy too, without verifying the target's certificate.
+
+### Serving under a sub-path
+
+Give the path in `BASE_URL`, for example `BASE_URL=https://example.com/status`. The UI, API, sign-in and
+assets all live below it. The reverse proxy may strip the prefix or pass it on, both work:
+
+```caddyfile
+handle_path /status/* {
+	reverse_proxy heartline:3000
+}
+```
+
+MCP clients look for OAuth discovery documents at the host root (`/.well-known/oauth-protected-resource/status/mcp`,
+`/.well-known/oauth-authorization-server/status/api/auth`), so forward `/.well-known/oauth-*` to heartline as
+well, without stripping anything, if you use MCP with OAuth.

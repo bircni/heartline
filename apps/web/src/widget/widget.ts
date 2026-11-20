@@ -38,7 +38,8 @@ const COLORS: Record<string, string> = {
 const script =
   document.querySelector<HTMLScriptElement>('script[src*="/widget.js"][data-heartline]') ??
   document.querySelector<HTMLScriptElement>('script[src*="/widget.js"]');
-const origin = new URL(import.meta.url).origin;
+// The status page's URL, sub-path included: widget.js is served from its root.
+const origin = new URL('.', import.meta.url).href.replace(/\/$/, '');
 const position = script?.dataset.position === 'bottom-right' ? 'right' : 'left';
 const theme = script?.dataset.theme ?? 'auto';
 
