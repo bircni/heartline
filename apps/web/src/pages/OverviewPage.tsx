@@ -31,6 +31,7 @@ import {
   weekdayDate,
 } from '../lib/format.ts';
 import { RangeControl, rangeEndLabel, useRange, useRangeSearch } from './RangeControl.tsx';
+import { withBase } from '../lib/base.ts';
 
 /** The current state of everything, with the open incidents underneath. */
 function StatusBanner({ data }: { data: Overview }) {
@@ -336,7 +337,7 @@ export function OverviewPage() {
               <DayLegend />
               <span className="flex-1" />
               <a
-                href={`/api/v1/report.csv?${rangeQuery(range)}`}
+                href={withBase(`/api/v1/report.csv?${rangeQuery(range)}`)}
                 className="flex items-center gap-1.5 text-xs text-muted no-underline hover:text-text"
               >
                 <Icon name="download" size={13} /> Uptime report (CSV)

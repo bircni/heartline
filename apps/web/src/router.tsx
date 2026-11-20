@@ -14,6 +14,7 @@ import { IncidentHistoryPage, IncidentPage } from './pages/IncidentPage.tsx';
 import { OverviewPage } from './pages/OverviewPage.tsx';
 import { PublicLayout } from './pages/PublicLayout.tsx';
 import { ServicePage } from './pages/ServicePage.tsx';
+import { BASE_PATH } from './lib/base.ts';
 
 type RangeSearch = { days?: number; to?: string };
 const validateRange = (search: Record<string, unknown>): RangeSearch => {
@@ -227,7 +228,12 @@ const routeTree = root.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: true });
+export const router = createRouter({
+  routeTree,
+  basepath: BASE_PATH || '/',
+  defaultPreload: 'intent',
+  scrollRestoration: true,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {

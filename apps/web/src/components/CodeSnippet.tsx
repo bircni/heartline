@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon } from './Icon.tsx';
+import { siteUrl } from '../lib/base.ts';
 
 export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
@@ -36,7 +37,7 @@ export function CodeSnippet({ code, label }: { code: string; label?: string }) {
 
 /** Snippets that show a service's uptime (and optionally version) badge on another page, e.g. a README. */
 export function BadgeSnippet({ id, name, version = false }: { id: string; name: string; version?: boolean }) {
-  const origin = window.location.origin;
+  const origin = siteUrl();
   const page = `${origin}/services/${encodeURIComponent(id)}`;
   const badge = (kind?: 'version') =>
     `${origin}/api/v1/badge/${encodeURIComponent(id)}.svg${kind ? `?kind=${kind}` : ''}`;

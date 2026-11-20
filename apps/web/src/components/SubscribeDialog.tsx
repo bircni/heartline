@@ -5,6 +5,7 @@ import { Dialog } from './Dialog.tsx';
 import { Icon } from './Icon.tsx';
 import { Segmented } from './Segmented.tsx';
 import { SubscribeForm } from './SubscribeForm.tsx';
+import { siteUrl } from '../lib/base.ts';
 
 /** "Subscribe to updates": e-mail sign-up and the feeds, in tabs. */
 export function SubscribeDialogButton() {
@@ -12,7 +13,7 @@ export function SubscribeDialogButton() {
   const email = Boolean(boot.data?.subscribe.enabled && boot.data.subscribe.email);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'email' | 'feed'>(email ? 'email' : 'feed');
-  const origin = window.location.origin;
+  const origin = siteUrl();
   return (
     <>
       <button type="button" className="btn" onClick={() => setOpen(true)}>

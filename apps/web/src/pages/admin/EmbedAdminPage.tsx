@@ -1,11 +1,12 @@
 import { BadgeSnippet, CodeSnippet } from '../../components/CodeSnippet.tsx';
 import { PageHeader, Section, Spinner } from '../../components/ui.tsx';
 import { useAdminMonitors } from '../../lib/api.ts';
+import { siteUrl, withBase } from '../../lib/base.ts';
 
 /** Snippets to show the status on other sites: the notice widget, the frame and per-service badges. */
 export function EmbedAdminPage() {
   const monitors = useAdminMonitors();
-  const origin = window.location.origin;
+  const origin = siteUrl();
   return (
     <>
       <PageHeader
@@ -37,7 +38,7 @@ export function EmbedAdminPage() {
             with embed.frameAncestors.
           </p>
           <iframe
-            src="/embed"
+            src={withBase('/embed')}
             title="Preview of the status frame"
             className="mt-3 h-40 w-full max-w-[30rem] rounded-lg border-0"
           />

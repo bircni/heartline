@@ -4,22 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- The server sets the sub-path of BASE_URL here; every URL below and in the app is relative to it. -->
+    <base href="/" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link
       rel="alternate"
       type="application/atom+xml"
       title="Incidents and maintenance (Atom)"
-      href="/api/v1/incidents.atom"
+      href="api/v1/incidents.atom"
     />
     <link
       rel="alternate"
       type="application/rss+xml"
       title="Incidents and maintenance (RSS)"
-      href="/api/v1/incidents.rss"
+      href="api/v1/incidents.rss"
     />
     <title>Status</title>
     <!--app-head-->
-    <script src="/theme-init.js"></script>
+    <script src="theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

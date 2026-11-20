@@ -10,6 +10,7 @@ import { Empty, ErrorNote, Notice, PageHeader, Section, Spinner, Stats } from '.
 import { api, useMe, useServiceSoftware, useSoftwareInventory } from '../../lib/api.ts';
 import { URGENCY_LABEL, relative, shortDate } from '../../lib/format.ts';
 import { can } from '../../lib/roles.ts';
+import { withBase } from '../../lib/base.ts';
 
 type Row = SoftwareInventory['services'][number];
 type Filter = 'all' | 'attention' | UrgencyLevel;
@@ -286,7 +287,7 @@ export function SoftwarePage() {
       <p className="m-0 text-xs text-muted">
         Urgency: {URGENCY_LEVELS.map((l) => `${l} = ${URGENCY_LABEL[l].toLowerCase()}`).join(', ')}. Scores
         combine CVSS, exploitation (CISA KEV), end-of-life and how far behind the latest release a service is.{' '}
-        <a href="/api/v1/software/report.csv" className="text-sec hover:text-text">
+        <a href={withBase('/api/v1/software/report.csv')} className="text-sec hover:text-text">
           Export CSV
         </a>
       </p>

@@ -7,6 +7,7 @@ import { ThemeMenu } from '../components/ThemeMenu.tsx';
 import { Notice } from '../components/ui.tsx';
 import { useBootstrap, useMe, useSiteTitle } from '../lib/api.ts';
 import { authClient, authorizeUrlFrom, isOAuthContinuation } from '../lib/auth.ts';
+import { withBase } from '../lib/base.ts';
 
 /** A path on this site to return to after signing in; anything else (other hosts, `//x`) falls back to admin. */
 export function safeRedirect(value: string | null): string {
@@ -60,11 +61,12 @@ export function LoginPage() {
 
   const social = async (provider: string) => {
     setBusy(true);
-    const callbackURL = oauth ? `/login${search}` : next;
+    // The server redirects to these after the provider's sign-in, so they carry the sub-path.
+    const callbackURL = withBase(oauth ? `/login${search}` : next);
     const res = await authClient.signIn.social({
       provider,
       callbackURL,
-      errorCallbackURL: `/login${oauth ? search : ''}`,
+      errorCallbackURL: withBase(`/login${oauth ? search : ''}`),
     });
     if (res.error) {
       setBusy(false);

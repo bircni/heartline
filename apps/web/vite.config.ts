@@ -6,6 +6,8 @@ import { defineConfig } from 'vitest/config';
 const api = process.env.API_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
+  // Relative asset URLs, resolved against the <base href> the server sets, so the app also runs under a sub-path.
+  base: './',
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
