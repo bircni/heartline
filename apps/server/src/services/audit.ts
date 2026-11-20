@@ -2,7 +2,7 @@ import type { AuditEntryDto } from '@heartline/shared';
 import type { Principal } from '../auth/principal.ts';
 import type { Db } from '../db/index.ts';
 import type { AuditLogTable } from '../db/schema.ts';
-import { newId } from '../util/ids.ts';
+import { newOrderedId } from '../util/ids.ts';
 import { log } from '../util/log.ts';
 
 /** Who made a change: a signed-in user, token or MCP client, the system itself, or a status page subscriber. */
@@ -66,7 +66,8 @@ export class AuditService {
       await this.#db.kysely
         .insertInto('audit_log')
         .values({
-          id: newId(),
+          // Orders entries recorded in the same millisecond (list sorts by `at`, then `id`).
+          id: newOrderedId(),
           at: now,
           ...actorColumns(actor),
           action: entry.action,

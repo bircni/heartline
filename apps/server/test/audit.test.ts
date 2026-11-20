@@ -104,6 +104,16 @@ describe('audit log', () => {
     expect((await h.request('/api/v1/admin/audit', { token })).status).toBe(403);
   });
 
+  it('lists entries from the same millisecond newest first', async () => {
+    h = await harness();
+    const now = Date.now();
+    const actions = Array.from({ length: 30 }, (_, i) => `a.n${i}`);
+    for (const action of actions)
+      await h.runtime.audit.record({ kind: 'system' }, { action, entityType: 'x', summary: action }, now);
+    const listed = (await h.runtime.audit.list()).map((e) => e.action);
+    expect(listed).toEqual(actions.toReversed());
+  });
+
   it('prunes entries older than the retention', async () => {
     h = await harness();
     const now = Date.now();
